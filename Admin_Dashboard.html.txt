@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MGS Admin Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+:root {
+  --bg:#0d0f14;--surface:#141720;--surface2:#1c2030;--surface3:#222840;
+  --border:#262c3d;--border2:#323b52;--text:#e2e8f0;--text2:#8892a4;--text3:#4a5568;
+  --green:#25d366;--blue:#3b82f6;--orange:#f59e0b;--red:#ef4444;--purple:#a855f7;
+  --accent:#dc3545;--accent2:#6c1d2e;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+
+/* ── LOGIN SCREEN ── */
+#loginScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0d0f14 0%,#1a0a0e 50%,#0d0f14 100%);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0}
+.login-box{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:40px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.5)}
+.login-logo{font-family:var(--mono);font-size:28px;font-weight:600;color:var(--accent);letter-spacing:4px;text-align:center;margin-bottom:6px}
+.login-sub{font-size:13px;color:var(--text3);text-align:center;margin-bottom:28px}
+.login-field{margin-bottom:16px}
+.login-field label{display:block;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.login-field input{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:14px;padding:12px 14px;transition:border-color 0.2s}
+.login-field input:focus{outline:none;border-color:var(--accent)}
+.login-btn{width:100%;background:var(--accent);color:white;border:none;border-radius:8px;padding:13px;font-family:var(--sans);font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;transition:background 0.2s}
+.login-btn:hover{background:#c82333}
+.login-error{font-size:12px;color:var(--red);text-align:center;margin-top:10px;display:none}
+
+/* ── MAIN DASHBOARD ── */
+#mainDash{display:none}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100}
+.logo{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);letter-spacing:2px}
+.sep{color:var(--border2)}
+.htitle{font-size:15px;font-weight:600}
+.hsub{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.hright{margin-left:auto;display:flex;gap:10px;align-items:center}
+.btn{border:none;border-radius:8px;padding:8px 16px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px}
+.btn-red{background:var(--accent);color:white}
+.btn-red:hover{background:#c82333}
+.btn-grey{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+.btn-grey:hover{border-color:var(--blue);color:var(--blue)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.content{max-width:1100px;margin:0 auto;padding:28px 24px}
+.section{margin-bottom:36px}
+.section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:14px}
+
+/* ── STATS ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.stat-num{font-size:30px;font-weight:700;color:var(--accent);font-family:var(--mono);margin-bottom:4px}
+.stat-num.green{color:var(--green)}
+.stat-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px}
+
+/* ── MODULE CARDS ── */
+.modules-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.mod-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;cursor:pointer;transition:all 0.2s;position:relative}
+.mod-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.mod-card.active{border-color:rgba(220,53,69,0.4)}
+.mod-card.soon{opacity:0.4;cursor:not-allowed}
+.mod-card.soon:hover{transform:none}
+/* Status overrides */
+.mod-card.status-done { border-color:rgba(37,211,102,0.6) !important; background:rgba(37,211,102,0.06) !important; }
+.mod-card.status-crucial { border-color:rgba(239,68,68,0.7) !important; background:rgba(239,68,68,0.08) !important; }
+.mod-icon{font-size:28px;margin-bottom:10px}
+.mod-title{font-size:14px;font-weight:600;margin-bottom:5px}
+.mod-desc{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px}
+.mod-badge{position:absolute;top:10px;right:10px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(220,53,69,0.15);color:var(--accent);border:1px solid rgba(220,53,69,0.3)}
+.mod-badge.soon-badge{background:rgba(245,158,11,0.15);color:var(--orange);border-color:rgba(245,158,11,0.3)}
+.mod-badge.done-badge{background:rgba(37,211,102,0.15);color:var(--green);border-color:rgba(37,211,102,0.3)}
+.mod-badge.crucial-badge{background:rgba(239,68,68,0.2);color:#ff6b6b;border-color:rgba(239,68,68,0.5);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+
+/* Module checkboxes */
+.mod-checks{display:flex;flex-direction:column;gap:5px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px}
+.mod-check-row{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;cursor:pointer;user-select:none;padding:3px 0}
+.mod-check-row input[type=checkbox]{width:14px;height:14px;cursor:pointer;accent-color:var(--green)}
+.mod-check-row.check-done{color:var(--green)}
+.mod-check-row.check-crucial{color:#ff6b6b}
+.mod-check-row input[type=checkbox].crucial-chk{accent-color:var(--red)}
+
+/* ── SECURITY ── */
+.security-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.sec-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.sec-item:hover{border-color:var(--border2)}
+.sec-top{display:flex;align-items:center;gap:12px}
+.sec-info{flex:1}
+.sec-name{font-size:13px;font-weight:600}
+.sec-status{font-size:11px;color:var(--green);margin-top:2px}
+.sec-status.locked{color:var(--red)}
+.sw{position:relative;width:38px;height:21px;flex-shrink:0}
+.sw input{opacity:0;width:0;height:0}
+.sw-track{position:absolute;inset:0;background:var(--border2);border-radius:10px;cursor:pointer;transition:0.25s}
+.sw-track:before{content:'';position:absolute;width:15px;height:15px;left:3px;top:3px;background:#fff;border-radius:50%;transition:0.25s}
+.sw input:checked+.sw-track{background:var(--red)}
+.sw input:checked+.sw-track:before{transform:translateX(17px)}
+.sec-pw-row{display:flex;gap:6px;margin-top:10px;align-items:center}
+.sec-pw-row input{flex:1;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 10px;transition:border-color 0.2s}
+.sec-pw-row input:focus{outline:none;border-color:var(--accent)}
+.sec-pw-row input::placeholder{color:var(--text3)}
+.sec-pw-row button{background:var(--accent);color:white;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+.sec-pw-row button:hover{background:#c82333}
+
+/* ── PASSWORD PANEL ── */
+.pw-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-top:14px}
+.pw-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.pw-field{flex:1;min-width:200px}
+.pw-field label{display:block;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.pw-field input{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:14px;padding:10px 12px;transition:border-color 0.2s}
+.pw-field input:focus{outline:none;border-color:var(--accent)}
+
+/* ── SCRIPTS TABLE ── */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.table-head{padding:14px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:space-between}
+.table-head h3{font-size:15px;font-weight:600;color:white}
+table{width:100%;border-collapse:collapse}
+thead tr{border-bottom:1px solid var(--border)}
+th{padding:10px 14px;text-align:left;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;background:var(--surface2)}
+td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.url-cell{font-family:var(--mono);font-size:11px;color:var(--text2)}
+
+/* ── MAINTENANCE ── */
+.maint-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:12px}
+.maint-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.maint-title{font-size:15px;font-weight:600}
+.maint-desc{font-size:12px;color:var(--text2);margin-bottom:14px}
+.warn-box{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:12px;font-size:12px;color:var(--orange)}
+.status-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px;margin-top:10px;display:none}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 18px;font-size:13px;z-index:99999;transform:translateY(80px);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);display:flex;align-items:center;gap:8px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{border-color:rgba(37,211,102,0.4)}
+.toast.error{border-color:rgba(239,68,68,0.4)}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9000;align-items:center;justify-content:center;padding:20px}
+.modal-bg.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:14px;width:100%;max-width:480px;overflow:hidden}
+.modal-header{padding:16px 20px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;font-size:15px;font-weight:600}
+.modal-body{padding:20px}
+.modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* Legend bar */
+.legend-bar{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--text2)}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">MGS</div>
+    <div class="login-sub">Admin Dashboard — Restricted Access</div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="loginPw" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">🔐 Enter Dashboard</button>
+    <div class="login-error" id="loginError">❌ Incorrect password. Try again.</div>
+  </div>
+</div>
+
+<div id="mainDash">
+<div class="header">
+  <span class="logo">MGS</span>
+  <span class="sep">›</span>
+  <span class="htitle">🔐 Admin Dashboard</span>
+  <span class="hsub">Massroua General Services</span>
+  <div class="hright">
+    <select id="themeSelector" onchange="switchTheme(this.value)" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:6px 12px;border-radius:8px;font-size:12px;font-family:var(--sans)">
+      <option value="default">🌙 Dark</option>
+      <option value="crimson">🔴 Crimson</option>
+    </select>
+    <button class="btn btn-grey btn-sm" onclick="doLogout()">🚪 Logout</button>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="section">
+    <div class="section-title">📊 System Statistics</div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num" id="statWorkers">—</div><div class="stat-label">Workers</div></div>
+      <div class="stat-card"><div class="stat-num" id="statEmployers">—</div><div class="stat-label">Employers</div></div>
+      <div class="stat-card"><div class="stat-num" id="statSuppliers">—</div><div class="stat-label">Suppliers</div></div>
+      <div class="stat-card"><div class="stat-num" id="statAgencies">—</div><div class="stat-label">Agencies</div></div>
+      <div class="stat-card"><div class="stat-num" id="statNationalities">—</div><div class="stat-label">Nationalities</div></div>
+      <div class="stat-card"><div class="stat-num green" id="statActive">—</div><div class="stat-label">Active Countries</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">🔐 Admin Modules</div>
+    <div class="legend-bar">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> 95% Done</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div> Crucial Repair Needed</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--border2)"></div> Default</div>
+    </div>
+    <div class="modules-grid" id="modulesGrid"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">🔒 Module Security Control</div>
+    <div class="security-grid" id="securityGrid"></div>
+    <div class="pw-panel" style="margin-top:14px">
+      <div class="section-title" style="margin-bottom:12px">🔑 Global Admin Password</div>
+      <div class="pw-row">
+        <div class="pw-field">
+          <label>Global Admin Password</label>
+          <input type="text" id="globalPw" value="masr3434" onchange="saveGlobalPw()">
+        </div>
+        <button class="btn btn-red btn-sm" onclick="saveGlobalPw()">💾 Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">🧹 Data Maintenance</div>
+    <div class="maint-card">
+      <div class="maint-header">
+        <div><div class="maint-title">🗑️ Database Reset Manager</div><div class="maint-desc">Clear specific tables or reset entire database</div></div>
+        <button class="btn btn-red btn-sm" onclick="openPage('Database_Reset_Manager')">Open →</button>
+      </div>
+      <div class="warn-box">⚠️ This tool permanently deletes data. Use with caution.</div>
+    </div>
+    <div class="maint-card">
+      <div class="maint-header">
+        <div><div class="maint-title">🧹 Cleanup Unlinked Employers</div><div class="maint-desc">Find and remove employers not linked to any agency</div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-grey btn-sm" onclick="scanUnlinked()">🔍 Scan</button>
+          <button class="btn btn-red btn-sm" onclick="cleanUnlinked()">🗑️ Cleanup</button>
+        </div>
+      </div>
+      <div class="status-box" id="cleanStatus"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="table-wrap">
+      <div class="table-head">
+        <h3>🔗 Scripts &amp; Links</h3>
+        <button class="btn btn-sm" style="background:white;color:var(--accent);border:none" onclick="addScript()">+ Add</button>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Description</th><th>URL</th><th style="text-align:center">Actions</th></tr></thead>
+        <tbody id="scriptsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div class="toast" id="toast"><span id="toastIcon">✅</span><span id="toastMsg"></span></div>
+<div class="modal-bg" id="confirmModal">
+  <div class="modal">
+    <div class="modal-header" id="confirmTitle">Confirm</div>
+    <div class="modal-body"><div id="confirmText" style="font-size:13px;line-height:1.7;white-space:pre-wrap"></div></div>
+    <div class="modal-footer">
+      <button class="btn btn-grey btn-sm" onclick="closeConfirm(false)">Cancel</button>
+      <button class="btn btn-red btn-sm" onclick="closeConfirm(true)">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var BASE_URL = 'https://script.google.com/macros/s/AKfycbwYCnfqcqPkVax5E2nd9-CCiKb9gNRrgWIMMrPZ-lSpMuEpRTSiHKg9rZxcfeP8fjCM/exec';
+var APP_URL  = 'https://script.google.com/macros/s/AKfycbxEbNo287tvEezLwy8vYHrNWxPXELlzzsGVg9yeA6XXDIkXdR0ILEKOTWbG88PxHiIf/exec';
+
+// ── LOGIN ──
+function doLogin() {
+  var pw = document.getElementById('loginPw').value;
+  var saved = localStorage.getItem('mgsdb_security_password') || 'masr3434';
+  if (pw === saved) {
+    sessionStorage.setItem('admin_auth','1');
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('mainDash').style.display='block';
+    initDashboard();
+  } else {
+    document.getElementById('loginError').style.display='block';
+    document.getElementById('loginPw').value='';
+    document.getElementById('loginPw').focus();
+  }
+}
+function doLogout() {
+  sessionStorage.removeItem('admin_auth');
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('mainDash').style.display='none';
+  document.getElementById('loginPw').value='';
+}
+(function(){ sessionStorage.removeItem('admin_auth'); setTimeout(function(){ document.getElementById('loginPw').focus(); },100); })();
+
+function initDashboard() { renderModules(); renderSecurity(); renderScripts(); loadStats(); loadSecuritySettings(); }
+
+// ── STATS ──
+function loadStats() {
+  fetch(APP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'getSystemStats'})})
+  .then(function(r){return r.json();}).then(function(result){
+    if(!result)return;
+    var map={Workers:'statWorkers',Employers:'statEmployers',Suppliers:'statSuppliers',Local_Agencies:'statAgencies',Nationalities:'statNationalities'};
+    Object.keys(map).forEach(function(k){var el=document.getElementById(map[k]);if(el&&result[k]!==undefined)el.textContent=result[k];});
+    var ael=document.getElementById('statActive'); if(ael&&result.ActiveNationalities!==undefined)ael.textContent=result.ActiveNationalities;
+  }).catch(function(e){console.log('Stats error:'+e.message);});
+}
+
+// ── MODULE STATUS (stored in localStorage) ──
+function getModuleStatuses() {
+  try { return JSON.parse(localStorage.getItem('mgs_module_status')||'{}'); } catch(e){ return {}; }
+}
+function saveModuleStatuses(s) {
+  localStorage.setItem('mgs_module_status', JSON.stringify(s));
+}
+function setModuleStatus(key, field, val) {
+  var s = getModuleStatuses();
+  if(!s[key]) s[key]={done:false,crucial:false};
+  s[key][field] = val;
+  // Mutually exclusive: if one is checked, uncheck the other
+  if(field==='done'&&val) s[key].crucial=false;
+  if(field==='crucial'&&val) s[key].done=false;
+  saveModuleStatuses(s);
+  applyModuleCardStyle(key, s[key]);
+  // Sync checkboxes
+  var doneChk    = document.getElementById('chk-done-'+key);
+  var crucialChk = document.getElementById('chk-crucial-'+key);
+  if(doneChk)    doneChk.checked    = s[key].done;
+  if(crucialChk) crucialChk.checked = s[key].crucial;
+}
+function applyModuleCardStyle(key, status) {
+  var card = document.getElementById('modcard-'+key);
+  if(!card) return;
+  card.classList.remove('status-done','status-crucial');
+  var badge = card.querySelector('.mod-badge');
+  if(status.done) {
+    card.classList.add('status-done');
+    if(badge){ badge.className='mod-badge done-badge'; badge.textContent='✅ 95% DONE'; }
+  } else if(status.crucial) {
+    card.classList.add('status-crucial');
+    if(badge){ badge.className='mod-badge crucial-badge'; badge.textContent='🔴 REPAIR NEEDED'; }
+  } else {
+    if(badge && !card.classList.contains('soon')){
+      badge.className='mod-badge'; badge.textContent='ACTIVE';
+    }
+  }
+}
+
+// ── MODULES ──
+var MODULES = [
+  {key:'Workers_Manager',            icon:'👷',title:'Workers Manager',         desc:'Add, edit and manage all workers',                   active:true},
+  {key:'Employers_Manager',          icon:'💼',title:'Employers Manager',        desc:'Manage employer profiles and folders',               active:true},
+  {key:'Supplier_Manager_FINAL',     icon:'🏢',title:'Suppliers Manager',        desc:'Manage supplier information and contacts',           active:true},
+  {key:'Employer_Documents',         icon:'📄',title:'Employer Documents',       desc:'Manage required documents from employers',           active:true},
+  {key:'Nationalities_Manager',      icon:'🌍',title:'Nationalities',            desc:'Manage countries and nationalities database',        active:true},
+  {key:'Worker_Documents',           icon:'📁',title:'Worker Documents',         desc:'Manage documents collected from workers',            active:true},
+  {key:'Worker_Approval',            icon:'✅',title:'Worker Approval',          desc:'Review and approve worker applications',             active:true},
+  {key:'Processing_Manager',         icon:'🔄',title:'Processing',               desc:'Track workers being processed for employers',        active:true},
+  {key:'Processing_Costs',           icon:'💲',title:'Processing Costs',         desc:'Manage processing fees and invoicing items',         active:true},
+  {key:'Messaging_Manager',          icon:'💬',title:'Messaging Manager',        desc:'Send WhatsApp messages to employers',                active:true},
+  {key:'Message_Templates',          icon:'📝',title:'Message Templates',        desc:'Create and manage WhatsApp message templates',       active:true},
+  {key:'Rules_Review',               icon:'⚙️',title:'Rules Review',             desc:'Review and modify auto-send rule configurations',   active:true},
+  {key:'Accountant',                 icon:'💰',title:'Accountant',               desc:'Invoicing and financial management',                 active:true},
+  {key:'Reports',                    icon:'📊',title:'Reports & Analytics',      desc:'Generate employer reports and save as PDF',          active:true},
+  {key:'Reports_Manager',            icon:'📈',title:'Reports Manager',          desc:'Under construction',                                 soon:true},
+  
+  {key:'Dashboard',                  icon:'🏠',title:'Dashboard',                desc:'Main entry point for all modules',                   active:true},
+  {key:'Documents_Manager',          icon:'🗂️',title:'Documents Manager',        desc:'Central document management hub',                    active:true},
+  {key:'Local_Agencies_Manager',     icon:'🏛️',title:'Local Agencies',           desc:'Manage local recruitment agencies',                  active:true},
+  {key:'local_Agencies_Portal',      icon:'🔗',title:'Local Agencies Portal',    desc:'Agency-facing portal view',                          active:true},
+  {key:'Supplier_Portal',            icon:'🛒',title:'Supplier Portal',          desc:'Supplier-facing portal view',                        active:true},
+  {key:'Database_Reset_Manager',     icon:'🗑️',title:'Database Reset',           desc:'Clear specific tables or reset entire database',     active:true},
+  {key:'Cleanup_Unlinked_Employers', icon:'🧹',title:'Cleanup Unlinked',         desc:'Find and remove employers not linked to any agency', active:true},
+  {key:'Visas_Manager',              icon:'🛂',title:'Visas Manager',            desc:'Track visa applications and renewals',               soon:true},
+  {key:'Insurance_Manager',          icon:'🛡️',title:'Insurance Manager',        desc:'Manage insurance policies and coverage',             soon:true},
+];
+
+function renderModules() {
+  var statuses = getModuleStatuses();
+  var grid = document.getElementById('modulesGrid');
+  grid.innerHTML = '';
+  MODULES.forEach(function(m) {
+    var st = statuses[m.key]||{done:false,crucial:false};
+    var isSoon = !!m.soon;
+    var cardCls = 'mod-card' + (isSoon?' soon':' active') + (st.done?' status-done':st.crucial?' status-crucial':'');
+    var badgeTxt = isSoon ? 'COMING SOON' : (st.done?'✅ 95% DONE':st.crucial?'🔴 REPAIR NEEDED':'ACTIVE');
+    var badgeCls = isSoon ? 'mod-badge soon-badge' : (st.done?'mod-badge done-badge':st.crucial?'mod-badge crucial-badge':'mod-badge');
+    var div = document.createElement('div');
+    div.className = cardCls;
+    div.id = 'modcard-'+m.key;
+    if(!isSoon) div.onclick = function(e){
+      if(e.target.type==='checkbox'||e.target.closest('.mod-checks')) return;
+      openPage(m.key);
+    };
+    var checksHTML = isSoon ? '' :
+      '<div class="mod-checks" onclick="event.stopPropagation()">'
+      +'<label class="mod-check-row check-done">'
+      +'<input type="checkbox" id="chk-done-'+m.key+'" '+(st.done?'checked':'')+' onchange="setModuleStatus(\''+m.key+'\',\'done\',this.checked)">'
+      +'✅ 95% Done'
+      +'</label>'
+      +'<label class="mod-check-row check-crucial">'
+      +'<input type="checkbox" class="crucial-chk" id="chk-crucial-'+m.key+'" '+(st.crucial?'checked':'')+' onchange="setModuleStatus(\''+m.key+'\',\'crucial\',this.checked)">'
+      +'🔴 Crucial Repair Needed'
+      +'</label>'
+      +'</div>';
+    div.innerHTML =
+      '<div class="'+badgeCls+'">'+badgeTxt+'</div>'
+      +'<div class="mod-icon">'+m.icon+'</div>'
+      +'<div class="mod-title">'+m.title+'</div>'
+      +'<div class="mod-desc">'+m.desc+'</div>'
+      +checksHTML;
+    grid.appendChild(div);
+  });
+}
+
+function openPage(page){ window.open(APP_URL+'?page='+page,'_blank'); }
+
+// ── SECURITY ──
+var SEC_MODULES=[
+  {key:'workers',label:'👷 Workers Manager'},{key:'employers',label:'💼 Employers Manager'},
+  {key:'supplier_manager',label:'🏢 Suppliers Manager'},{key:'employer_documents',label:'📄 Employer Documents'},
+  {key:'nationalities',label:'🌍 Nationalities'},{key:'worker_documents',label:'📁 Worker Documents'},
+  {key:'worker_approval',label:'✅ Worker Approval'},{key:'processing_manager',label:'🔄 Processing'},
+  {key:'processing_costs',label:'💲 Processing Costs'},{key:'messaging',label:'💬 Messaging Manager'},
+  {key:'message_templates',label:'📝 Message Templates'},{key:'rules_review',label:'⚙️ Rules Review'},
+  {key:'accountant',label:'💰 Accountant'},{key:'reports',label:'📊 Reports & Analytics'},
+  {key:'reports_manager',label:'📈 Reports Manager'},
+  {key:'dashboard',label:'🏠 Dashboard'},{key:'documents_manager',label:'🗂️ Documents Manager'},
+  {key:'agencies',label:'🏛️ Local Agencies'},{key:'agencies_portal',label:'🔗 Local Agencies Portal'},
+  {key:'supplier_portal',label:'🛒 Supplier Portal'},{key:'database_reset',label:'🗑️ Database Reset'},
+  {key:'cleanup_unlinked',label:'🧹 Cleanup Unlinked'},{key:'visas',label:'🛂 Visas Manager'},
+  {key:'insurance',label:'🛡️ Insurance Manager'},
+];
+function renderSecurity(){
+  var sec=JSON.parse(localStorage.getItem('mgsdb_module_security')||'{}');
+  var pws=JSON.parse(localStorage.getItem('mgsdb_module_passwords')||'{}');
+  var html='';
+  SEC_MODULES.forEach(function(m){
+    var locked=sec[m.key]===true;
+    var savedPw=pws[m.key]||'';
+    html+='<div class="sec-item"><div class="sec-top"><div class="sec-info"><div class="sec-name">'+m.label+'</div>'
+      +'<div class="sec-status'+(locked?' locked':'')+'" id="sec-status-'+m.key+'">'+(locked?'🔴 Password Required':'🟢 Open Access')+'</div></div>'
+      +'<label class="sw"><input type="checkbox" id="sec-chk-'+m.key+'" '+(locked?'checked':'')+' onchange="toggleLock(\''+m.key+'\')"><span class="sw-track"></span></label></div>'
+      +'<div class="sec-pw-row"><input type="text" id="sec-pw-'+m.key+'" placeholder="Module password..." value="'+savedPw+'">'
+      +'<button onclick="saveModulePw(\''+m.key+'\')">💾 Save</button></div></div>';
+  });
+  document.getElementById('securityGrid').innerHTML=html;
+}
+function loadSecuritySettings(){
+  var sec=JSON.parse(localStorage.getItem('mgsdb_module_security')||'{}');
+  var pws=JSON.parse(localStorage.getItem('mgsdb_module_passwords')||'{}');
+  var pw=localStorage.getItem('mgsdb_security_password')||'masr3434';
+  var el=document.getElementById('globalPw'); if(el)el.value=pw;
+  SEC_MODULES.forEach(function(m){
+    var chk=document.getElementById('sec-chk-'+m.key);
+    var sts=document.getElementById('sec-status-'+m.key);
+    var pwi=document.getElementById('sec-pw-'+m.key);
+    if(chk)chk.checked=sec[m.key]===true;
+    if(sts){sts.textContent=sec[m.key]?'🔴 Password Required':'🟢 Open Access';sts.className='sec-status'+(sec[m.key]?' locked':'');}
+    if(pwi&&pws[m.key])pwi.value=pws[m.key];
+  });
+}
+function toggleLock(key){
+  var chk=document.getElementById('sec-chk-'+key);
+  var sts=document.getElementById('sec-status-'+key);
+  var sec=JSON.parse(localStorage.getItem('mgsdb_module_security')||'{}');
+  sec[key]=chk.checked;
+  localStorage.setItem('mgsdb_module_security',JSON.stringify(sec));
+  if(sts){sts.textContent=chk.checked?'🔴 Password Required':'🟢 Open Access';sts.className='sec-status'+(chk.checked?' locked':'');}
+  try{google.script.run.gsrPost(JSON.stringify({action:'saveRow',sheet:'Settings',row:{Key:'module_security',Value:JSON.stringify(sec)}}));}catch(e){}
+  showToast(key+(chk.checked?' locked':' unlocked'),'success');
+}
+function saveModulePw(key){
+  var input=document.getElementById('sec-pw-'+key);
+  var pw=input?input.value.trim():'';
+  if(!pw){showToast('Password cannot be empty','error');return;}
+  var pws=JSON.parse(localStorage.getItem('mgsdb_module_passwords')||'{}');
+  pws[key]=pw;
+  localStorage.setItem('mgsdb_module_passwords',JSON.stringify(pws));
+  try{google.script.run.gsrPost(JSON.stringify({action:'saveRow',sheet:'Settings',row:{Key:'module_passwords',Value:JSON.stringify(pws)}}));}catch(e){}
+  showToast(key+' password saved','success');
+}
+function saveGlobalPw(){
+  var pw=document.getElementById('globalPw').value.trim();
+  if(!pw){showToast('Password cannot be empty','error');return;}
+  localStorage.setItem('mgsdb_security_password',pw);
+  try{google.script.run.gsrPost(JSON.stringify({action:'saveRow',sheet:'Settings',row:{Key:'security_password',Value:pw}}));}catch(e){}
+  showToast('Global password updated','success');
+}
+
+// ── MAINTENANCE ──
+function scanUnlinked(){
+  var el=document.getElementById('cleanStatus');
+  el.style.display='block';el.style.color='var(--text2)';el.textContent='Scanning...';
+  try{google.script.run.withSuccessHandler(function(result){
+    var employers=(result&&result.data)?result.data:[];
+    var unlinked=employers.filter(function(e){return !e.AgencyID&&!e.AgencyCode;});
+    el.style.color=unlinked.length>0?'var(--red)':'var(--green)';
+    el.textContent=unlinked.length>0?'⚠️ Found '+unlinked.length+' unlinked employers out of '+employers.length:'✅ All clean — no unlinked employers found ('+employers.length+' total)';
+  }).withFailureHandler(function(e){el.textContent='❌ '+e.message;}).actionGetAll({sheet:'Employers'});}catch(e){el.textContent='❌ Not in GAS context';}
+}
+var _confirmResolve=null;
+function showConfirm(text){return new Promise(function(resolve){_confirmResolve=resolve;document.getElementById('confirmText').textContent=text;document.getElementById('confirmModal').classList.add('show');});}
+function closeConfirm(val){document.getElementById('confirmModal').classList.remove('show');if(_confirmResolve){var r=_confirmResolve;_confirmResolve=null;r(val);}}
+async function cleanUnlinked(){var confirmed=await showConfirm('This will delete employers with no agency link.\n\nThis cannot be undone.\n\nContinue?');if(!confirmed)return;showToast('Cleanup would run here','success');}
+
+// ── SCRIPTS ──
+var DEFAULT_SCRIPTS=[
+  {id:1,info:'💵 Accountant — Accounting and financial records',url:APP_URL+'?page=Accountant'},
+  {id:2,info:'🔧 Admin Dashboard — Settings, security, scripts & system tools',url:BASE_URL+'?page=Admin_Dashboard'},
+  {id:3,info:'🧹 Cleanup Unlinked Employers',url:BASE_URL+'?page=Cleanup_Unlinked_Employers'},
+  {id:4,info:'🏠 Dashboard — Main entry point for all modules',url:APP_URL+'?page=Dashboard'},
+  {id:5,info:'🗑️ Database Reset Manager — Clear tables or reset entire database',url:BASE_URL+'?page=Database_Reset_Manager'},
+  {id:6,info:'📄 Employer Documents — View and manage employer document folders',url:APP_URL+'?page=Employer_Documents'},
+  {id:7,info:'📊 Employer Report — View and save employer reports to Drive as PDF',url:APP_URL+'?page=Reports'},
+  {id:8,info:'💼 Employers Manager — Manage employer profiles and folders',url:APP_URL+'?page=Employers_Manager'},
+  {id:9,info:'🏢 Local Agencies Manager — Manage local recruitment agencies',url:APP_URL+'?page=Local_Agencies_Manager'},
+  {id:10,info:'🌍 Nationalities Manager — Manage worker nationalities list',url:APP_URL+'?page=Nationalities_Manager'},
+  {id:11,info:'💬 Messaging Manager — Send WhatsApp messages to employers',url:APP_URL+'?page=Messaging_Manager'},
+  {id:12,info:'📝 Message Templates — Manage WhatsApp message templates',url:APP_URL+'?page=Message_Templates'},
+  {id:13,info:'⚙️ Rules Review — Review and modify auto-send rules',url:APP_URL+'?page=Rules_Review'},
+  {id:14,info:'💰 Processing Costs — Track and manage processing costs',url:APP_URL+'?page=Processing_Costs'},
+  {id:15,info:'⚙️ Processing Manager — Worker processing and employer assignments',url:APP_URL+'?page=Processing_Manager'},
+  {id:16,info:'🏪 Supplier Manager — Manage suppliers and vendor records',url:APP_URL+'?page=Supplier_Manager_FINAL'},
+  {id:17,info:'🛒 Supplier Portal — Supplier-facing portal view',url:APP_URL+'?page=Supplier_Portal'},
+  {id:18,info:'📁 Worker Documents — Manage and view worker documents',url:APP_URL+'?page=Worker_Documents'},
+  {id:19,info:'👷 Workers Manager — Add, edit and manage all workers',url:APP_URL+'?page=Workers_Manager'},
+  {id:20,info:'✅ Worker Approval — Review and approve worker applications',url:APP_URL+'?page=Worker_Approval'},
+  {id:21,info:'🛂 Visas Manager — (Under Construction)',url:APP_URL+'?page=Visas_Manager'},
+  {id:22,info:'🛡️ Insurance Manager — (Under Construction)',url:APP_URL+'?page=Insurance_Manager'},
+];
+function loadScripts(){try{return JSON.parse(localStorage.getItem('mgs_scripts')||'null')||DEFAULT_SCRIPTS;}catch(e){return DEFAULT_SCRIPTS;}}
+function saveScripts(arr){
+  localStorage.setItem('mgs_scripts',JSON.stringify(arr));
+  try{google.script.run.gsrPost(JSON.stringify({action:'saveRow',sheet:'Settings',row:{Key:'admin_scripts',Value:JSON.stringify(arr)}}));}catch(e){}
+}
+function renderScripts(){
+  var arr=loadScripts();
+  arr.sort(function(a,b){return a.info.replace(/^[^\w]+/,'').toLowerCase().localeCompare(b.info.replace(/^[^\w]+/,'').toLowerCase());});
+  arr.forEach(function(s,i){s.id=i+1;});
+  document.getElementById('scriptsBody').innerHTML=arr.map(function(s,i){
+    var short=s.url.length>55?s.url.substring(0,52)+'...':s.url;
+    return '<tr>'
+      +'<td style="font-weight:700;color:var(--accent);font-family:var(--mono)">'+s.id+'</td>'
+      +'<td><span id="si-'+i+'">'+s.info+'</span><input id="ii-'+i+'" value="'+s.info.replace(/"/g,'&quot;')+'" style="display:none;width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;font-family:var(--sans)"></td>'
+      +'<td class="url-cell"><span id="su-'+i+'" title="'+s.url+'">'+short+'</span><input id="ui-'+i+'" value="'+s.url.replace(/"/g,'&quot;')+'" style="display:none;width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:6px 8px;font-size:11px;font-family:var(--mono)"></td>'
+      +'<td style="text-align:center;white-space:nowrap">'
+      +'<button onclick="openScr('+i+')" class="btn btn-red btn-sm" style="margin-right:3px">▶</button>'
+      +'<button id="eb-'+i+'" onclick="editScr('+i+')" class="btn btn-sm" style="background:var(--orange);color:#000;margin-right:3px">✏️</button>'
+      +'<button onclick="delScr('+i+')" class="btn btn-sm" style="background:var(--surface2);color:var(--red);border:1px solid var(--border2)">🗑️</button>'
+      +'<button id="sb-'+i+'" onclick="saveScr('+i+')" class="btn btn-sm" style="display:none;background:var(--green);color:#000">💾</button>'
+      +'</td></tr>';
+  }).join('');
+}
+function openScr(i){var arr=loadScripts();window.open(arr[i].url,'_blank');}
+function editScr(i){document.getElementById('si-'+i).style.display='none';document.getElementById('su-'+i).style.display='none';document.getElementById('ii-'+i).style.display='';document.getElementById('ui-'+i).style.display='';document.getElementById('eb-'+i).style.display='none';document.getElementById('sb-'+i).style.display='';}
+function saveScr(i){var arr=loadScripts();arr[i].info=document.getElementById('ii-'+i).value;arr[i].url=document.getElementById('ui-'+i).value;saveScripts(arr);renderScripts();}
+async function delScr(i){var arr=loadScripts();var ok=await showConfirm('Delete script:\n'+arr[i].info+'\n\nContinue?');if(!ok)return;arr.splice(i,1);saveScripts(arr);renderScripts();}
+async function addScript(){var info=prompt('Description:');if(!info)return;var url=prompt('URL:',APP_URL+'?page=');if(!url)return;var arr=loadScripts();arr.push({id:arr.length+1,info:info,url:url});saveScripts(arr);renderScripts();showToast('Script added','success');}
+
+// ── THEME ──
+function switchTheme(t){if(t==='crimson')document.documentElement.setAttribute('data-theme','crimson');else document.documentElement.removeAttribute('data-theme');localStorage.setItem('mgsdb_admin_theme',t);}
+(function(){var t=localStorage.getItem('mgsdb_admin_theme')||'default';switchTheme(t);setTimeout(function(){var s=document.getElementById('themeSelector');if(s)s.value=t;},50);})();
+
+// ── TOAST ──
+function showToast(msg,type){var t=document.getElementById('toast');document.getElementById('toastIcon').textContent=type==='error'?'❌':'✅';document.getElementById('toastMsg').textContent=msg;t.className='toast '+(type||'')+' show';setTimeout(function(){t.classList.remove('show');},3000);}
+</script>
+
+<!--
+  NOTE: The following function belongs in Code.gs (GAS server-side), NOT here.
+  It is kept as reference only:
+
+  function getSystemStats() {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheets = ['Workers','Employers','Suppliers','Local_Agencies','Nationalities'];
+    var result = {};
+    sheets.forEach(function(name) {
+      var sheet = ss.getSheetByName(name);
+      result[name] = sheet ? Math.max(0, sheet.getLastRow() - 1) : 0;
+    });
+    var natSheet = ss.getSheetByName('Nationalities');
+    if (natSheet && natSheet.getLastRow() > 1) {
+      var data = natSheet.getDataRange().getValues();
+      var headers = data[0];
+      var actIdx = headers.indexOf('Active');
+      var active = 0;
+      for (var i = 1; i < data.length; i++) {
+        if (data[i][actIdx] === true || data[i][actIdx] === 'true' || data[i][actIdx] === 'TRUE') active++;
+      }
+      result['ActiveNationalities'] = active;
+    }
+    return result;
+  }
+-->
+</body>
+</html>
