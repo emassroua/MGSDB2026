@@ -1,0 +1,2009 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Messaging Manager — MGSDB</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+:root {
+  --bg:#0d0f14; --surface:#141720; --surface2:#1c2030;
+  --border:#262c3d; --border2:#323b52;
+  --text:#e2e8f0; --text2:#8892a4; --text3:#4a5568;
+  --green:#25d366; --green-dim:#1a9e4a;
+  --blue:#3b82f6; --orange:#f59e0b; --red:#ef4444;
+  --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:14px;}
+
+/* HEADER */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;gap:12px;}
+.header-logo{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--green);letter-spacing:2px;}
+.header-title{font-size:15px;font-weight:600;}
+.header-sep{color:var(--border2);}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.status-label{font-size:11px;color:var(--text2);font-family:var(--mono);}
+
+/* STATS BAR */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);}
+.stat-item{background:var(--surface);padding:8px 16px;display:flex;align-items:center;gap:10px;}
+.stat-icon{font-size:16px;}
+.stat-value{font-size:17px;font-weight:700;font-family:var(--mono);line-height:1;}
+.stat-label{font-size:10px;color:var(--text2);}
+
+/* TEMPLATE TABS BAR */
+.tpl-tabs-bar{height:36px;background:var(--surface);border-bottom:2px solid var(--border);display:flex;align-items:stretch;padding:0 12px;gap:2px;overflow-x:auto;overflow-y:hidden;flex-shrink:0;}
+.tpl-tabs-bar::-webkit-scrollbar{height:3px;}
+.tpl-tabs-bar::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.tpl-tabs-bar:empty::before{content:'No templates selected — click a template in panel 3';font-size:11px;color:var(--text3);display:flex;align-items:center;padding:0 4px;white-space:nowrap;}
+.tpl-tab{display:inline-flex;align-items:center;gap:6px;padding:0 12px;font-size:11px;font-weight:600;color:var(--text2);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all 0.15s;margin-bottom:-2px;background:transparent;border-top:none;border-left:none;border-right:none;font-family:var(--sans);}
+.tpl-tab:hover{color:var(--text);background:rgba(255,255,255,0.03);}
+.tpl-tab.active{color:var(--green);border-bottom-color:var(--green);}
+.tpl-tab.has-contacts{color:var(--green);border-bottom-color:rgba(37,211,102,0.35);}
+.tpl-tab-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);flex-shrink:0;}
+.tpl-tab.active .tpl-tab-dot{background:var(--green);}
+
+/* 4-COLUMN LAYOUT */
+.layout{display:grid;grid-template-columns:240px 300px 240px 1fr;height:calc(100vh - 52px - 37px - 36px);overflow:hidden;}
+
+/* ══ TEMPLATES PANEL ══ */
+.templates-panel{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.tpl-panel-list{flex:1;overflow-y:auto;padding:8px;}
+.tpl-panel-list::-webkit-scrollbar{width:3px;}
+.tpl-panel-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.tpl-panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.tpl-panel-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:0;cursor:pointer;transition:border-color 0.15s;position:relative;overflow:hidden;}
+.tpl-panel-card:hover{border-color:var(--green-dim);}
+.tpl-panel-card.selected{border-color:var(--green);box-shadow:0 0 0 1px var(--green);}
+.tpl-panel-card.selected .tpl-sel-check{opacity:1;}
+.tpl-card-top{display:flex;align-items:center;gap:7px;padding:8px 8px 7px;cursor:pointer;}
+.tpl-sel-check{width:14px;height:14px;border-radius:50%;background:var(--green);color:#000;font-size:8px;font-weight:900;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.15s;flex-shrink:0;}
+.tpl-panel-name{font-size:11px;font-weight:600;color:var(--text);flex:1;}
+.tpl-panel-cat{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;}
+.tpl-rule-strip{display:flex;gap:4px;flex-wrap:wrap;padding:5px 8px 7px;border-top:1px solid var(--border);background:rgba(59,130,246,0.03);}
+.tpl-rbadge{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:20px;font-size:9px;font-weight:600;font-family:var(--mono);background:rgba(59,130,246,0.1);color:var(--blue);border:1px solid rgba(59,130,246,0.2);}
+.tpl-rbadge.manual{background:rgba(74,85,104,0.15);color:var(--text3);border-color:var(--border);}
+.tpl-rbadge.birthday{background:rgba(245,158,11,0.12);color:var(--orange);border-color:rgba(245,158,11,0.2);}
+.tpl-rbadge.passport{background:rgba(239,68,68,0.12);color:var(--red);border-color:rgba(239,68,68,0.2);}
+.tpl-rbadge.document{background:rgba(37,211,102,0.12);color:var(--green);border-color:rgba(37,211,102,0.2);}
+.tpl-rbadge.arrival{background:rgba(37,211,102,0.12);color:var(--green);border-color:rgba(37,211,102,0.2);}
+.tpl-rbadge.anniversary{background:rgba(168,85,247,0.12);color:#a855f7;border-color:rgba(168,85,247,0.2);}
+.tpl-rbadge.scheduled{background:rgba(245,158,11,0.12);color:var(--orange);border-color:rgba(245,158,11,0.2);}
+.tpl-panel-tooltip{display:none;position:absolute;left:105%;top:0;width:200px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px;font-size:11px;color:var(--text2);line-height:1.6;z-index:999;white-space:pre-wrap;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
+.tpl-panel-card:hover .tpl-panel-tooltip{display:block;}
+
+/* PANEL 1 TABS */
+.p1-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface);}
+.p1-tab{flex:1;padding:8px 4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);text-align:center;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;}
+.p1-tab:hover{color:var(--text2);}
+.p1-tab.active{color:var(--green);border-bottom-color:var(--green);}
+.p1-view{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.p1-view.active{display:flex;}
+
+/* Assigned contacts list */
+.assigned-list{flex:1;overflow-y:auto;padding:6px 8px;}
+.assigned-list::-webkit-scrollbar{width:3px;}
+.assigned-list::-webkit-scrollbar-thumb{background:var(--border2);}
+.assigned-empty{padding:20px;text-align:center;font-size:11px;color:var(--text3);}
+
+/* Assigned contact row — collapsed/expanded */
+.assigned-contact-header{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);margin-bottom:3px;cursor:pointer;transition:background 0.15s;}
+.assigned-contact-header:hover{background:var(--surface2);}
+.assigned-contact-header.expanded{border-color:rgba(37,211,102,0.3);background:rgba(37,211,102,0.04);}
+.assigned-expand-arrow{font-size:9px;color:var(--text3);transition:transform 0.2s;flex-shrink:0;}
+.assigned-contact-header.expanded .assigned-expand-arrow{transform:rotate(90deg);color:var(--green);}
+.assigned-contact-name{font-size:12px;font-weight:500;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.assigned-contact-phone{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.assigned-tpl-rows{display:none;margin-bottom:6px;}
+.assigned-tpl-rows.open{display:block;}
+.assigned-tpl-row{display:flex;align-items:center;justify-content:space-between;padding:5px 8px 5px 28px;border-radius:5px;background:rgba(255,255,255,0.02);border-left:2px solid rgba(37,211,102,0.2);margin-bottom:2px;}
+.assigned-remove{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;}
+.assigned-remove:hover{color:var(--red);}
+
+/* ══ LEFT: EMPLOYERS LIST ══ */
+.employers-panel{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.panel-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.panel-title{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text2);}
+.emp-search-wrap{padding:8px 12px;border-bottom:1px solid var(--border);}
+.emp-search{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--sans);font-size:12px;padding:6px 10px;width:100%;}
+.emp-search:focus{outline:none;border-color:var(--green);}
+.employers-list{flex:1;overflow-y:auto;}
+.employers-list::-webkit-scrollbar{width:3px;}
+.employers-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.emp-row{display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s;}
+.emp-row:hover{background:var(--surface2);}
+.emp-row.active{background:rgba(37,211,102,0.08);border-left:3px solid var(--green);}
+.emp-row:not(.active){border-left:3px solid transparent;}
+.emp-avatar{width:30px;height:30px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--green);flex-shrink:0;font-family:var(--mono);}
+.emp-row.active .emp-avatar{background:rgba(37,211,102,0.15);border-color:var(--green);}
+.emp-info{flex:1;min-width:0;}
+.emp-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.emp-meta{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.emp-phone-badge{font-size:10px;color:var(--text2);font-family:var(--mono);flex-shrink:0;}
+
+/* Pagination */
+.pagination{padding:8px 12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.page-info{font-size:10px;color:var(--text2);font-family:var(--mono);}
+.page-btns{display:flex;gap:3px;}
+.page-btn{width:24px;height:24px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;font-family:var(--sans);}
+.page-btn:hover:not(:disabled){border-color:var(--green);color:var(--green);}
+.page-btn:disabled{opacity:0.3;cursor:not-allowed;}
+.page-btn.active{background:var(--green);border-color:var(--green);color:#000;font-weight:700;}
+
+/* ══ MIDDLE: EMPLOYER DETAILS ══ */
+.details-panel{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;min-height:0;}
+.details-body{flex:1;overflow-y:auto;padding:20px;min-height:0;}
+.details-body::-webkit-scrollbar{width:3px;}
+.details-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.details-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;color:var(--text3);}
+.details-empty-icon{font-size:48px;opacity:0.3;}
+.details-empty-text{font-size:13px;color:var(--text2);}
+.emp-profile{display:flex;align-items:center;gap:14px;padding-bottom:18px;border-bottom:1px solid var(--border);margin-bottom:18px;}
+.emp-profile-avatar{width:52px;height:52px;border-radius:50%;background:rgba(37,211,102,0.1);border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--green);font-family:var(--mono);flex-shrink:0;}
+.emp-profile-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.emp-profile-code{font-size:11px;color:var(--green);font-family:var(--mono);}
+.emp-profile-agency{font-size:11px;color:var(--text2);}
+.detail-section{margin-bottom:18px;}
+.detail-section-title{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.detail-section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+.detail-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:6px;margin-bottom:4px;transition:background 0.15s;}
+.detail-row:hover{background:var(--surface2);}
+.detail-key{font-size:11px;color:var(--text2);flex-shrink:0;min-width:110px;}
+.detail-val{font-size:12px;color:var(--text);text-align:right;font-family:var(--mono);}
+.detail-val.highlight{color:var(--green);}
+.detail-val.warn{color:var(--orange);}
+.detail-val.danger{color:var(--red);}
+.detail-val.normal{font-family:var(--sans);}
+.btn-compose-emp{width:100%;padding:10px;border:none;border-radius:8px;background:var(--green);color:#000;font-family:var(--sans);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;margin-top:4px;}
+.btn-compose-emp:hover{background:#20c85a;}
+
+/* ══ RIGHT: COMPOSE + MESSAGES ══ */
+.right-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
+.subtabs-row{display:flex;background:var(--surface);border-bottom:1px solid var(--border);}
+.subtab{padding:12px 16px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;white-space:nowrap;display:flex;align-items:center;gap:5px;}
+.subtab:hover{color:var(--text);}
+.subtab.active{color:var(--green);border-bottom-color:var(--green);}
+.tab-badge{background:var(--surface2);border-radius:10px;padding:1px 6px;font-size:10px;font-family:var(--mono);}
+.subtab.active .tab-badge{background:rgba(37,211,102,0.15);color:var(--green);}
+.subtab-content{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.subtab-content.active{display:flex;}
+
+/* COMPOSE */
+.compose-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;}
+.compose-body::-webkit-scrollbar{width:3px;}
+.compose-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.recipient-info-bar{background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.2);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;}
+.recipient-info-bar .ri-avatar{width:28px;height:28px;border-radius:50%;background:rgba(37,211,102,0.15);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--green);font-family:var(--mono);flex-shrink:0;}
+.ri-name{font-size:13px;font-weight:600;color:var(--text);}
+.ri-phone{font-size:11px;color:var(--text2);font-family:var(--mono);}
+.ri-badge{font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;background:rgba(59,130,246,0.15);color:var(--blue);border:1px solid rgba(59,130,246,0.25);margin-left:4px;}
+.ri-clear{margin-left:auto;color:var(--text3);cursor:pointer;font-size:16px;}
+.ri-clear:hover{color:var(--red);}
+.no-recipient-bar{background:var(--surface2);border:1px dashed var(--border2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text3);text-align:center;}
+
+/* MANUAL NUMBER SECTION */
+.manual-number-section{background:rgba(59,130,246,0.04);border:1px solid rgba(59,130,246,0.15);border-radius:8px;overflow:hidden;}
+.manual-number-header{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;transition:background 0.15s;}
+.manual-number-header:hover{background:rgba(59,130,246,0.06);}
+.manual-number-title{font-size:11px;font-weight:600;color:var(--blue);flex:1;}
+.manual-number-body{padding:0 12px 10px;display:none;}
+.manual-number-body.open{display:block;}
+.manual-number-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;}
+.manual-active-bar{background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:8px;margin-top:6px;}
+.manual-active-bar .ma-icon{font-size:14px;}
+.manual-active-name{font-size:12px;font-weight:600;color:var(--text);}
+.manual-active-phone{font-size:11px;color:var(--blue);font-family:var(--mono);}
+.manual-active-clear{margin-left:auto;color:var(--text3);cursor:pointer;font-size:14px;}
+.manual-active-clear:hover{color:var(--red);}
+
+/* QUICK REPLIES */
+.quick-replies-section{display:flex;flex-direction:column;gap:6px;}
+.quick-replies-grid{display:flex;flex-wrap:wrap;gap:5px;}
+.reply-chip{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:var(--sans);transition:all 0.15s;white-space:nowrap;}
+.reply-chip:hover{border-color:var(--green);color:var(--green);background:rgba(37,211,102,0.06);}
+.reply-chip.active{border-color:var(--green);color:var(--green);background:rgba(37,211,102,0.1);}
+.reply-chip.add-chip{border-style:dashed;color:var(--text3);}
+.reply-chip.add-chip:hover{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,0.06);}
+
+/* Custom reply input */
+.custom-reply-input-row{display:flex;gap:6px;margin-top:6px;display:none;}
+.custom-reply-input-row.show{display:flex;}
+
+.field-group{display:flex;flex-direction:column;gap:4px;}
+.field-label{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text2);display:flex;justify-content:space-between;align-items:center;}
+.field-input,.field-select,.field-textarea{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 10px;width:100%;transition:border-color 0.2s;}
+.field-input:focus,.field-select:focus,.field-textarea:focus{outline:none;border-color:var(--green);}
+.field-select option{background:var(--surface2);}
+.field-textarea{resize:vertical;min-height:100px;line-height:1.6;}
+.char-counter{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.char-counter.warn{color:var(--orange);}
+
+.templates-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.tpl-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px;cursor:pointer;transition:all 0.15s;}
+.tpl-card:hover{border-color:var(--green-dim);background:rgba(37,211,102,0.03);}
+.tpl-icon{font-size:14px;margin-bottom:2px;}
+.tpl-name{font-size:10px;font-weight:600;color:var(--text);}
+.tpl-desc{font-size:9px;color:var(--text2);}
+
+.media-box{background:var(--bg);border:1px dashed var(--border2);border-radius:6px;padding:10px;text-align:center;cursor:pointer;transition:all 0.2s;}
+.media-box:hover{border-color:var(--green);}
+.media-box.has-media{border-style:solid;border-color:var(--green-dim);}
+.media-icon{font-size:18px;margin-bottom:3px;}
+.media-label{font-size:11px;color:var(--text2);}
+.media-preview{display:none;align-items:center;gap:7px;text-align:left;}
+.media-preview.show{display:flex;}
+.media-thumb{width:32px;height:32px;border-radius:4px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.media-filename{font-size:11px;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.media-size{font-size:10px;color:var(--text2);}
+.media-clear{color:var(--text3);cursor:pointer;font-size:14px;flex-shrink:0;}
+.media-clear:hover{color:var(--red);}
+
+.send-toggle{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px;gap:2px;}
+.toggle-btn{padding:6px;border:none;border-radius:4px;background:transparent;color:var(--text2);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.2s;}
+.toggle-btn.active{background:var(--surface2);color:var(--text);}
+.schedule-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.schedule-fields{display:none;}
+.schedule-fields.show{display:block;}
+
+.compose-actions{padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:6px;}
+.btn{border:none;border-radius:6px;padding:9px 14px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:5px;}
+.btn-send{flex:1;background:var(--green);color:#000;justify-content:center;}
+.btn-send:hover{background:#20c85a;}
+.btn-send:disabled{background:var(--border2);color:var(--text3);cursor:not-allowed;}
+.btn-sm{padding:5px 9px;border-radius:5px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:var(--sans);transition:all 0.2s;display:flex;align-items:center;gap:4px;}
+.btn-sm:hover{border-color:var(--border2);color:var(--text);}
+.btn-xs{padding:3px 7px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:var(--sans);transition:all 0.2s;}
+.btn-xs:hover{color:var(--text);}
+
+/* MESSAGES */
+.filter-bar{padding:8px 14px;display:flex;align-items:center;gap:8px;background:var(--surface);border-bottom:1px solid var(--border);}
+.filter-search{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--sans);font-size:12px;padding:6px 10px 6px 30px;width:180px;transition:border-color 0.2s;}
+.filter-search:focus{outline:none;border-color:var(--green);}
+.search-icon-wrap{position:relative;}
+.search-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:12px;pointer-events:none;}
+.filter-pills{display:flex;gap:4px;}
+.pill{padding:4px 9px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:var(--sans);transition:all 0.2s;}
+.pill:hover{border-color:var(--border2);color:var(--text);}
+.pill.active{background:var(--surface2);border-color:var(--border2);color:var(--text);}
+.pill.pending{color:var(--orange);border-color:rgba(245,158,11,0.3);}
+.pill.sent{color:var(--green);border-color:rgba(37,211,102,0.3);}
+.pill.failed{color:var(--red);border-color:rgba(239,68,68,0.3);}
+.pill.pending.active{background:rgba(245,158,11,0.1);}
+.pill.sent.active{background:rgba(37,211,102,0.1);}
+.pill.failed.active{background:rgba(239,68,68,0.1);}
+.filter-right{margin-left:auto;display:flex;gap:5px;}
+
+.messages-body{flex:1;overflow-y:auto;}
+.messages-body::-webkit-scrollbar{width:3px;}
+.messages-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.messages-table{width:100%;border-collapse:collapse;}
+.messages-table th{background:var(--surface);padding:8px 12px;text-align:left;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;white-space:nowrap;}
+.messages-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:12px;}
+.messages-table tr:hover td{background:var(--surface);}
+.msg-recipient{display:flex;align-items:center;gap:8px;}
+.msg-avatar{width:26px;height:26px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--green);flex-shrink:0;font-family:var(--mono);}
+.msg-name{font-weight:500;color:var(--text);font-size:12px;}
+.msg-phone{font-size:10px;color:var(--text2);font-family:var(--mono);}
+.msg-text{color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;font-size:12px;}
+.msg-date{font-family:var(--mono);font-size:10px;color:var(--text2);}
+.msg-actions{display:flex;gap:4px;}
+.action-btn{width:24px;height:24px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;}
+.action-btn.del:hover{border-color:var(--red);color:var(--red);}
+.action-btn.resend:hover{border-color:var(--green);color:var(--green);}
+
+/* Messages pagination */
+.msg-pagination{padding:8px 14px;border-top:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;gap:6px;flex-shrink:0;}
+.msg-page-info{font-size:10px;color:var(--text2);font-family:var(--mono);}
+.msg-page-btns{display:flex;gap:3px;}
+
+.badge{padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;font-family:var(--mono);}
+.badge-sent{background:rgba(37,211,102,0.12);color:var(--green);}
+.badge-failed{background:rgba(239,68,68,0.12);color:var(--red);}
+.badge-pending{background:rgba(245,158,11,0.12);color:var(--orange);}
+.badge-cancelled{background:rgba(74,85,104,0.15);color:var(--text3);}
+.badge-received{background:rgba(59,130,246,0.12);color:var(--blue);}
+
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 20px;gap:8px;color:var(--text3);}
+.empty-icon{font-size:32px;opacity:0.4;}
+.empty-title{font-size:13px;font-weight:600;color:var(--text2);}
+
+.toast{position:fixed;bottom:18px;right:18px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:11px 15px;display:flex;align-items:center;gap:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);box-shadow:0 8px 32px rgba(0,0,0,0.4);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-color:rgba(37,211,102,0.4);}
+.toast.error{border-color:rgba(239,68,68,0.4);}
+
+.loading-overlay{position:fixed;inset:0;background:rgba(13,15,20,0.85);display:none;align-items:center;justify-content:center;z-index:9998;flex-direction:column;gap:14px;}
+.loading-overlay.show{display:flex;}
+.spinner{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-size:12px;color:var(--text2);}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <span class="header-logo">MGS</span>
+  <span class="header-sep">›</span>
+  <span class="header-title">💬 Messaging Manager</span>
+  <div class="header-right">
+    <div class="status-dot"></div>
+    <span class="status-label" id="twilioStatus">Twilio Ready</span>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-item"><span class="stat-icon">📨</span><div><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total</div></div></div>
+  <div class="stat-item"><span class="stat-icon">⏳</span><div><div class="stat-value" id="statPending" style="color:var(--orange)">0</div><div class="stat-label">Scheduled</div></div></div>
+  <div class="stat-item"><span class="stat-icon">✅</span><div><div class="stat-value" id="statSent" style="color:var(--green)">0</div><div class="stat-label">Sent</div></div></div>
+  <div class="stat-item"><span class="stat-icon">❌</span><div><div class="stat-value" id="statFailed" style="color:var(--red)">0</div><div class="stat-label">Failed</div></div></div>
+</div>
+
+<!-- TEMPLATE TABS BAR -->
+<div class="tpl-tabs-bar" id="tplTabsBar"></div>
+
+<div class="layout">
+
+  <!-- ══ PANEL 1: CONTACTS ══ -->
+  <div class="employers-panel">
+    <div class="panel-header">
+      <span class="panel-title">👥 Contacts</span>
+      <span id="empCountBadge" style="font-size:10px;color:var(--text3);font-family:var(--mono);">0</span>
+    </div>
+    <div class="p1-tabs">
+      <div class="p1-tab active" onclick="switchP1Tab('employers',this)">Employers</div>
+      <div class="p1-tab" onclick="switchP1Tab('assigned',this)">Assigned <span id="assignedBadge" style="display:none;background:var(--green);color:#000;font-size:8px;font-weight:700;border-radius:8px;padding:1px 4px;margin-left:3px;">0</span></div>
+    </div>
+
+    <!-- Employers view -->
+    <div class="p1-view active" id="p1ViewEmployers">
+      <div class="emp-search-wrap">
+        <input type="text" class="emp-search" id="empSearch" placeholder="🔍 Search name or code..." oninput="searchEmployersList()"/>
+      </div>
+      <div class="employers-list" id="employersList">
+        <div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Loading...</div></div>
+      </div>
+      <div class="pagination">
+        <span class="page-info" id="pageInfo">—</span>
+        <div class="page-btns" id="pageBtns"></div>
+      </div>
+    </div>
+
+    <!-- Assigned view — NEW: search + collapse -->
+    <div class="p1-view" id="p1ViewAssigned">
+      <div class="emp-search-wrap">
+        <input type="text" class="emp-search" id="assignedSearch" placeholder="🔍 Search assigned..." oninput="searchAssignedList()"/>
+      </div>
+      <div class="assigned-list" id="assignedList">
+        <div class="assigned-empty">No contacts assigned yet.<br>Select templates then click a contact.</div>
+      </div>
+    </div>
+
+    <!-- Template contacts view -->
+    <div class="p1-view" id="p1ViewTplContacts">
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);">
+        <button onclick="closeTplContactsView()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:14px;padding:0 4px;">←</button>
+        <span id="tplContactsTitle" style="font-size:12px;font-weight:700;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
+        <span id="tplContactsCount" style="font-size:10px;color:var(--green);font-weight:700;background:rgba(37,211,102,0.15);border-radius:8px;padding:1px 6px;"></span>
+      </div>
+      <div class="assigned-list" id="tplContactsList"></div>
+    </div>
+  </div>
+
+  <!-- ══ PANEL 2: EMPLOYER DETAILS ══ -->
+  <div class="details-panel">
+    <div class="panel-header">
+      <span class="panel-title">📋 Employer Details</span>
+    </div>
+    <div class="details-body" id="detailsBody">
+      <div class="details-empty">
+        <div class="details-empty-icon">👆</div>
+        <div class="details-empty-text">Click an employer to view details</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PANEL 3: MESSAGE TEMPLATES ══ -->
+  <div class="templates-panel">
+    <div class="panel-header">
+      <span class="panel-title">📝 Templates</span>
+      <span id="tplCount" style="font-size:10px;color:var(--text3);font-family:var(--mono);">0</span>
+    </div>
+    <div class="tpl-panel-list" id="tplPanelList">
+      <div style="color:var(--text3);font-size:12px;padding:16px;text-align:center;">Loading templates...</div>
+    </div>
+  </div>
+
+  <!-- ══ PANEL 4: COMPOSE + MESSAGES ══ -->
+  <div class="right-panel">
+    <div class="subtabs-row">
+      <div class="subtab active" onclick="switchSubtab('compose')" id="subtabCompose">✍️ Compose</div>
+      <div class="subtab" onclick="switchSubtab('messages')" id="subtabMessages">📋 Messages <span class="tab-badge" id="badgeAll">0</span></div>
+      <div class="subtab" onclick="switchSubtab('scheduled')" id="subtabScheduled">⏳ Scheduled <span class="tab-badge" id="badgeScheduled">0</span></div>
+      <div class="subtab" onclick="switchSubtab('inbox')" id="subtabInbox">📥 Inbox <span class="tab-badge" id="badgeInbox">0</span></div>
+    </div>
+
+    <!-- ── COMPOSE TAB ── -->
+    <div class="subtab-content active" id="contentCompose">
+      <div class="compose-body">
+
+        <!-- RECIPIENT INFO -->
+        <div id="recipientInfoWrap">
+          <div class="no-recipient-bar" id="noRecipientBar">← Select an employer or enter a number below</div>
+          <div class="recipient-info-bar" id="recipientInfoBar" style="display:none;">
+            <div class="ri-avatar" id="riAvatar">?</div>
+            <div>
+              <div class="ri-name" id="riName">—<span class="ri-badge" id="riBadge" style="display:none;">MANUAL</span></div>
+              <div class="ri-phone" id="riPhone">—</div>
+            </div>
+            <span class="ri-clear" onclick="clearRecipient()" title="Clear">✕</span>
+          </div>
+        </div>
+
+        <!-- MANUAL NUMBER — always visible inline row -->
+        <div class="field-group">
+          <label class="field-label">📲 Message a custom number</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+            <input type="text" class="field-input" id="manualName" placeholder="Name (optional)" oninput="handleManualNumber()" style="font-size:12px;"/>
+            <input type="text" class="field-input" id="manualPhone" placeholder="+961XXXXXXXX" oninput="handleManualNumber()" style="font-size:12px;font-family:var(--mono);"/>
+          </div>
+          <div id="manualActiveBar" class="manual-active-bar" style="display:none;margin-top:6px;">
+            <span class="ma-icon">📲</span>
+            <div style="flex:1;min-width:0;">
+              <div class="manual-active-name" id="manualActiveName"></div>
+              <div class="manual-active-phone" id="manualActivePhone"></div>
+            </div>
+            <span class="manual-active-clear" onclick="clearManualNumber()">✕</span>
+          </div>
+        </div>
+
+        <!-- SEND TYPE -->
+        <div class="field-group">
+          <label class="field-label">Send Type</label>
+          <div class="send-toggle">
+            <button class="toggle-btn active" id="btnSendNow" onclick="setSendType('now')">⚡ Send Now</button>
+            <button class="toggle-btn" id="btnSendSchedule" onclick="setSendType('schedule')">📅 Schedule</button>
+          </div>
+        </div>
+
+        <!-- SCHEDULE -->
+        <div class="field-group schedule-fields" id="scheduleFields">
+          <label class="field-label">Date & Time</label>
+          <div class="schedule-row">
+            <input type="date" class="field-input" id="scheduleDate"/>
+            <input type="time" class="field-input" id="scheduleTime" value="09:00"/>
+          </div>
+        </div>
+
+        <!-- QUICK TEMPLATES -->
+        <div class="field-group">
+          <label class="field-label">Quick Templates</label>
+          <div class="templates-grid" id="quickTemplatesGrid">
+            <div class="tpl-card" onclick="applyTemplate('custom')"><div class="tpl-icon">💬</div><div class="tpl-name">Custom</div><div class="tpl-desc">Write your own</div></div>
+          </div>
+        </div>
+
+        <!-- MESSAGE -->
+        <div class="field-group">
+          <label class="field-label">Message <span class="char-counter" id="charCounter">0 / 1600</span></label>
+          <textarea class="field-textarea" id="messageText" placeholder="Type your message here..." oninput="updateCharCounter(this)"></textarea>
+        </div>
+
+        <!-- QUICK REPLIES — NEW -->
+        <div class="field-group quick-replies-section">
+          <label class="field-label">
+            Quick Replies
+            <button class="btn-xs" onclick="toggleAddReply()" style="font-size:9px;">＋ Add</button>
+          </label>
+          <div class="quick-replies-grid" id="quickRepliesGrid"></div>
+          <div class="custom-reply-input-row" id="customReplyInputRow">
+            <input type="text" class="field-input" id="customReplyInput" placeholder="Type a quick reply..." style="font-size:12px;" onkeydown="if(event.key==='Enter')saveCustomReply()"/>
+            <button class="btn-xs" onclick="saveCustomReply()" style="white-space:nowrap;padding:5px 10px;">Save</button>
+            <button class="btn-xs" onclick="toggleAddReply()" style="color:var(--text3);">✕</button>
+          </div>
+        </div>
+
+        <!-- MEDIA -->
+        <div class="field-group">
+          <label class="field-label">Attach Media (optional)</label>
+          <div class="media-box" id="mediaBox" onclick="document.getElementById('mediaFileInput').click()">
+            <div id="mediaEmpty"><div class="media-icon">📎</div><div class="media-label">Click to attach photo or PDF</div></div>
+            <div class="media-preview" id="mediaPreview">
+              <div class="media-thumb" id="mediaThumb">📄</div>
+              <div style="flex:1;min-width:0;"><div class="media-filename" id="mediaFilename"></div><div class="media-size" id="mediaFileSize"></div></div>
+              <span class="media-clear" onclick="clearMedia(event)">✕</span>
+            </div>
+          </div>
+          <input type="file" id="mediaFileInput" accept="image/*,.pdf" style="display:none" multiple onchange="handleMediaFile(this)"/>
+          <input type="text" class="field-input" id="mediaURLInput" placeholder="Or paste media URL..." style="margin-top:5px;font-size:12px;" oninput="handleMediaURL(this.value)"/>
+        </div>
+
+      </div>
+      <div class="compose-actions">
+        <button class="btn-sm" onclick="clearForm()">🗑️</button>
+        <button class="btn btn-send" id="btnSend" onclick="sendMessage()" disabled>
+          <span id="sendBtnIcon">⚡</span> <span id="sendBtnLabel">Send Now</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── MESSAGES TAB ── -->
+    <div class="subtab-content" id="contentMessages">
+      <div class="filter-bar">
+        <div class="search-icon-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="filter-search" id="msgSearch" placeholder="Search messages..." oninput="filterMessages()"/>
+        </div>
+        <div class="filter-pills">
+          <button class="pill active" onclick="setStatusFilter('all',this)">All</button>
+          <button class="pill pending" onclick="setStatusFilter('Pending',this)">⏳</button>
+          <button class="pill sent" onclick="setStatusFilter('Sent',this)">✅</button>
+          <button class="pill failed" onclick="setStatusFilter('Failed',this)">❌</button>
+          <button class="pill" onclick="setStatusFilter('Received',this)" style="color:#3b82f6;border-color:rgba(59,130,246,0.3);">📥</button>
+        </div>
+        <div class="filter-right">
+          <button class="btn-sm" onclick="loadMessages()">🔄</button>
+          <button class="btn-sm" onclick="processPending()" style="color:var(--orange)">⚡ Process</button>
+        </div>
+      </div>
+      <div class="messages-body">
+        <table class="messages-table">
+          <thead><tr><th>Recipient</th><th>Message</th><th>Status</th><th>Scheduled</th><th>Sent</th><th></th></tr></thead>
+          <tbody id="messagesTableBody"></tbody>
+        </table>
+      </div>
+      <!-- Messages Pagination — NEW -->
+      <div class="msg-pagination" id="msgPaginationBar" style="display:none;">
+        <span class="msg-page-info" id="msgPageInfo">—</span>
+        <div class="msg-page-btns" id="msgPageBtns"></div>
+      </div>
+    </div>
+
+    <!-- ── SCHEDULED TAB ── -->
+    <div class="subtab-content" id="contentScheduled">
+      <div class="messages-body">
+        <table class="messages-table">
+          <thead><tr><th>Recipient</th><th>Message</th><th>Date</th><th>Time</th><th></th></tr></thead>
+          <tbody id="scheduledTableBody"><tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No scheduled messages</div></div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── INBOX TAB ── -->
+    <div class="subtab-content" id="contentInbox">
+      <div class="filter-bar">
+        <div class="search-icon-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="filter-search" id="inboxSearch" placeholder="Search inbox..." oninput="renderInbox()"/>
+        </div>
+        <div class="filter-right">
+          <button class="btn-sm" onclick="loadMessages()">🔄</button>
+        </div>
+      </div>
+      <div class="messages-body">
+        <table class="messages-table">
+          <thead><tr><th>From</th><th>Message</th><th>Received</th><th></th></tr></thead>
+          <tbody id="inboxTableBody"><tr><td colspan="4"><div class="empty-state"><div class="empty-icon">📥</div><div class="empty-title">No incoming messages yet</div></div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div><div class="loading-text" id="loadingText">Loading...</div></div>
+<div class="toast" id="toast"><span id="toastIcon">✅</span><span id="toastMessage">Done!</span></div>
+
+<script>
+// ══ STATE ══
+var allMessages       = [];
+var allEmployers      = [];
+var filteredEmployers = [];
+var selectedEmployer  = null;
+var manualRecipient   = null;        // NEW — manual number override
+var mediaFile  = null;
+var mediaFiles = [];
+var mediaURL   = '';
+var sendType   = 'now';
+var statusFilter = 'all';
+var PAGE_SIZE   = 20;
+var currentPage = 1;
+
+// Messages pagination — NEW
+var MSG_PAGE_SIZE   = 20;
+var msgCurrentPage  = 1;
+
+// Expanded message rows
+var expandedMsgIDs  = {};
+
+// Assigned search — NEW
+var assignedSearchQuery = '';
+
+// Assigned expand state — NEW
+var assignedExpanded = {};
+
+// Quick replies — NEW
+var DEFAULT_REPLIES = [
+  'Thank you for contacting us.',
+  'We will get back to you shortly.',
+  'Your documents are ready.',
+  'Please call us at your earliest convenience.',
+  'We have received your request.'
+];
+var customReplies = [];
+
+var TEMPLATES = {
+  docs_ready:      { text: '📋 Dear {EmployerName},\n\nYour worker\'s documents are now ready for collection.\n\nPlease contact us at your earliest convenience.\n\n— MGS Agency\n📞 +961-XX-XXXXXX' },
+  passport_expiry: { text: '⚠️ Dear {EmployerName},\n\nThis is a reminder that your worker\'s passport will expire within 30 days.\n\nPlease take the necessary steps for renewal.\n\n— MGS Agency\n📞 +961-XX-XXXXXX' },
+  worker_arrival:  { text: '✈️ Dear {EmployerName},\n\nYour worker has arrived and is ready for placement.\n\nPlease contact us to arrange the next steps.\n\n— MGS Agency\n📞 +961-XX-XXXXXX' },
+  custom:          { text: '' }
+};
+
+// ══ INIT ══
+function init() {
+  loadAssignedContacts();
+  loadQuickReplies();
+  document.getElementById('scheduleDate').value = new Date().toISOString().split('T')[0];
+  loadEmployers();
+  loadMessages();
+  loadDBTemplates();
+  renderQuickReplies();
+}
+
+// ══ LOAD EMPLOYERS ══
+function loadEmployers() {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      var data = (result && result.data) ? result.data : (Array.isArray(result) ? result : []);
+      allEmployers = data.filter(function(e){ return !(e.Disabled === true || e.Disabled === 'true' || e.Disabled === 'TRUE'); });
+      filteredEmployers = allEmployers.slice();
+      currentPage = 1;
+      renderEmployersList();
+      // Do NOT auto-restore last employer — panel 2 stays empty until user clicks
+    })
+    .withFailureHandler(function() {
+      document.getElementById('employersList').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Failed to load</div></div>';
+    })
+    .gsrGetAll('Employers');
+}
+
+// ══ SEARCH EMPLOYERS ══
+function searchEmployersList() {
+  var q = document.getElementById('empSearch').value.toLowerCase().trim();
+  filteredEmployers = !q ? allEmployers.slice() : allEmployers.filter(function(e) {
+    var haystack = [e.EFN||'', e.EmployerCode||'', e.EmployerName||'', e.MobileNumber||'', e.ContactNumber||'', e.ContactPerson||'', e.EmployerEmail||'', e.City||'', String(e.EmployerID||'')].join(' ').toLowerCase();
+    return haystack.includes(q);
+  });
+  currentPage = 1;
+  renderEmployersList();
+}
+
+// ══ SEARCH ASSIGNED — NEW ══
+function searchAssignedList() {
+  assignedSearchQuery = document.getElementById('assignedSearch').value.toLowerCase().trim();
+  renderAssignedList();
+}
+
+// ══ RENDER EMPLOYERS LIST ══
+function renderEmployersList() {
+  var assignedIDs  = getAssignedEmpIDs();
+  var unassigned   = filteredEmployers.filter(function(e){
+    return !assignedIDs[String(e.EmployerID || e.RowIndex || '')];
+  });
+  var total      = unassigned.length;
+  var totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+  if (currentPage > totalPages) currentPage = totalPages;
+  var start = (currentPage - 1) * PAGE_SIZE;
+  var items = unassigned.slice(start, start + PAGE_SIZE);
+  document.getElementById('empCountBadge').textContent = unassigned.length;
+  document.getElementById('pageInfo').textContent = currentPage + '/' + totalPages;
+  var list = document.getElementById('employersList');
+  if (!items.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">All contacts assigned</div></div>';
+  } else {
+    list.innerHTML = items.map(function(e) {
+      var id       = String(e.EmployerID || e.RowIndex || '');
+      var name     = (e.EFN||'Unknown').split('(')[0].trim();
+      var code     = e.EmployerCode || '';
+      var phone    = e.MobileNumber || '';
+      var initials = name.split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase();
+      var isActive = selectedEmployer && selectedEmployer.id === id;
+      return '<div class="emp-row' + (isActive?' active':'') + '" onclick="selectEmployer(\'' + esc(id) + '\')">' +
+        '<div class="emp-avatar">' + initials + '</div>' +
+        '<div class="emp-info">' +
+          '<div class="emp-name">' + esc(name) + '</div>' +
+          '<div class="emp-meta">' + esc(code) + '</div>' +
+        '</div>' +
+        (phone ? '<div class="emp-phone-badge">' + esc(phone) + '</div>' : '') +
+      '</div>';
+    }).join('');
+  }
+  renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+  var btns = document.getElementById('pageBtns');
+  if (totalPages <= 1) { btns.innerHTML = ''; return; }
+  btns.innerHTML =
+    '<button class="page-btn" onclick="goPage('+(currentPage-1)+')" '+(currentPage===1?'disabled':'')+'>‹</button>' +
+    '<button class="page-btn" onclick="goPage('+(currentPage+1)+')" '+(currentPage===totalPages?'disabled':'')+'>›</button>';
+}
+
+function goPage(p) { currentPage = p; renderEmployersList(); }
+
+// ══ SELECT EMPLOYER ══
+function selectEmployer(id) {
+  var emp = allEmployers.find(function(e){ return String(e.EmployerID||e.RowIndex||'') === id; });
+  if (!emp) return;
+  var savedPhone = '';
+  try { savedPhone = sessionStorage.getItem('mgs_sel_phone_' + id) || ''; } catch(e){}
+  selectedEmployer = { id: id, name: (emp.EFN||'Unknown').split('(')[0].trim(), phone: emp.MobileNumber || '', code: emp.EmployerCode || '', raw: emp, EFN: emp.EFN || '', EmployerName: emp.EmployerName || '', EmployerID: emp.EmployerID || '', MobileNumber: emp.MobileNumber || '', ContactNumber: emp.ContactNumber || '' };
+  for (var k in emp) { if (emp.hasOwnProperty(k)) selectedEmployer[k] = emp[k]; }
+  if (savedPhone) {
+    selectedEmployer._selectedPhone = savedPhone;
+  } else if (assignedContacts[id] && assignedContacts[id].phone) {
+    selectedEmployer._selectedPhone = assignedContacts[id].phone;
+  }
+  try { sessionStorage.setItem('mgs_sel_emp', id); } catch(e){}
+  if (pendingEmp && pendingEmp.empID !== id) { commitPending(); renderAssignedList(); }
+  refreshTemplateCardsForEmp(id);
+  renderEmployersList();
+  renderEmployerDetails(emp);
+  updateRecipientBar();
+  validateForm();
+}
+
+function clearRecipient() {
+  try { sessionStorage.removeItem('mgs_sel_emp'); if(selectedEmployer) sessionStorage.removeItem('mgs_sel_phone_' + selectedEmployer.id); } catch(e){}
+  selectedEmployer = null;
+  manualRecipient  = null;
+  document.getElementById('manualPhone').value = '';
+  document.getElementById('manualName').value  = '';
+  document.getElementById('manualActiveBar').style.display = 'none';
+  renderEmployersList();
+  renderEmployerDetails(null);
+  updateRecipientBar();
+  validateForm();
+}
+
+// ══ RENDER EMPLOYER DETAILS ══
+function renderEmployerDetails(emp) {
+  var body = document.getElementById('detailsBody');
+  body.style.padding = '';
+  if (!emp) {
+    body.innerHTML = '<div class="details-empty"><div class="details-empty-icon">👆</div><div class="details-empty-text">Click an employer to view details</div></div>';
+    return;
+  }
+  var name        = (emp.EFN || emp.EmployerName || 'Unknown').split('(')[0].trim();
+  var initials    = name.split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase();
+  var code        = emp.EmployerCode  || '—';
+  var agency      = emp.AgencyCode    || '—';
+  var phone       = emp.MobileNumber  || '—';
+  var phone2      = emp.ContactNumber || '';
+  var email       = emp.EmailAddress  || emp.EmployerEmail || '';
+  var dob         = formatDetailDate(emp.BirthDate || '');
+  var anniversary = formatDetailDate(emp.Anniversary || '');
+  var city        = emp.City || emp.EmployerCity || '—';
+  var address     = emp.Address || emp.EmployerAddress || '—';
+  var country     = emp.Country || '';
+  var notes       = emp.Notes || emp.EmployerNotes || '';
+  var syncStatus  = emp.SyncStatus || 'Active';
+  var lastSync    = formatDetailDate(emp.LastSyncDate || '');
+  var ageStr = '';
+  if (emp.BirthDate) {
+    var bd = new Date(emp.BirthDate);
+    if (!isNaN(bd)) { var age = Math.floor((new Date() - bd) / (365.25 * 24 * 3600 * 1000)); if (age > 0 && age < 120) ageStr = ' (' + age + ' yrs)'; }
+  }
+  var bdayAlertHtml = '';
+  if (emp.BirthDate) {
+    var bd2 = new Date(emp.BirthDate);
+    if (!isNaN(bd2)) {
+      var now = new Date(); var next = new Date(now.getFullYear(), bd2.getMonth(), bd2.getDate());
+      if (next < now) next.setFullYear(now.getFullYear() + 1);
+      var daysUntil = Math.ceil((next - now) / (24*3600*1000));
+      if (daysUntil <= 30) bdayAlertHtml = '<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--orange);">🎂 Birthday in ' + daysUntil + ' day' + (daysUntil!==1?'s':'') + '!</div>';
+    }
+  }
+  var empID2 = String(emp.EmployerID || emp.RowIndex || '');
+  var tplCount2 = assignedContacts[empID2] ? assignedContacts[empID2].templates.length : 0;
+  var badge = tplCount2 > 0 ? ' <span style="display:inline-flex;align-items:center;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.3);color:var(--green);font-size:9px;font-weight:700;font-family:var(--mono);padding:1px 6px;border-radius:10px;vertical-align:middle;margin-left:6px;">📝 ' + tplCount2 + '</span>' : '';
+
+  body.innerHTML =
+    '<div class="emp-profile">' +
+      '<div class="emp-profile-avatar">' + initials + '</div>' +
+      '<div>' +
+        '<div class="emp-profile-name" style="display:flex;align-items:center;">' + esc(name) + badge + '</div>' +
+        '<div class="emp-profile-code">' + esc(code) + '</div>' +
+        '<div class="emp-profile-agency">Agency: ' + esc(agency) + '</div>' +
+      '</div>' +
+    '</div>' +
+    bdayAlertHtml +
+    '<div class="detail-section"><div class="detail-section-title">Personal</div>' +
+      row('Date of Birth', dob ? dob + ageStr : '—', dob ? 'highlight' : '') +
+      (anniversary && anniversary !== '—' ? row('Anniversary', anniversary) : '') +
+    '</div>' +
+    '<div class="detail-section"><div class="detail-section-title">Contact</div>' +
+      (phone !== '—' ? phoneRow('Mobile 1', phone, 'num_mobile', name) : row('Mobile', '—')) +
+      (function(){
+        var extra = '';
+        for (var i = 2; i <= 10; i++) {
+          var key = 'MobileNumber' + i;
+          var num = emp[key] ? emp[key].toString().trim() : '';
+          if (num) extra += phoneRow('Mobile ' + i, num, 'num_mobile' + i, name);
+        }
+        return extra;
+      })() +
+      (phone2 && phone2 !== phone ? phoneRow('Contact', phone2, 'num_phone2', name) : '') +
+      (email ? row('Email', email, 'normal') : '') +
+      row('City', city) +
+      (country ? row('Country', country) : '') +
+      row('Address', address, 'normal') +
+    '</div>' +
+    (notes ? '<div class="detail-section"><div class="detail-section-title">Notes</div><div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.6;">' + esc(notes) + '</div></div>' : '') +
+    (function(){
+      var assigned = assignedContacts[empID2];
+      if (!assigned || !assigned.templates.length) return '';
+      return '<div class="detail-section"><div class="detail-section-title">Assigned Templates</div>' +
+        assigned.templates.map(function(t){ return '<div class="detail-row"><span class="detail-key">📝</span><span class="detail-val">' + esc(t.TemplateName) + '</span></div>'; }).join('') +
+      '</div>';
+    })() +
+    '<button class="btn-compose-emp" onclick="switchSubtab(\'compose\')">💬 Send WhatsApp Message</button>';
+}
+
+function row(key, val, valClass) {
+  var cls = valClass ? ' ' + valClass : '';
+  return '<div class="detail-row"><span class="detail-key">' + key + '</span><span class="detail-val' + cls + '">' + esc(val||'—') + '</span></div>';
+}
+
+function formatDetailDate(val) {
+  if (!val) return '—';
+  var d = new Date(val);
+  if (isNaN(d)) return val;
+  return d.getDate().toString().padStart(2,'0') + '/' + (d.getMonth()+1).toString().padStart(2,'0') + '/' + d.getFullYear();
+}
+
+function phoneRow(label, number, id, empName) {
+  number  = (number  || '').toString();
+  empName = (empName || '').toString();
+  var isSelected = selectedEmployer && selectedEmployer._selectedPhone === number;
+  var rowBg  = isSelected ? 'background:rgba(37,211,102,0.08);border-radius:8px;border:1px solid rgba(37,211,102,0.25);' : 'border:1px solid transparent;';
+  var numClr = isSelected ? 'color:var(--green);font-weight:700;' : 'color:var(--text2);';
+  var chkClr = isSelected ? 'color:var(--green);' : 'color:var(--text3);';
+  return '<div id="row_' + id + '" style="padding:8px 10px;border-radius:8px;margin-bottom:6px;transition:all 0.2s;' + rowBg + '">' +
+    '<div style="font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;">' + label + '</div>' +
+    '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;' + chkClr + '">' +
+      '<input type="checkbox" id="chk_' + id + '" ' + (isSelected?'checked':'') + ' onchange="setMessageNumber(this.checked,\'' + number.replace(/'/g,"\\'") + '\',\'' + id + '\',\'' + empName.replace(/'/g,"\\'") + '\')" style="accent-color:var(--green);cursor:pointer;width:14px;height:14px;flex-shrink:0;">' +
+      '<span style="font-size:10px;white-space:nowrap;">Message this number</span>' +
+      '<span style="font-family:var(--mono);font-size:12px;margin-left:4px;' + numClr + '">' + esc(number) + '</span>' +
+    '</label>' +
+  '</div>';
+}
+
+function setMessageNumber(checked, number, id, empName) {
+  if (checked) {
+    ['num_mobile','num_phone2'].forEach(function(otherId) {
+      if (otherId !== id) {
+        var chk = document.getElementById('chk_' + otherId);
+        var otherRow = document.getElementById('row_' + otherId);
+        if (chk) chk.checked = false;
+        if (otherRow) { otherRow.style.background=''; otherRow.style.border='1px solid transparent'; var lbl = otherRow.querySelector('label'); if(lbl) lbl.style.color='var(--text3)'; var num = otherRow.querySelector('span[style*="font-family"]'); if(num) { num.style.color='var(--text2)'; num.style.fontWeight=''; } }
+      }
+    });
+    var selRow = document.getElementById('row_' + id);
+    if (selRow) { selRow.style.background='rgba(37,211,102,0.08)'; selRow.style.border='1px solid rgba(37,211,102,0.25)'; var lbl = selRow.querySelector('label'); if(lbl) lbl.style.color='var(--green)'; var num = selRow.querySelector('span[style*="font-family"]'); if(num) { num.style.color='var(--green)'; num.style.fontWeight='700'; } }
+    if (selectedEmployer) { selectedEmployer._selectedPhone = number; try { sessionStorage.setItem('mgs_sel_phone_' + selectedEmployer.id, number); } catch(e){} }
+    manualRecipient = null;
+    updateRecipientBar(); validateForm(); switchSubtab('compose');
+  } else {
+    var clearRow = document.getElementById('row_' + id);
+    if (clearRow) { clearRow.style.background=''; clearRow.style.border='1px solid transparent'; var lbl2 = clearRow.querySelector('label'); if(lbl2) lbl2.style.color='var(--text3)'; var num2 = clearRow.querySelector('span[style*="font-family"]'); if(num2) { num2.style.color='var(--text2)'; num2.style.fontWeight=''; } }
+    if (selectedEmployer) { delete selectedEmployer._selectedPhone; try { sessionStorage.removeItem('mgs_sel_phone_' + selectedEmployer.id); } catch(e){} }
+    updateRecipientBar(); validateForm();
+  }
+}
+
+// ══ MANUAL NUMBER ══
+function handleManualNumber() {
+  var phone = document.getElementById('manualPhone').value.trim();
+  var name  = document.getElementById('manualName').value.trim() || 'Manual Contact';
+  var bar   = document.getElementById('manualActiveBar');
+
+  if (phone.length >= 7) {
+    manualRecipient = { id: 'manual', name: name, phone: phone, _selectedPhone: phone, manual: true };
+    // Clear employer phone selection
+    if (selectedEmployer) { delete selectedEmployer._selectedPhone; try { sessionStorage.removeItem('mgs_sel_phone_' + selectedEmployer.id); } catch(e){} }
+    document.getElementById('manualActiveName').textContent  = name;
+    document.getElementById('manualActivePhone').textContent = phone;
+    bar.style.display = 'flex';
+  } else {
+    manualRecipient = null;
+    bar.style.display = 'none';
+  }
+  updateRecipientBar();
+  validateForm();
+}
+
+function clearManualNumber() {
+  manualRecipient = null;
+  document.getElementById('manualPhone').value = '';
+  document.getElementById('manualName').value  = '';
+  document.getElementById('manualActiveBar').style.display = 'none';
+  updateRecipientBar();
+  validateForm();
+}
+
+// Returns the active recipient (manual takes priority)
+function getActiveRecipient() {
+  if (manualRecipient) return manualRecipient;
+  return selectedEmployer;
+}
+
+// ══ RECIPIENT BAR ══
+function updateRecipientBar() {
+  var noBar  = document.getElementById('noRecipientBar');
+  var infoBar= document.getElementById('recipientInfoBar');
+  var rec    = getActiveRecipient();
+  if (!rec || !rec._selectedPhone) {
+    noBar.style.display = '';
+    infoBar.style.display = 'none';
+    return;
+  }
+  noBar.style.display = 'none';
+  infoBar.style.display = '';
+  var name = (rec.EFN || rec.EmployerName || rec.name || '').split('(')[0].trim() || 'Contact';
+  var initials = name.split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase();
+  document.getElementById('riAvatar').textContent = initials;
+  document.getElementById('riName').textContent   = name;
+  document.getElementById('riPhone').textContent  = rec._selectedPhone;
+  var badge = document.getElementById('riBadge');
+  if (rec.manual) { badge.style.display='inline'; } else { badge.style.display='none'; }
+}
+
+// ══ QUICK REPLIES — NEW ══
+function renderQuickReplies() {
+  var all   = DEFAULT_REPLIES.concat(customReplies);
+  var grid  = document.getElementById('quickRepliesGrid');
+  if (!grid) return;
+  grid.innerHTML = all.map(function(r, i) {
+    var short = r.length > 30 ? r.substring(0,28) + '…' : r;
+    return '<button class="reply-chip" title="' + esc(r) + '" onclick="applyReply(' + i + ')">' + esc(short) + '</button>';
+  }).join('');
+}
+
+function applyReply(index) {
+  var all  = DEFAULT_REPLIES.concat(customReplies);
+  var text = all[index];
+  if (!text) return;
+  var ta  = document.getElementById('messageText');
+  var cur = ta.value;
+  ta.value = cur ? cur + '\n' + text : text;
+  updateCharCounter(ta);
+  validateForm();
+}
+
+function toggleAddReply() {
+  var row = document.getElementById('customReplyInputRow');
+  var visible = row.classList.toggle('show');
+  if (visible) { document.getElementById('customReplyInput').focus(); }
+  else { document.getElementById('customReplyInput').value = ''; }
+}
+
+function loadQuickReplies() {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      customReplies = (result && result.data) ? result.data : [];
+      renderQuickReplies();
+    })
+    .withFailureHandler(function() {})
+    .getQuickReplies();
+}
+
+function saveCustomReply() {
+  var val = document.getElementById('customReplyInput').value.trim();
+  if (!val) return;
+  customReplies.push(val);
+  document.getElementById('customReplyInput').value = '';
+  toggleAddReply();
+  renderQuickReplies();
+  google.script.run
+    .withSuccessHandler(function(){ showToast('✅ Quick reply saved', 'success'); })
+    .withFailureHandler(function(e){ showToast('❌ Save failed: ' + e.message, 'error'); })
+    .saveQuickReplies(customReplies);
+}
+
+// ══ TEMPLATE ENGINE ══
+var assignedContacts = {};
+var pendingEmp       = null;
+var allTemplatesMap  = {};
+var activeTabID      = null;
+
+function getEmpAssignedTemplates(empID) {
+  if (pendingEmp && pendingEmp.empID === empID) return pendingEmp.templates;
+  return (assignedContacts[empID] && assignedContacts[empID].templates) ? assignedContacts[empID].templates : [];
+}
+function isTemplateAssignedToEmp(empID, templateID) {
+  return getEmpAssignedTemplates(empID).some(function(t){ return (t._mapKey||t.TemplateID) === templateID; });
+}
+
+function commitPending() {
+  if (pendingEmp && pendingEmp.templates.length > 0) {
+    assignedContacts[pendingEmp.empID] = { name: pendingEmp.name, phone: pendingEmp.phone, templates: pendingEmp.templates.slice() };
+    saveAssignedContacts();
+  }
+  pendingEmp = null;
+}
+
+function getAssignedEmpIDs() {
+  var ids = {};
+  Object.keys(assignedContacts).forEach(function(id){ ids[id] = true; });
+  return ids;
+}
+
+function toggleTemplateSelect(id) {
+  var t = allTemplatesMap[id];
+  if (!t) return;
+  if (!selectedEmployer) { showToast('Select a contact from panel 1 first', 'warn'); return; }
+  if (!selectedEmployer._selectedPhone) { showToast('Check "Message this number" first', 'warn'); return; }
+  var empID = selectedEmployer.id;
+  var name  = (selectedEmployer.EFN || selectedEmployer.EmployerName || '').split('(')[0].trim();
+  var phone = selectedEmployer._selectedPhone;
+  if (!pendingEmp || pendingEmp.empID !== empID) { pendingEmp = { empID: empID, name: name, phone: phone, templates: [] }; }
+  var card    = document.getElementById('tplcard_' + id);
+  var already = pendingEmp.templates.some(function(x){ return (x._mapKey||x.TemplateID) === id; });
+  if (!already) {
+    pendingEmp.templates.push(t);
+    if (card) card.classList.add('selected');
+    activeTabID = id;
+  } else {
+    pendingEmp.templates = pendingEmp.templates.filter(function(x){ return (x._mapKey||x.TemplateID) !== id; });
+    if (card) card.classList.remove('selected');
+    var rem = pendingEmp.templates;
+    activeTabID = rem.length > 0 ? (rem[rem.length-1]._mapKey||rem[rem.length-1].TemplateID) : null;
+  }
+  if (pendingEmp.templates.length > 0) {
+    assignedContacts[pendingEmp.empID] = { name: pendingEmp.name, phone: pendingEmp.phone, templates: pendingEmp.templates.slice() };
+  } else {
+    delete assignedContacts[pendingEmp.empID];
+    pendingEmp = null;
+  }
+  saveAssignedContacts();
+  renderTplTabs();
+  renderAssignedList();
+  renderEmployersList();
+  renderEmployerDetails(selectedEmployer.raw || selectedEmployer);
+  if (activeTabID) { var act = allTemplatesMap[activeTabID]; if (act) applyDBTemplate(act); }
+}
+
+function refreshTemplateCardsForEmp(empID) {
+  document.querySelectorAll('.tpl-panel-card').forEach(function(c){ c.classList.remove('selected'); });
+  var assigned = getEmpAssignedTemplates(empID);
+  assigned.forEach(function(t){
+    var card = document.getElementById('tplcard_' + t.TemplateID);
+    if (card) card.classList.add('selected');
+  });
+  activeTabID = assigned.length > 0 ? assigned[assigned.length-1].TemplateID : null;
+  renderTplTabs();
+}
+
+function setActiveTab(id) {
+  activeTabID = id;
+  renderTplTabs();
+  var t = allTemplatesMap[id];
+  if (!t) return;
+
+  // Insert message body into compose panel
+  var text = t.MessageBody || '';
+  var rec  = getActiveRecipient();
+  if (rec) {
+    var name = (rec.EFN || rec.EmployerName || rec.name || '').split('(')[0].trim();
+    text = text.replace(/\{EmployerName\}/g, name);
+  }
+  document.getElementById('messageText').value = text;
+  updateCharCounter(document.getElementById('messageText'));
+  validateForm();
+
+  // Switch panel 4 to Compose so user sees the loaded text
+  switchSubtab('compose');
+  showToast('📝 ' + (t.TemplateName||'Template') + ' loaded into compose', 'success');
+
+  // Show assigned contacts in panel 1
+  renderTemplateContactsInPanel2(t);
+}
+
+function renderTemplateContactsInPanel2(t) {
+  var tkey = t._mapKey || t.TemplateID;
+  var contacts = [];
+  Object.keys(assignedContacts).forEach(function(eid) {
+    var rec = assignedContacts[eid];
+    if (rec.templates.some(function(x){ return (x._mapKey||x.TemplateID) === tkey; }))
+      contacts.push({ id: eid, name: rec.name, phone: rec.phone });
+  });
+  if (pendingEmp && pendingEmp.templates.some(function(x){ return (x._mapKey||x.TemplateID) === tkey; })) {
+    if (!contacts.find(function(c){ return c.id === pendingEmp.empID; }))
+      contacts.push({ id: pendingEmp.empID, name: pendingEmp.name, phone: pendingEmp.phone, pending: true });
+  }
+
+  var titleEl = document.getElementById('tplContactsTitle');
+  var countEl = document.getElementById('tplContactsCount');
+  if (titleEl) titleEl.textContent = t.TemplateName || '';
+  if (countEl) countEl.textContent = contacts.length + ' contact' + (contacts.length !== 1 ? 's' : '');
+
+  var list = document.getElementById('tplContactsList');
+  if (!list) return;
+
+  // ── "Message this Template" button at top ──
+  var tkeyE = esc(tkey);
+  var btnSection =
+    '<div style="padding:8px;border-bottom:1px solid var(--border);background:var(--surface);">' +
+      '<div style="font-size:9px;color:var(--text3);font-family:var(--mono);margin-bottom:5px;text-align:center;letter-spacing:0.5px;text-transform:uppercase;">📝 ' + esc(t.TemplateName||'') + '</div>' +
+      (contacts.length > 0
+        ? '<button onclick="sendTemplateToAll(\'' + tkeyE + '\')" style="width:100%;padding:9px 8px;background:var(--green);border:none;border-radius:7px;color:#000;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;justify-content:center;gap:6px;">' +
+            '⚡ Message this Template' +
+            '<span style="background:rgba(0,0,0,0.18);border-radius:6px;padding:1px 7px;font-size:10px;">' + contacts.length + '</span>' +
+          '</button>'
+        : '<div style="text-align:center;font-size:11px;color:var(--text3);padding:4px 0;">No contacts assigned yet</div>'
+      ) +
+    '</div>';
+
+  if (contacts.length === 0) {
+    list.innerHTML = btnSection + '<div class="assigned-empty">Assign employers by selecting<br>them and clicking this template.</div>';
+  } else {
+    list.innerHTML = btnSection + contacts.map(function(c) {
+      var initials = c.name.split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase();
+      var cid   = esc(c.id);
+      var cname = esc(c.name);
+      var cph   = esc(c.phone);
+      var tname = esc(t.TemplateName);
+      return '<div class="emp-row" style="cursor:pointer;" data-cid="' + cid + '" onclick="selectEmployer(this.dataset.cid)">' +
+        '<div class="emp-avatar">' + initials + '</div>' +
+        '<div class="emp-info">' +
+          '<div class="emp-name">' + cname + '</div>' +
+          '<div class="emp-meta" style="font-family:var(--mono);">' + cph + '</div>' +
+        '</div>' +
+        (c.pending ? '<span style="font-size:9px;color:var(--orange);border:1px solid var(--orange);border-radius:4px;padding:1px 4px;margin-right:2px;">pending</span>' : '') +
+        '<button data-cid="' + cid + '" data-tkey="' + tkeyE + '" data-cname="' + cname + '" data-tname="' + tname + '"' +
+          ' onclick="event.stopPropagation();confirmRemoveAssigned(this.dataset.cid,this.dataset.tkey,this.dataset.cname,this.dataset.tname)"' +
+          ' style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0 6px;" title="Remove">✕</button>' +
+      '</div>';
+    }).join('');
+  }
+  switchP1ToTplContacts();
+}
+
+function showTemplateContacts(id) {
+  var t = allTemplatesMap[id];
+  if (t) renderTemplateContactsInPanel2(t);
+}
+
+// ── Send template to ALL assigned contacts ──
+function sendTemplateToAll(tkey) {
+  var t = allTemplatesMap[tkey];
+  if (!t) return;
+
+  // Build recipient list
+  var recipients = [];
+  Object.keys(assignedContacts).forEach(function(eid) {
+    var rec = assignedContacts[eid];
+    if (rec.templates.some(function(x){ return (x._mapKey||x.TemplateID) === tkey; })) {
+      if (rec.phone) recipients.push({ id: eid, name: rec.name, phone: rec.phone });
+    }
+  });
+
+  if (recipients.length === 0) { showToast('⚠️ No contacts with phones assigned', 'error'); return; }
+
+  showMsgConfirm(
+    '⚡ Send "' + (t.TemplateName||'') + '" to ' + recipients.length + ' contact' + (recipients.length !== 1 ? 's' : '') + '?\n\n' +
+    recipients.map(function(r){ return '• ' + r.name + ' (' + r.phone + ')'; }).join('\n')
+  ).then(function(confirmed) {
+    if (!confirmed) return;
+
+    var index = 0;
+    var sent  = 0;
+    var failed = 0;
+
+    showLoading('Sending 1 of ' + recipients.length + '...');
+
+    function sendNext() {
+      if (index >= recipients.length) {
+        hideLoading();
+        showToast('✅ Sent: ' + sent + ' | Failed: ' + failed, sent > 0 ? 'success' : 'error');
+        loadMessages();
+        switchSubtab('messages');
+        return;
+      }
+      var rec  = recipients[index];
+      var name = rec.name.split('(')[0].trim();
+      var msg  = (t.MessageBody || '').replace(/\{EmployerName\}/g, name);
+
+      showLoading('Sending ' + (index+1) + ' of ' + recipients.length + ': ' + name + '...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.success) sent++; else failed++;
+          index++;
+          sendNext();
+        })
+        .withFailureHandler(function() {
+          failed++;
+          index++;
+          sendNext();
+        })
+        .sendNow({
+          recipientType: 'Employer',
+          recipientID:   rec.id,
+          recipientName: name,
+          recipientPhone: rec.phone,
+          messageText:   msg,
+          mediaURL:      '',
+          mediaType:     '',
+          sentBy:        'Admin'
+        });
+    }
+
+    sendNext();
+  });
+}
+
+function switchP1ToTplContacts() {
+  document.querySelectorAll('.p1-view').forEach(function(v){
+    v.classList.remove('active');
+    v.style.display = '';
+  });
+  document.querySelectorAll('.p1-tab').forEach(function(t){ t.classList.remove('active'); });
+  var v = document.getElementById('p1ViewTplContacts');
+  if (v) { v.classList.add('active'); v.style.display = 'flex'; }
+}
+
+function closeTplContactsView() {
+  document.querySelectorAll('.p1-view').forEach(function(v){
+    v.classList.remove('active');
+    v.style.display = '';
+  });
+  document.querySelectorAll('.p1-tab').forEach(function(t){ t.classList.remove('active'); });
+  var v = document.getElementById('p1ViewEmployers');
+  if (v) { v.classList.add('active'); v.style.display = 'flex'; }
+  var tab = document.querySelector('.p1-tab');
+  if (tab) tab.classList.add('active');
+  activeTabID = null;
+  renderTplTabs();
+}
+
+function removeAssigned(empID, templateID) {
+  if (!assignedContacts[empID]) return;
+  assignedContacts[empID].templates = assignedContacts[empID].templates.filter(function(t){ return t.TemplateID !== templateID; });
+  if (assignedContacts[empID].templates.length === 0) delete assignedContacts[empID];
+  if (selectedEmployer && selectedEmployer.id === empID) {
+    var card = document.getElementById('tplcard_' + templateID);
+    if (card) card.classList.remove('selected');
+    renderTplTabs();
+  }
+  renderAssignedList();
+  renderEmployersList();
+}
+
+// ══ RENDER ASSIGNED LIST — UPDATED: search + collapse ══
+function renderAssignedList() {
+  var list  = document.getElementById('assignedList');
+  var badge = document.getElementById('assignedBadge');
+  if (!list) return;
+  var keys  = Object.keys(assignedContacts);
+  var total = keys.length;
+  if (badge) { badge.style.display = total > 0 ? 'inline' : 'none'; badge.textContent = total; }
+
+  if (keys.length === 0) {
+    list.innerHTML = '<div class="assigned-empty">No contacts assigned yet.<br>Select a contact, then click templates.</div>';
+    return;
+  }
+
+  // Apply search filter
+  var q = assignedSearchQuery;
+  var filtered = keys.filter(function(empID) {
+    if (!q) return true;
+    var rec = assignedContacts[empID];
+    var haystack = (rec.name + ' ' + rec.phone + ' ' + rec.templates.map(function(t){ return t.TemplateName; }).join(' ')).toLowerCase();
+    return haystack.includes(q);
+  });
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="assigned-empty">No results for "' + esc(q) + '"</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(function(empID) {
+    var rec      = assignedContacts[empID];
+    var count    = rec.templates.length;
+    var initials = rec.name.split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase();
+    var isOpen   = !!assignedExpanded[empID];
+
+    var tplRows = rec.templates.map(function(t) {
+      var tkey = t._mapKey || t.TemplateID;
+      return '<div class="assigned-tpl-row">' +
+        '<span style="font-size:11px;color:var(--text2);">📝 ' + esc(t.TemplateName) + '</span>' +
+        '<button onclick="confirmRemoveAssigned(\'' + esc(empID) + '\',\'' + esc(tkey) + '\',\'' + esc(rec.name) + '\',\'' + esc(t.TemplateName) + '\')" class="assigned-remove" title="Remove">✕</button>' +
+      '</div>';
+    }).join('');
+
+    return '<div style="margin-bottom:4px;">' +
+      '<div class="assigned-contact-header' + (isOpen?' expanded':'') + '" onclick="toggleAssignedExpand(\'' + esc(empID) + '\')" >' +
+        '<span class="assigned-expand-arrow">▶</span>' +
+        '<div class="emp-avatar" style="width:24px;height:24px;font-size:9px;border-radius:50%;background:rgba(37,211,102,0.1);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--green);flex-shrink:0;">' + initials + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div class="assigned-contact-name">' + esc(rec.name) + '</div>' +
+          '<div class="assigned-contact-phone">' + esc(rec.phone) + '</div>' +
+        '</div>' +
+        '<span style="font-size:9px;font-weight:700;background:rgba(37,211,102,0.15);color:var(--green);border-radius:8px;padding:1px 5px;border:1px solid rgba(37,211,102,0.3);flex-shrink:0;">📝 ' + count + '</span>' +
+      '</div>' +
+      '<div class="assigned-tpl-rows' + (isOpen?' open':'') + '">' + tplRows + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// Toggle expand/collapse for assigned contact
+function toggleAssignedExpand(empID) {
+  assignedExpanded[empID] = !assignedExpanded[empID];
+  // Also select the employer when expanding
+  if (assignedExpanded[empID]) selectEmployer(empID);
+  renderAssignedList();
+}
+
+function confirmRemoveAssigned(empID, templateID, contactName, templateName) {
+  showUnassignConfirm(contactName, templateName, function() { removeAssigned(empID, templateID); });
+}
+
+function showUnassignConfirm(contactName, templateName, onConfirm) {
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:24px;width:320px;text-align:center;">' +
+    '<div style="font-size:22px;margin-bottom:10px;">⚠️</div>' +
+    '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px;">Remove Assignment?</div>' +
+    '<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:20px;">Unassign <strong style="color:var(--text)">' + esc(contactName) + '</strong> from <strong style="color:var(--green)">' + esc(templateName) + '</strong>?</div>' +
+    '<div style="display:flex;gap:10px;justify-content:center;">' +
+      '<button id="ucNo" style="padding:8px 20px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:12px;">Cancel</button>' +
+      '<button id="ucYes" style="padding:8px 20px;border-radius:6px;border:none;background:var(--red);color:#fff;cursor:pointer;font-size:12px;font-weight:700;">Remove</button>' +
+    '</div></div>';
+  document.body.appendChild(overlay);
+  overlay.querySelector('#ucNo').onclick  = function(){ document.body.removeChild(overlay); };
+  overlay.querySelector('#ucYes').onclick = function(){ document.body.removeChild(overlay); onConfirm(); };
+}
+
+// ══ SIMPLE CONFIRM POPUP ══
+function showMsgConfirm(text) {
+  return new Promise(function(resolve) {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:24px;max-width:320px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+    box.innerHTML =
+      '<div style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-line;margin-bottom:20px;">' + text + '</div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
+        '<button id="msgConfirmNo"  style="padding:8px 18px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text2);cursor:pointer;font-size:13px;">Cancel</button>' +
+        '<button id="msgConfirmYes" style="padding:8px 18px;background:var(--green);border:none;border-radius:6px;color:#000;font-weight:700;cursor:pointer;font-size:13px;">Confirm</button>' +
+      '</div>';
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    box.querySelector('#msgConfirmYes').onclick = function() { document.body.removeChild(overlay); resolve(true); };
+    box.querySelector('#msgConfirmNo').onclick  = function() { document.body.removeChild(overlay); resolve(false); };
+  });
+}
+
+// ══ ADVANCE TO NEXT UNASSIGNED ══
+function advanceToNextUnassigned() {
+  if (!selectedEmployer) return;
+  var assignedIDs = getAssignedEmpIDs();
+  var currentID   = selectedEmployer.id;
+  var idx = filteredEmployers.findIndex(function(e){
+    return String(e.EmployerID || e.RowIndex || '') === currentID;
+  });
+  if (idx === -1) return;
+  for (var i = idx + 1; i < filteredEmployers.length; i++) {
+    var id = String(filteredEmployers[i].EmployerID || filteredEmployers[i].RowIndex || '');
+    if (!assignedIDs[id]) {
+      var page = Math.floor(i / PAGE_SIZE) + 1;
+      if (page !== currentPage) { currentPage = page; }
+      selectEmployer(id);
+      return;
+    }
+  }
+}
+
+function saveAssignedContacts() {
+  google.script.run
+    .withSuccessHandler(function(){})
+    .withFailureHandler(function(e){ console.error('Save assignments failed:', e.message); })
+    .saveMessagingAssignments(assignedContacts);
+}
+
+function loadAssignedContacts() {
+  pendingEmp = null;
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result && result.data && Object.keys(result.data).length > 0) {
+        assignedContacts = result.data;
+        renderAssignedList();
+        renderEmployersList();
+        renderTplTabs();
+      }
+    })
+    .withFailureHandler(function(e){ console.error('Load assignments failed:', e.message); })
+    .getMessagingAssignments();
+}
+
+function renderTplTabs() {
+  var bar = document.getElementById('tplTabsBar');
+  if (!bar) return;
+  var allTpls = Object.values(allTemplatesMap);
+  if (allTpls.length === 0) { bar.innerHTML = ''; return; }
+  function countForTpl(mapKey) {
+    var n = 0;
+    Object.keys(assignedContacts).forEach(function(eid) {
+      if (assignedContacts[eid].templates.some(function(t){ return (t._mapKey||t.TemplateID) === mapKey; })) n++;
+    });
+    return n;
+  }
+  function isAssignedToSelected(mapKey) {
+    if (!selectedEmployer) return false;
+    var empID = selectedEmployer.id;
+    if (!assignedContacts[empID]) return false;
+    return assignedContacts[empID].templates.some(function(t){ return (t._mapKey||t.TemplateID) === mapKey; });
+  }
+  bar.innerHTML = allTpls.map(function(t) {
+    var key   = t._mapKey || t.TemplateID;
+    var count = countForTpl(key);
+    var isSel = isAssignedToSelected(key);
+    var hasAny= count > 0;
+    var cls   = 'tpl-tab' + (isSel ? ' active' : (hasAny ? ' has-contacts' : ''));
+    var html  = '<button class="' + cls + '" data-id="' + key + '" onclick="setActiveTab(this.dataset.id)">';
+    html += '<span class="tpl-tab-dot"></span>';
+    html += '<span>' + escHtml(t.TemplateName || key) + '</span>';
+    if (count > 0) {
+      html += '<span onclick="event.stopPropagation();showTemplateContacts(\'' + key + '\')" ' +
+        'title="View assigned contacts" ' +
+        'style="background:rgba(37,211,102,0.2);color:var(--green);font-size:9px;font-weight:700;border-radius:8px;padding:1px 5px;margin-left:4px;cursor:pointer;border:1px solid rgba(37,211,102,0.3);">' +
+        count + ' 👥</span>';
+    }
+    return html + '</button>';
+  }).join('');
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ══ LOAD DB TEMPLATES ══
+function loadDBTemplates() {
+  var list = document.getElementById('tplPanelList');
+  if (list) list.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:16px;text-align:center;">Loading...</div>';
+  google.script.run
+    .withSuccessHandler(function(result) {
+      var list = document.getElementById('tplPanelList');
+      var cnt  = document.getElementById('tplCount');
+      var templates = [];
+      if (result && result.data) templates = result.data;
+      else if (Array.isArray(result)) templates = result;
+      var active = templates.filter(function(t) { return t.Active === true || t.Active === 'true' || t.Active === 'TRUE'; });
+      if (cnt) cnt.textContent = active.length;
+      if (!list) return;
+      if (templates.length === 0) { list.innerHTML = '<div style="color:var(--orange);font-size:11px;padding:16px;text-align:center;">No templates returned.</div>'; return; }
+      if (active.length === 0) { list.innerHTML = '<div style="color:var(--text3);font-size:11px;padding:16px;text-align:center;">Found ' + templates.length + ' templates but none active.</div>'; return; }
+      allTemplatesMap = {};
+      active.forEach(function(t, i) {
+        var key = t.TemplateID;
+        if (allTemplatesMap[key]) key = key + '_' + i;
+        t._mapKey = key;
+        allTemplatesMap[key] = t;
+      });
+      list.innerHTML = '<div class="tpl-panel-grid">' + active.map(function(t) {
+        var key      = t._mapKey || t.TemplateID;
+        var ruleHtml = buildTplRuleStrip(t);
+        return '<div class="tpl-panel-card" id="tplcard_' + key + '" data-id="' + key + '">' +
+          '<div class="tpl-card-top" onclick="toggleTemplateSelect(\'' + key + '\')">' +
+            '<div class="tpl-sel-check">✓</div>' +
+            '<div style="flex:1;min-width:0;"><div class="tpl-panel-name">' + esc(t.TemplateName || '') + '</div><div class="tpl-panel-cat">' + esc(t.Category || '') + '</div></div>' +
+          '</div>' +
+          '<div class="tpl-rule-strip">' + ruleHtml + '</div>' +
+          '<div class="tpl-panel-tooltip">' + esc(t.MessageBody || '(empty)') + '</div>' +
+        '</div>';
+      }).join('') + '</div>';
+      // Sync quick templates grid
+      var grid = document.getElementById('quickTemplatesGrid');
+      if (grid && active.length > 0) {
+        var icons = ['📋','⚠️','✈️','📝','💬','🔔','📅','✅'];
+        var quickHtml = active.slice(0, 4).map(function(t, i) {
+          var key = t._mapKey || t.TemplateID;
+          return '<div class="tpl-card" onclick="applyDBTemplate(allTemplatesMap[\'' + key + '\'])">' +
+            '<div class="tpl-icon">' + (icons[i]||'📝') + '</div>' +
+            '<div class="tpl-name">' + esc(t.TemplateName || '') + '</div>' +
+            '<div class="tpl-desc">' + esc((t.Category||t.TriggerEvent||'').substring(0,15)) + '</div>' +
+          '</div>';
+        }).join('');
+        quickHtml += '<div class="tpl-card" onclick="applyTemplate(\'custom\')"><div class="tpl-icon">💬</div><div class="tpl-name">Custom</div><div class="tpl-desc">Write your own</div></div>';
+        grid.innerHTML = quickHtml;
+      }
+      renderTplTabs();
+      if (selectedEmployer) refreshTemplateCardsForEmp(selectedEmployer.id);
+      renderAssignedList();
+    })
+    .withFailureHandler(function(e) {
+      var list = document.getElementById('tplPanelList');
+      if (list) list.innerHTML = '<div style="color:var(--red);font-size:12px;padding:16px;text-align:center;">Failed: ' + e.message + '</div>';
+    })
+    .getTemplatesPublic();
+}
+
+var TRIGGER_META = {
+  'Manual':         { icon: '✍️', label: 'Manual',     cls: 'manual' },
+  'Birthday':       { icon: '🎂', label: 'Birthday',   cls: 'birthday' },
+  'Anniversary':    { icon: '💍', label: 'Anniversary',cls: 'anniversary' },
+  'PassportExpiry': { icon: '⚠️', label: 'Passport',   cls: 'passport' },
+  'DocumentReady':  { icon: '📋', label: 'Doc Ready',  cls: 'document' },
+  'WorkerArrival':  { icon: '✈️', label: 'Arrival',    cls: 'arrival' },
+  'Scheduled':      { icon: '📅', label: 'Scheduled',  cls: 'scheduled' }
+};
+
+function buildTplRuleStrip(t) {
+  var parts = [];
+  var trigger = t.TriggerEvent || 'Manual';
+  var tm = TRIGGER_META[trigger] || TRIGGER_META['Manual'];
+  parts.push('<span class="tpl-rbadge ' + tm.cls + '">' + tm.icon + ' ' + tm.label + '</span>');
+  if (t.RecipientType && t.RecipientType !== 'All') parts.push('<span class="tpl-rbadge">👥 ' + esc(t.RecipientType) + '</span>');
+  if (t.DaysBefore && String(t.DaysBefore) !== '0' && String(t.DaysBefore) !== '') parts.push('<span class="tpl-rbadge manual">-' + t.DaysBefore + 'd</span>');
+  if (t.DaysAfter  && String(t.DaysAfter)  !== '0' && String(t.DaysAfter)  !== '') parts.push('<span class="tpl-rbadge manual">+' + t.DaysAfter  + 'd</span>');
+  if (t.SendOnce === true || t.SendOnce === 'true' || t.SendOnce === 'TRUE') parts.push('<span class="tpl-rbadge manual">1× only</span>');
+  if (t.MinDaysBetween && String(t.MinDaysBetween) !== '0' && String(t.MinDaysBetween) !== '') parts.push('<span class="tpl-rbadge manual">↻ ' + t.MinDaysBetween + 'd</span>');
+  if (t.RequiredField) { String(t.RequiredField).split(',').map(function(f){ return f.trim(); }).filter(Boolean).forEach(function(f){ parts.push('<span class="tpl-rbadge manual">🔒 ' + esc(f) + '</span>'); }); }
+  return parts.join('');
+}
+
+function applyDBTemplate(t) {
+  if (!t) return;
+  var text = t.MessageBody || '';
+  var rec  = getActiveRecipient();
+  if (rec) {
+    var name = (rec.EFN || rec.EmployerName || rec.name || '').split('(')[0].trim();
+    text = text.replace(/\{EmployerName\}/g, name);
+  }
+  document.getElementById('messageText').value = text;
+  updateCharCounter(document.getElementById('messageText'));
+  switchSubtab('compose');
+  validateForm();
+}
+
+function applyTemplate(key) {
+  var t = TEMPLATES[key]; if (!t) return;
+  var rec  = getActiveRecipient();
+  var name = rec ? (rec.EFN || rec.EmployerName || rec.name || 'Employer').split('(')[0].trim() : '[Employer Name]';
+  var text = t.text.replace(/{EmployerName}/g, name);
+  document.getElementById('messageText').value = text;
+  updateCharCounter(document.getElementById('messageText'));
+  validateForm();
+}
+
+// ══ PANEL 1 TABS ══
+function switchP1Tab(view, el) {
+  // Clear ALL views — both class and inline style
+  document.querySelectorAll('.p1-view').forEach(function(v){
+    v.classList.remove('active');
+    v.style.display = '';
+  });
+  document.querySelectorAll('.p1-tab').forEach(function(t){ t.classList.remove('active'); });
+  el.classList.add('active');
+  var target = document.getElementById('p1View' + view.charAt(0).toUpperCase() + view.slice(1));
+  if (target) { target.classList.add('active'); target.style.display = 'flex'; }
+}
+
+// ══ LOAD MESSAGES ══
+function loadMessages() {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      allMessages = (result && result.data) ? result.data : [];
+      msgCurrentPage = 1;
+      try { renderMessages(); } catch(e) { console.error('renderMessages crashed:', e.message); }
+      try { updateStats(); } catch(e) { console.error('updateStats crashed:', e.message); }
+    })
+    .withFailureHandler(function(e) { showToast('❌ ' + e.message, 'error'); })
+    .getMessages();
+}
+
+// ══ RENDER MESSAGES — UPDATED: pagination ══
+function renderMessages() {
+  var search = document.getElementById('msgSearch').value.toLowerCase();
+  var filtered = allMessages.filter(function(m) {
+    if (statusFilter !== 'all' && (m.Status || '').toString().trim() !== statusFilter) return false;
+    if (search && !(String(m.RecipientName||'')+String(m.RecipientPhone||'')+String(m.MessageText||'')).toLowerCase().includes(search)) return false;
+    return true;
+  });
+  filtered.sort(function(a,b){
+    var da = new Date(a.CreatedDate); var db = new Date(b.CreatedDate);
+    if (isNaN(da)) da = new Date(0); if (isNaN(db)) db = new Date(0);
+    return db - da;
+  });
+
+  // Pagination
+  var total      = filtered.length;
+  var totalPages = Math.ceil(total / MSG_PAGE_SIZE) || 1;
+  if (msgCurrentPage > totalPages) msgCurrentPage = 1;
+  var start     = (msgCurrentPage - 1) * MSG_PAGE_SIZE;
+  var pageItems = filtered.slice(start, start + MSG_PAGE_SIZE);
+
+  var tbody = document.getElementById('messagesTableBody');
+  if (!pageItems.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">💬</div><div class="empty-title">No messages found</div></div></td></tr>';
+  } else {
+    tbody.innerHTML = pageItems.map(function(m) {
+      var ini  = String(m.RecipientName||'?').split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase();
+      var st   = (m.Status||'').toString().trim();
+      var bc   = st==='Sent'?'badge-sent':st==='Failed'?'badge-failed':st==='Cancelled'?'badge-cancelled':st==='Received'?'badge-received':'badge-pending';
+      var bi   = st==='Sent'?'✅':st==='Failed'?'❌':st==='Cancelled'?'🚫':st==='Received'?'📥':'⏳';
+      var mid  = esc(m.MessageID||'');
+      var isEx = !!expandedMsgIDs[m.MessageID];
+      var isIncoming = st === 'Received';
+      var rowBg = isIncoming ? 'background:rgba(59,130,246,0.04);' : '';
+      var body = String(m.MessageText||'').trim();
+      var preview = body.length > 50 ? body.substring(0,48)+'…' : body;
+      var arrow = '<span style="font-size:9px;color:var(--text3);margin-right:4px;display:inline-block;transition:transform 0.2s;transform:rotate('+(isEx?'90':'0')+'deg);">▶</span>';
+      var mainRow = '<tr style="cursor:pointer;'+rowBg+'" onclick="toggleMsgExpand(\''+mid+'\')">' +
+        '<td><div class="msg-recipient">' +
+          '<div class="msg-avatar" style="'+(isIncoming?'background:rgba(59,130,246,0.15);border-color:var(--blue);color:var(--blue);':'')+'">'+ini+'</div>' +
+          '<div><div class="msg-name">'+esc(m.RecipientName)+'</div><div class="msg-phone">'+esc(m.RecipientPhone)+'</div></div>' +
+        '</div></td>' +
+        '<td><div class="msg-text">'+arrow+(isIncoming?'<span style="font-size:9px;color:var(--blue);font-weight:700;margin-right:3px;">IN</span>':'')+esc(preview)+'</div></td>' +
+        '<td><span class="badge '+bc+'">'+bi+' '+st+'</span></td>' +
+        '<td class="msg-date">'+formatDate(m.ScheduledDate)+(m.ScheduledTime?' '+m.ScheduledTime:'')+'</td>' +
+        '<td class="msg-date">'+(m.SentDate?formatDate(m.SentDate):'—')+'</td>' +
+        '<td onclick="event.stopPropagation()"><div class="msg-actions">' +
+          (st==='Failed'?'<button class="action-btn resend" onclick="retrySend(\''+mid+'\')" title="Retry">🔄</button>':'') +
+          (st==='Pending'?'<button class="action-btn del" onclick="deleteMsg(\''+mid+'\')" title="Cancel">🗑️</button>':'') +
+          (isIncoming?'<button class="action-btn" onclick="replyToIncoming(\''+esc(m.RecipientPhone)+'\',\''+esc(m.RecipientName)+'\')" title="Reply" style="color:var(--green);">↩️</button>':'') +
+        '</div></td></tr>';
+      var expandRow = isEx
+        ? '<tr id="expand_'+mid+'" style="background:'+(isIncoming?'rgba(59,130,246,0.05)':'rgba(37,211,102,0.03)')+';">' +
+            '<td colspan="6" style="padding:0 12px 12px 50px;">' +
+              '<div style="background:var(--bg);border:1px solid '+(isIncoming?'rgba(59,130,246,0.2)':'rgba(37,211,102,0.2)')+';border-radius:8px;padding:12px 14px;font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap;font-family:var(--sans);">' +
+                (body || '<em style="color:var(--text3);">No message body</em>') +
+              '</div>' +
+              (m.MediaURL ? '<div style="margin-top:6px;font-size:11px;color:var(--blue);">📎 <a href="'+esc(m.MediaURL)+'" target="_blank" style="color:var(--blue);">View attached media</a></div>' : '') +
+              (m.ErrorMessage ? '<div style="margin-top:6px;font-size:11px;color:var(--red);">⚠️ Error: '+esc(m.ErrorMessage)+'</div>' : '') +
+            '</td>' +
+          '</tr>'
+        : '';
+      return mainRow + expandRow;
+    }).join('');
+  }
+
+  // Render pagination bar
+  var bar     = document.getElementById('msgPaginationBar');
+  var info    = document.getElementById('msgPageInfo');
+  var btnsCon = document.getElementById('msgPageBtns');
+  if (totalPages <= 1) {
+    bar.style.display = 'none';
+  } else {
+    bar.style.display = 'flex';
+    info.textContent  = 'Page ' + msgCurrentPage + ' of ' + totalPages + ' (' + total + ' messages)';
+    var btnsHtml = '<button class="page-btn" onclick="goMsgPage(1)" '+(msgCurrentPage===1?'disabled':'')+' title="First">«</button>' +
+      '<button class="page-btn" onclick="goMsgPage('+(msgCurrentPage-1)+')" '+(msgCurrentPage===1?'disabled':'')+'>‹</button>';
+    // Show up to 5 page numbers
+    var startP = Math.max(1, msgCurrentPage - 2);
+    var endP   = Math.min(totalPages, startP + 4);
+    for (var p = startP; p <= endP; p++) {
+      btnsHtml += '<button class="page-btn' + (p===msgCurrentPage?' active':'') + '" onclick="goMsgPage('+p+')">' + p + '</button>';
+    }
+    btnsHtml += '<button class="page-btn" onclick="goMsgPage('+(msgCurrentPage+1)+')" '+(msgCurrentPage===totalPages?'disabled':'')+'>›</button>' +
+      '<button class="page-btn" onclick="goMsgPage('+totalPages+')" '+(msgCurrentPage===totalPages?'disabled':'')+' title="Last">»</button>';
+    btnsCon.innerHTML = btnsHtml;
+  }
+
+  renderScheduled(filtered.filter(function(m){ return (m.Status||'').toString().trim()==='Pending'; }));
+  try { updateStats(); } catch(e) { console.error('updateStats:', e.message); }
+}
+
+function goMsgPage(p) { msgCurrentPage = p; renderMessages(); }
+
+// ══ RENDER INBOX ══
+function renderInbox() {
+  var search  = (document.getElementById('inboxSearch').value || '').toLowerCase();
+  var received = allMessages.filter(function(m){
+    var st = (m.Status||'').toString().trim();
+    if (st !== 'Received') return false;
+    if (search && !(String(m.RecipientName||'')+String(m.RecipientPhone||'')+String(m.MessageText||'')).toLowerCase().includes(search)) return false;
+    return true;
+  });
+  received.sort(function(a,b){ return new Date(b.SentDate||b.CreatedDate) - new Date(a.SentDate||a.CreatedDate); });
+
+  var tbody = document.getElementById('inboxTableBody');
+  if (!received.length) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">📥</div><div class="empty-title">No incoming messages yet</div></div></td></tr>';
+    return;
+  }
+  var expandedInbox = {};
+  tbody.innerHTML = received.map(function(m) {
+    var ini  = String(m.RecipientName||'?').split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase();
+    var mid  = esc(m.MessageID||'');
+    var body = String(m.MessageText||'').trim();
+    var preview = body.length > 60 ? body.substring(0,58)+'…' : body;
+    var isEx = !!expandedMsgIDs['ibx_'+m.MessageID];
+    var arrow = '<span style="font-size:9px;color:var(--text3);margin-right:4px;display:inline-block;transition:transform 0.2s;transform:rotate('+(isEx?'90':'0')+'deg);">▶</span>';
+    var mainRow = '<tr style="cursor:pointer;background:rgba(59,130,246,0.03);" onclick="toggleInboxExpand(\''+mid+'\')">' +
+      '<td><div class="msg-recipient">' +
+        '<div class="msg-avatar" style="background:rgba(59,130,246,0.15);border-color:var(--blue);color:var(--blue);">'+ini+'</div>' +
+        '<div><div class="msg-name">'+esc(String(m.RecipientName||'Unknown'))+'</div><div class="msg-phone">'+esc(String(m.RecipientPhone||''))+'</div></div>' +
+      '</div></td>' +
+      '<td><div class="msg-text">'+arrow+esc(preview)+'</div></td>' +
+      '<td class="msg-date">'+(m.SentDate ? formatDate(m.SentDate) : formatDate(m.CreatedDate))+'</td>' +
+      '<td onclick="event.stopPropagation()"><div class="msg-actions">' +
+        '<button class="action-btn" onclick="replyToIncoming(\''+esc(String(m.RecipientPhone||''))+'\',\''+esc(String(m.RecipientName||''))+'\''+')" title="Reply" style="color:var(--green);border-color:rgba(37,211,102,0.3);">↩️</button>' +
+      '</div></td>' +
+    '</tr>';
+    var expandRow = isEx
+      ? '<tr style="background:rgba(59,130,246,0.05);">' +
+          '<td colspan="4" style="padding:0 12px 12px 50px;">' +
+            '<div style="background:var(--bg);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap;font-family:var(--sans);">' +
+              (body || '<em style="color:var(--text3);">No message body</em>') +
+            '</div>' +
+            (m.MediaURL ? '<div style="margin-top:6px;font-size:11px;color:var(--blue);">📎 <a href="'+esc(m.MediaURL)+'" target="_blank" style="color:var(--blue);">View media</a></div>' : '') +
+          '</td>' +
+        '</tr>'
+      : '';
+    return mainRow + expandRow;
+  }).join('');
+}
+
+function toggleInboxExpand(id) {
+  expandedMsgIDs['ibx_'+id] = !expandedMsgIDs['ibx_'+id];
+  renderInbox();
+}
+
+// Quick reply to an incoming message — pre-fills compose with that contact
+function replyToIncoming(phone, name) {
+  // Set as manual recipient
+  document.getElementById('manualPhone').value = phone;
+  document.getElementById('manualName').value  = name || phone;
+  handleManualNumber();
+  switchSubtab('compose');
+  showToast('↩️ Replying to ' + (name||phone), 'success');
+}
+
+function toggleMsgExpand(id) {
+  expandedMsgIDs[id] = !expandedMsgIDs[id];
+  renderMessages();
+}
+
+function toggleSchExpand(id) {
+  expandedMsgIDs['sch_'+id] = !expandedMsgIDs['sch_'+id];
+  // re-render scheduled only — pull pending from allMessages
+  renderScheduled(allMessages.filter(function(m){ return (m.Status||'').toString().trim()==='Pending'; }));
+}
+
+function renderScheduled(pending) {
+  var tbody = document.getElementById('scheduledTableBody');
+  if (!pending.length) { tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No scheduled messages</div></div></td></tr>'; return; }
+  pending.sort(function(a,b){ return new Date(a.ScheduledDate)-new Date(b.ScheduledDate); });
+  tbody.innerHTML = pending.map(function(m) {
+    var ini  = String(m.RecipientName||'?').split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase();
+    var mid  = esc(m.MessageID||'');
+    var isEx = !!expandedMsgIDs['sch_'+m.MessageID];
+    var body = String(m.MessageText||'').trim();
+    var preview = body.length > 50 ? body.substring(0,48)+'…' : body;
+    var arrow = '<span style="font-size:9px;color:var(--text3);margin-right:4px;display:inline-block;transition:transform 0.2s;transform:rotate('+(isEx?'90':'0')+'deg);">▶</span>';
+    var mainRow = '<tr style="cursor:pointer;" onclick="toggleSchExpand(\''+mid+'\')">' +
+      '<td><div class="msg-recipient"><div class="msg-avatar">'+ini+'</div><div><div class="msg-name">'+esc(m.RecipientName)+'</div></div></div></td>' +
+      '<td><div class="msg-text">'+arrow+esc(preview)+'</div></td>' +
+      '<td class="msg-date">'+formatDate(m.ScheduledDate)+'</td>' +
+      '<td class="msg-date">'+(m.ScheduledTime||'09:00')+'</td>' +
+      '<td onclick="event.stopPropagation()"><button class="action-btn del" onclick="deleteMsg(\''+mid+'\')" title="Cancel">🗑️</button></td></tr>';
+    var expandRow = isEx
+      ? '<tr style="background:rgba(245,158,11,0.03);">' +
+          '<td colspan="5" style="padding:0 12px 12px 50px;">' +
+            '<div style="background:var(--bg);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap;font-family:var(--sans);">' +
+              (body || '<em style="color:var(--text3);">No message body</em>') +
+            '</div>' +
+            (m.MediaURL ? '<div style="margin-top:6px;font-size:11px;color:var(--blue);">📎 <a href="'+esc(m.MediaURL)+'" target="_blank" style="color:var(--blue);">View attached media</a></div>' : '') +
+          '</td>' +
+        '</tr>'
+      : '';
+    return mainRow + expandRow;
+  }).join('');
+}
+
+function updateStats() {
+  try {
+    var p=0,s=0,f=0,r=0;
+    allMessages.forEach(function(m){
+      var st = String(m.Status||'').trim();
+      if(st==='Pending')p++;
+      else if(st==='Sent')s++;
+      else if(st==='Failed')f++;
+      else if(st==='Received')r++;
+    });
+    document.getElementById('statTotal').textContent   = allMessages.length;
+    document.getElementById('statPending').textContent = p;
+    document.getElementById('statSent').textContent    = s;
+    document.getElementById('statFailed').textContent  = f;
+    document.getElementById('badgeAll').textContent       = allMessages.length;
+    document.getElementById('badgeScheduled').textContent = p;
+    var bi = document.getElementById('badgeInbox');
+    if (bi) bi.textContent = r;
+    var inboxTab = document.getElementById('subtabInbox');
+    if (inboxTab) inboxTab.style.color = r > 0 ? 'var(--blue)' : '';
+  } catch(e) {
+    console.error('updateStats error:', e.message);
+  }
+}
+
+// ══ SEND TYPE ══
+function setSendType(type) {
+  sendType=type;
+  document.getElementById('btnSendNow').classList.toggle('active',type==='now');
+  document.getElementById('btnSendSchedule').classList.toggle('active',type==='schedule');
+  document.getElementById('scheduleFields').classList.toggle('show',type==='schedule');
+  document.getElementById('sendBtnIcon').textContent=type==='now'?'⚡':'📅';
+  document.getElementById('sendBtnLabel').textContent=type==='now'?'Send Now':'Schedule';
+}
+
+// ══ SEND ══
+function sendMessage() {
+  var rec = getActiveRecipient();
+  if (!rec || !rec._selectedPhone) { showToast('⚠️ Select a recipient or enter a number below', 'error'); return; }
+  var text = document.getElementById('messageText').value.trim();
+  if (!text && !mediaURL && !mediaFile) { showToast('⚠️ Enter a message or attach media', 'error'); return; }
+  if (sendType==='schedule') {
+    var date = document.getElementById('scheduleDate').value;
+    if (!date) { showToast('⚠️ Select a schedule date', 'error'); return; }
+    scheduleOne(text, date, document.getElementById('scheduleTime').value);
+  } else {
+    sendNowOne(text);
+  }
+}
+
+function sendNowOne(text) {
+  var rec   = getActiveRecipient();
+  var name  = (rec.EFN || rec.EmployerName || rec.name || '').split('(')[0].trim();
+  var phone = rec._selectedPhone || rec.MobileNumber || rec.phone || '';
+  var msg   = text.replace(/{EmployerName}/g, name);
+  var filesToSend = (mediaFiles && mediaFiles.length > 0) ? mediaFiles : (mediaFile ? [mediaFile] : []);
+
+  if (filesToSend.length > 0) {
+    var uploaded = []; var index = 0;
+    showLoading('Uploading photo 1 of ' + filesToSend.length + '...');
+    function uploadNext() {
+      if (index >= filesToSend.length) {
+        var si = 0;
+        function sendNext() {
+          if (si >= uploaded.length) { hideLoading(); showToast('✅ Sent ' + uploaded.length + ' message(s) to ' + name + '!', 'success'); clearForm(); loadMessages(); switchSubtab('messages'); return; }
+          var isFirst = (si === 0);
+          showLoading('Sending message ' + (si+1) + ' of ' + uploaded.length + '...');
+          google.script.run
+            .withSuccessHandler(function(){ si++; sendNext(); })
+            .withFailureHandler(function(e){ showToast('❌ Message '+(si+1)+' failed: '+e.message,'error'); si++; sendNext(); })
+            .sendNow({ recipientType:'Employer', recipientID:rec.EmployerID||rec.id, recipientName:name, recipientPhone:phone, messageText:isFirst?msg:'', mediaURL:uploaded[si].url, mediaType:uploaded[si].type, sentBy:'Admin' });
+        }
+        sendNext(); return;
+      }
+      var file = filesToSend[index]; showLoading('Uploading photo ' + (index+1) + ' of ' + filesToSend.length + '...');
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var base64 = e.target.result.split(',')[1];
+        google.script.run
+          .withSuccessHandler(function(result) { if (result && result.success) { uploaded.push({ url: result.publicUrl, type: file.type }); } else { showToast('⚠️ Failed to upload: ' + file.name, 'error'); } index++; uploadNext(); })
+          .withFailureHandler(function(e) { showToast('❌ Upload error: ' + e.message, 'error'); index++; uploadNext(); })
+          .uploadMediaToDrive({ fileName: file.name, mimeType: file.type, base64: base64 });
+      };
+      reader.readAsDataURL(file);
+    }
+    uploadNext(); return;
+  }
+
+  showLoading('Sending to ' + name + '...');
+  google.script.run
+    .withSuccessHandler(function(){ hideLoading(); showToast('✅ Sent to ' + name + '!', 'success'); clearForm(); loadMessages(); switchSubtab('messages'); })
+    .withFailureHandler(function(e){ hideLoading(); showToast('❌ ' + e.message, 'error'); })
+    .sendNow({ recipientType: rec.manual ? 'Manual' : 'Employer', recipientID: rec.EmployerID||rec.id||'', recipientName: name, recipientPhone: phone, messageText: msg, mediaURL: mediaURL||'', mediaType: mediaURL?'url':'', sentBy:'Admin' });
+}
+
+function scheduleOne(text, date, time) {
+  var rec = getActiveRecipient();
+  var name  = (rec.EFN || rec.EmployerName || rec.name || '').split('(')[0].trim();
+  var phone = rec._selectedPhone || rec.phone || '';
+  var msg   = text.replace(/{EmployerName}/g, name);
+  showLoading('Scheduling for ' + date + '...');
+  google.script.run
+    .withSuccessHandler(function(){ hideLoading(); showToast('📅 Scheduled for '+date,'success'); clearForm(); loadMessages(); switchSubtab('scheduled'); })
+    .withFailureHandler(function(e){ hideLoading(); showToast('❌ '+e.message,'error'); })
+    .scheduleMessage({ recipientType: rec.manual ? 'Manual' : 'Employer', recipientID: rec.EmployerID||rec.id||'', recipientName: name, recipientPhone: phone, messageText: msg, mediaURL: mediaURL||'', mediaType: mediaFile?mediaFile.type:(mediaURL?'url':''), scheduledDate: date, scheduledTime: time, sentBy:'Admin' });
+}
+
+function deleteMsg(id){ if(!confirm('Cancel this message?'))return; google.script.run.withSuccessHandler(function(){showToast('🗑️ Cancelled','success');loadMessages();}).withFailureHandler(function(e){showToast('❌ '+e.message,'error');}).deleteMessage({messageID:id}); }
+function retrySend(id){ var m=allMessages.find(function(x){return x.MessageID===id;}); if(!m)return; showLoading('Retrying...'); google.script.run.withSuccessHandler(function(){hideLoading();showToast('✅ Resent!','success');loadMessages();}).withFailureHandler(function(e){hideLoading();showToast('❌ '+e.message,'error');}).sendNow({recipientType:m.RecipientType,recipientID:m.RecipientID,recipientName:m.RecipientName,recipientPhone:m.RecipientPhone,messageText:m.MessageText,mediaURL:m.MediaURL||'',sentBy:'Admin'}); }
+function processPending(){ if(!confirm('Process all pending messages?'))return; showLoading('Processing...'); google.script.run.withSuccessHandler(function(r){hideLoading();showToast('✅ Sent: '+r.sent+', Failed: '+r.failed,'success');loadMessages();}).withFailureHandler(function(e){hideLoading();showToast('❌ '+e.message,'error');}).processPendingMessages(); }
+
+// ══ MEDIA ══
+function handleMediaFile(input){ if(!input.files||!input.files.length)return; mediaFiles=Array.from(input.files); mediaFile=mediaFiles[0]; mediaURL=''; document.getElementById('mediaURLInput').value=''; var totalSize=0; mediaFiles.forEach(function(f){totalSize+=f.size;}); if(totalSize>20971520){showToast('⚠️ Total files too large (max 20MB)','error');return;} var thumb=document.getElementById('mediaThumb'); if(mediaFile.type.startsWith('image/')){var r=new FileReader();r.onload=function(e){thumb.innerHTML='<img src="'+e.target.result+'" style="width:32px;height:32px;border-radius:4px;object-fit:cover;">';};r.readAsDataURL(mediaFile);}else{thumb.textContent='📄';} var label=mediaFiles.length>1?mediaFiles.length+' files selected':mediaFile.name; document.getElementById('mediaFilename').textContent=label; document.getElementById('mediaFileSize').textContent=formatFileSize(totalSize); document.getElementById('mediaEmpty').style.display='none'; document.getElementById('mediaPreview').classList.add('show'); document.getElementById('mediaBox').classList.add('has-media'); }
+function handleMediaURL(url){ mediaURL=url; mediaFile=null; mediaFiles=[]; if(url){document.getElementById('mediaFilename').textContent='URL Link';document.getElementById('mediaThumb').textContent='🔗';document.getElementById('mediaEmpty').style.display='none';document.getElementById('mediaPreview').classList.add('show');document.getElementById('mediaBox').classList.add('has-media');}else{clearMedia(null);} }
+function clearMedia(e){ if(e)e.stopPropagation(); mediaFile=null;mediaFiles=[];mediaURL='';document.getElementById('mediaFileInput').value='';document.getElementById('mediaURLInput').value='';document.getElementById('mediaThumb').textContent='📄';document.getElementById('mediaEmpty').style.display='';document.getElementById('mediaPreview').classList.remove('show');document.getElementById('mediaBox').classList.remove('has-media'); }
+
+// ══ UI HELPERS ══
+function switchSubtab(tab){ document.querySelectorAll('.subtab').forEach(function(t){t.classList.remove('active');}); document.querySelectorAll('.subtab-content').forEach(function(c){c.classList.remove('active');}); var n=tab.charAt(0).toUpperCase()+tab.slice(1); document.getElementById('subtab'+n).classList.add('active'); document.getElementById('content'+n).classList.add('active'); if(tab==='inbox') renderInbox(); }
+function setStatusFilter(s,el){ statusFilter=s; msgCurrentPage=1; document.querySelectorAll('.filter-pills .pill').forEach(function(p){p.classList.remove('active');}); el.classList.add('active'); renderMessages(); }
+function filterMessages(){ msgCurrentPage=1; renderMessages(); }
+function updateCharCounter(el){ var l=el.value.length; var cc=document.getElementById('charCounter'); cc.textContent=l+' / 1600'; cc.classList.toggle('warn',l>1400); validateForm(); }
+function validateForm(){ var rec=getActiveRecipient(); var h=!!(rec && rec._selectedPhone); var c=document.getElementById('messageText').value.trim().length>0||mediaURL||mediaFile; document.getElementById('btnSend').disabled=!(h&&c); }
+function clearForm(){ document.getElementById('messageText').value=''; document.getElementById('charCounter').textContent='0 / 1600'; clearMedia(null); setSendType('now'); validateForm(); }
+function showLoading(t){ document.getElementById('loadingText').textContent=t||'Loading...'; document.getElementById('loadingOverlay').classList.add('show'); }
+function hideLoading(){ document.getElementById('loadingOverlay').classList.remove('show'); }
+function showToast(msg,type){ var t=document.getElementById('toast'); document.getElementById('toastMessage').textContent=msg; document.getElementById('toastIcon').textContent=type==='error'?'❌':'✅'; t.className='toast '+(type||''); t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},3500); }
+function formatDate(v){ if(!v)return'—'; var d=new Date(v); if(isNaN(d))return v; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function formatFileSize(b){ if(b<1024)return b+' B'; if(b<1048576)return(b/1024).toFixed(1)+' KB'; return(b/1048576).toFixed(1)+' MB'; }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+window.addEventListener('load', function() {
+  init();
+  // Safety net: update stats 2 seconds after load to catch any timing issues
+  setTimeout(function() {
+    if (allMessages.length > 0) updateStats();
+  }, 2000);
+  setTimeout(function() {
+    if (allMessages.length > 0) updateStats();
+  }, 4000);
+});
+</script>
+
+<!-- ══ GAS CODE BLOCK ══ -->
+<div id="gasCodeSection" style="margin:0;padding:12px 12px 0;background:var(--bg,#0d1117);">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+    <span style="font-size:12px;font-weight:700;color:var(--text,#e6edf3);">⚙️ Code.gs — Quick Replies Addition</span>
+    <span style="font-size:10px;color:var(--text3,#7d8590);">Paste into Code.gs and redeploy if you haven't already</span>
+    <button onclick="copyGasCode()" id="gasCopyBtn" style="margin-left:auto;background:var(--green,#25d366);border:none;border-radius:5px;color:#000;font-size:10px;font-weight:700;padding:4px 12px;cursor:pointer;">📋 Copy</button>
+    <button onclick="document.getElementById('gasCodeSection').style.display='none'" style="background:none;border:1px solid var(--border,#30363d);border-radius:5px;color:var(--text3,#7d8590);font-size:10px;padding:3px 8px;cursor:pointer;">✕</button>
+  </div>
+  <pre id="gasCodePre" style="margin:0;padding:12px;background:#161b22;border:1px solid #30363d;border-radius:8px;font-size:10px;font-family:'Courier New',monospace;color:#c9d1d9;overflow-x:auto;overflow-y:auto;max-height:220px;line-height:1.55;white-space:pre;">// ── Add these 2 cases to handleRequest switch ──
+// case 'saveQuickReplies': return saveQuickReplies(params.data);
+// case 'getQuickReplies':  return getQuickReplies();
+
+// ── Add these 2 functions next to saveMessagingAssignments ──
+
+function saveQuickReplies(data) {
+  try {
+    var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('MessagingAssignments');
+    if (!sheet) {
+      sheet = ss.insertSheet('MessagingAssignments');
+      sheet.getRange('A1').setValue('AssignmentsJSON');
+    }
+    sheet.getRange('B1').setValue('QuickRepliesJSON');
+    sheet.getRange('B2').setValue(JSON.stringify(data));
+    return { success: true };
+  } catch(e) { return { success: false, error: e.message }; }
+}
+
+function getQuickReplies() {
+  try {
+    var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('MessagingAssignments');
+    if (!sheet) return { success: true, data: [] };
+    var val = sheet.getRange('B2').getValue();
+    return { success: true, data: val ? JSON.parse(val) : [] };
+  } catch(e) { return { success: false, data: [] }; }
+}</pre>
+</div>
+<script>
+function copyGasCode() {
+  var text = document.getElementById('gasCodePre').textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById('gasCopyBtn');
+    btn.textContent = '✓ Copied!';
+    setTimeout(function(){ btn.textContent = '📋 Copy'; }, 2000);
+  }).catch(function() {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    var btn = document.getElementById('gasCopyBtn');
+    btn.textContent = '✓ Copied!';
+    setTimeout(function(){ btn.textContent = '📋 Copy'; }, 2000);
+  });
+}
+</script>
+</body>
+</html>
