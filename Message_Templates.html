@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Message Templates — MGSDB</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg:        #0d0f14;
+  --surface:   #141720;
+  --surface2:  #1c2030;
+  --border:    #262c3d;
+  --border2:   #323b52;
+  --text:      #e2e8f0;
+  --text2:     #8892a4;
+  --text3:     #4a5568;
+  --green:     #25d366;
+  --green-dim: #1a9e4a;
+  --blue:      #3b82f6;
+  --orange:    #f59e0b;
+  --red:       #ef4444;
+  --purple:    #a855f7;
+  --mono:      'IBM Plex Mono', monospace;
+  --sans:      'IBM Plex Sans', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+/* HEADER */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-logo { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--green); letter-spacing: 2px; }
+.header-title { font-size: 15px; font-weight: 600; }
+.header-sep { color: var(--border2); }
+.header-right { margin-left: auto; display: flex; gap: 10px; }
+
+/* LAYOUT */
+.layout {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+/* LEFT PANEL */
+.left-panel {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.panel-header h2 { font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text2); }
+
+.form-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.form-body::-webkit-scrollbar { width: 4px; }
+.form-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* FORM */
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text2); display: flex; justify-content: space-between; align-items: center; }
+.field-input, .field-select, .field-textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 10px 12px;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+.field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--green); }
+.field-input[readonly] { color: var(--text2); cursor: default; }
+.field-textarea { resize: vertical; min-height: 120px; line-height: 1.7; }
+.field-select option { background: var(--surface2); }
+
+/* Variables helper */
+.vars-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.var-chip {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--green);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.var-chip:hover { background: rgba(37,211,102,0.1); border-color: var(--green); }
+
+/* Image upload */
+.image-upload-area {
+  background: var(--bg);
+  border: 1px dashed var(--border2);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.image-upload-area:hover { border-color: var(--green); background: rgba(37,211,102,0.02); }
+.image-upload-area.has-image { border-style: solid; border-color: var(--green-dim); padding: 8px; }
+.upload-icon { font-size: 28px; margin-bottom: 8px; }
+.upload-label { font-size: 13px; color: var(--text2); }
+.upload-types { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.image-preview { width: 100%; max-height: 160px; object-fit: contain; border-radius: 6px; display: none; }
+.image-preview.show { display: block; }
+.image-clear {
+  position: absolute; top: 6px; right: 8px; color: var(--text2); cursor: pointer; font-size: 18px;
+  background: var(--surface2); border-radius: 50%; width: 24px; height: 24px;
+  display: none; align-items: center; justify-content: center; transition: color 0.2s;
+}
+.image-clear.show { display: flex; }
+.image-clear:hover { color: var(--red); }
+.or-divider { text-align: center; font-size: 11px; color: var(--text3); margin: 4px 0; }
+
+/* Active toggle */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+.toggle-label { font-size: 13px; color: var(--text); }
+.toggle-switch { position: relative; width: 44px; height: 24px; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: var(--border2); border-radius: 24px; cursor: pointer; transition: 0.3s; }
+.toggle-slider:before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+input:checked + .toggle-slider { background: var(--green); }
+input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+/* Char counter */
+.char-count { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+.char-count.warn { color: var(--orange); }
+
+/* ══════════════════════════════════════
+   RULES SECTION
+══════════════════════════════════════ */
+.rules-section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.rules-header {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: background 0.2s;
+  user-select: none;
+}
+.rules-header:hover { background: rgba(59,130,246,0.05); }
+.rules-header-left { display: flex; align-items: center; gap: 8px; }
+.rules-header-title { font-size: 12px; font-weight: 600; letter-spacing: 0.5px; color: var(--blue); }
+.rules-header-subtitle { font-size: 10px; color: var(--text3); }
+.rules-summary-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+.rules-chevron { font-size: 10px; color: var(--text3); transition: transform 0.25s; }
+.rules-chevron.open { transform: rotate(180deg); }
+
+.rules-body {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-top: 1px solid var(--border);
+}
+.rules-body.open { display: flex; }
+
+/* Two-col grid inside rules */
+.rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rules-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+/* Timing fields — hidden unless trigger requires it */
+.timing-section { display: none; }
+.timing-section.show { display: block; }
+
+/* Mini field label inside rules */
+.mini-label { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text3); margin-bottom: 5px; }
+
+/* Rules small input */
+.rules-input, .rules-select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 12px;
+  padding: 8px 10px;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+.rules-input:focus, .rules-select:focus { outline: none; border-color: var(--blue); }
+.rules-select option { background: var(--surface2); }
+.rules-input[type="number"] { font-family: var(--mono); }
+
+/* Rules info callout */
+.rules-callout {
+  background: rgba(59,130,246,0.06);
+  border: 1px solid rgba(59,130,246,0.2);
+  border-radius: 7px;
+  padding: 9px 12px;
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.6;
+}
+.rules-callout b { color: var(--blue); }
+
+/* Trigger event badge */
+.trigger-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--mono);
+  background: rgba(59,130,246,0.12);
+  color: var(--blue);
+  border: 1px solid rgba(59,130,246,0.2);
+}
+.trigger-badge.birthday   { background: rgba(245,158,11,0.12); color: var(--orange); border-color: rgba(245,158,11,0.2); }
+.trigger-badge.anniversary{ background: rgba(168,85,247,0.12); color: var(--purple); border-color: rgba(168,85,247,0.2); }
+.trigger-badge.passport   { background: rgba(239,68,68,0.12);  color: var(--red);    border-color: rgba(239,68,68,0.2); }
+.trigger-badge.document   { background: rgba(37,211,102,0.12); color: var(--green);  border-color: rgba(37,211,102,0.2); }
+.trigger-badge.arrival    { background: rgba(37,211,102,0.12); color: var(--green);  border-color: rgba(37,211,102,0.2); }
+.trigger-badge.manual     { background: rgba(74,85,104,0.2);   color: var(--text3);  border-color: var(--border); }
+.trigger-badge.scheduled  { background: rgba(245,158,11,0.12); color: var(--orange); border-color: rgba(245,158,11,0.2); }
+
+.recipient-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 7px; border-radius: 20px; font-size: 10px; font-weight: 600;
+  background: rgba(59,130,246,0.1); color: var(--blue); border: 1px solid rgba(59,130,246,0.2);
+}
+
+/* Required field tags */
+.req-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.req-tag {
+  padding: 2px 8px; border-radius: 4px; font-size: 10px; font-family: var(--mono);
+  background: var(--surface2); border: 1px solid var(--border2); color: var(--text2);
+  display: flex; align-items: center; gap: 4px; cursor: pointer;
+}
+.req-tag:hover { border-color: var(--red); color: var(--red); }
+.req-tag-add {
+  padding: 2px 8px; border-radius: 4px; font-size: 10px;
+  background: transparent; border: 1px dashed var(--border2); color: var(--text3);
+  cursor: pointer; transition: all 0.15s;
+}
+.req-tag-add:hover { border-color: var(--green); color: var(--green); }
+
+/* Panel footer */
+.panel-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+}
+
+/* BUTTONS */
+.btn {
+  border: none; border-radius: 8px; padding: 10px 18px;
+  font-family: var(--sans); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-primary { flex: 1; background: var(--green); color: #000; justify-content: center; }
+.btn-primary:hover { background: #20c85a; }
+.btn-primary:disabled { background: var(--border2); color: var(--text3); cursor: not-allowed; }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
+.btn-secondary:hover { border-color: var(--blue); color: var(--blue); }
+.btn-danger { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+.btn-danger:hover { border-color: var(--red); color: var(--red); }
+.btn-new { background: rgba(37,211,102,0.1); color: var(--green); border: 1px solid rgba(37,211,102,0.3); padding: 8px 14px; font-size: 12px; }
+.btn-new:hover { background: rgba(37,211,102,0.2); }
+.btn-migrate { background: rgba(59,130,246,0.1); color: var(--blue); border: 1px solid rgba(59,130,246,0.3); padding: 8px 14px; font-size: 12px; }
+.btn-migrate:hover { background: rgba(59,130,246,0.2); }
+
+/* RIGHT PANEL */
+.right-panel { display: flex; flex-direction: column; overflow: hidden; }
+
+/* Search/filter bar */
+.filter-bar {
+  padding: 14px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.search-wrap { position: relative; flex: 1; max-width: 300px; }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 14px; pointer-events: none; }
+.filter-search {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-family: var(--sans); font-size: 13px;
+  padding: 8px 12px 8px 34px; width: 100%;
+}
+.filter-search:focus { outline: none; border-color: var(--green); }
+.filter-pills { display: flex; gap: 6px; }
+.pill {
+  padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  cursor: pointer; border: 1px solid var(--border); background: transparent;
+  color: var(--text2); font-family: var(--sans); transition: all 0.2s;
+}
+.pill.active { background: var(--surface2); border-color: var(--border2); color: var(--text); }
+.pill.active-pill { color: var(--green); border-color: rgba(37,211,102,0.3); }
+.pill.active-pill.active { background: rgba(37,211,102,0.1); }
+.pill.inactive-pill { color: var(--text3); }
+.pill.inactive-pill.active { background: var(--surface2); color: var(--text2); }
+.count-badge { margin-left: auto; font-size: 12px; color: var(--text2); font-family: var(--mono); }
+
+/* TEMPLATES GRID */
+.templates-body { flex: 1; overflow-y: auto; padding: 20px; }
+.templates-body::-webkit-scrollbar { width: 4px; }
+.templates-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.templates-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+
+.template-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; transition: all 0.2s;
+  cursor: pointer; position: relative;
+}
+.template-card:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.template-card.selected { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.template-card.inactive { opacity: 0.5; }
+
+.card-image { width: 100%; height: 120px; object-fit: cover; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 40px; color: var(--text3); }
+.card-image img { width: 100%; height: 120px; object-fit: contain; background: var(--surface2); }
+.card-image-placeholder { width: 100%; height: 120px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 36px; overflow: hidden; }
+.card-body { padding: 14px; }
+.card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
+.card-id { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.card-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.card-preview { font-size: 12px; color: var(--text2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Rules strip on card */
+.card-rules-strip {
+  display: flex; gap: 5px; flex-wrap: wrap;
+  padding: 8px 14px; border-top: 1px solid var(--border);
+  background: rgba(59,130,246,0.03);
+}
+
+.card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.card-actions { display: flex; gap: 6px; }
+
+.badge-active { background: rgba(37,211,102,0.12); color: var(--green); padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 600; font-family: var(--mono); }
+.badge-inactive { background: rgba(74,85,104,0.2); color: var(--text3); padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 600; font-family: var(--mono); }
+
+.action-btn {
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text2); cursor: pointer; font-size: 13px;
+  display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+}
+.action-btn:hover { border-color: var(--border2); color: var(--text); }
+.action-btn.edit:hover { border-color: var(--blue); color: var(--blue); }
+.action-btn.del:hover { border-color: var(--red); color: var(--red); }
+.action-btn.toggle:hover { border-color: var(--green); color: var(--green); }
+
+/* Empty state */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; gap: 12px; color: var(--text3); }
+.empty-icon { font-size: 48px; opacity: 0.4; }
+.empty-title { font-size: 15px; font-weight: 600; color: var(--text2); }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--surface2); border: 1px solid var(--border2); border-radius: 10px;
+  padding: 14px 18px; display: flex; align-items: center; gap: 10px;
+  font-size: 13px; z-index: 9999;
+  transform: translateY(80px); opacity: 0;
+  transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-color: rgba(37,211,102,0.4); }
+.toast.error   { border-color: rgba(239,68,68,0.4); }
+
+/* Loading */
+.loading-overlay {
+  position: fixed; inset: 0; background: rgba(13,15,20,0.7);
+  display: none; align-items: center; justify-content: center;
+  z-index: 9998; flex-direction: column; gap: 16px;
+}
+.loading-overlay.show { display: flex; }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Confirm modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 9999; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px; padding: 28px; max-width: 360px; width: 90%; text-align: center; }
+.modal-icon { font-size: 40px; margin-bottom: 14px; }
+.modal-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.modal-desc { font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.6; }
+.modal-actions { display: flex; gap: 10px; }
+
+/* ══ RULES MANAGER OVERLAY ══ */
+.rm-overlay {
+  position: fixed; inset: 0; background: var(--bg); z-index: 500;
+  display: none; flex-direction: column;
+  animation: rmSlideIn 0.25s ease;
+}
+.rm-overlay.show { display: flex; }
+@keyframes rmSlideIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+.rm-header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 24px; height: 56px; display: flex; align-items: center; gap: 16px;
+  flex-shrink: 0;
+}
+.rm-header-title { font-size: 15px; font-weight: 600; }
+.rm-header-sub { font-size: 12px; color: var(--text3); }
+.rm-close {
+  margin-left: auto; background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 7px 14px; font-size: 12px; color: var(--text2);
+  cursor: pointer; font-family: var(--sans); transition: all 0.2s;
+}
+.rm-close:hover { border-color: var(--red); color: var(--red); }
+
+.rm-body { display: grid; grid-template-columns: 280px 1fr; flex: 1; overflow: hidden; }
+
+/* Left: template list */
+.rm-list {
+  background: var(--surface); border-right: 1px solid var(--border);
+  overflow-y: auto; padding: 12px 8px;
+}
+.rm-list::-webkit-scrollbar { width: 3px; }
+.rm-list::-webkit-scrollbar-thumb { background: var(--border2); }
+.rm-list-title { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text3); padding: 4px 8px 10px; }
+.rm-tpl-row {
+  padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 3px;
+  border: 1px solid transparent; transition: all 0.15s;
+}
+.rm-tpl-row:hover { background: var(--surface2); border-color: var(--border); }
+.rm-tpl-row.active { background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.3); }
+.rm-tpl-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.rm-tpl-badge { font-size: 10px; color: var(--text3); display: flex; align-items: center; gap: 4px; }
+.rm-tpl-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border2); flex-shrink: 0; }
+.rm-tpl-dot.configured { background: var(--green); }
+.rm-tpl-dot.manual { background: var(--text3); }
+
+/* Right: editor */
+.rm-editor {
+  overflow-y: auto; padding: 28px 32px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+.rm-editor::-webkit-scrollbar { width: 4px; }
+.rm-editor::-webkit-scrollbar-thumb { background: var(--border2); }
+.rm-editor-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; gap: 12px; color: var(--text3);
+}
+.rm-editor-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.rm-editor-id { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+
+.rm-section { display: flex; flex-direction: column; gap: 10px; }
+.rm-section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text2); padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 6px;
+}
+
+.rm-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rm-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.rm-field { display: flex; flex-direction: column; gap: 5px; }
+.rm-label { font-size: 11px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text3); }
+.rm-select, .rm-input {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-family: var(--sans); font-size: 13px; padding: 9px 12px;
+  transition: border-color 0.2s; width: 100%;
+}
+.rm-select:focus, .rm-input:focus { outline: none; border-color: var(--blue); }
+.rm-select option { background: var(--surface2); }
+.rm-input[type="number"] { font-family: var(--mono); }
+
+.rm-toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+}
+.rm-toggle-label { font-size: 13px; color: var(--text); }
+.rm-toggle-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+.rm-callout {
+  background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.2);
+  border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--text2); line-height: 1.6;
+}
+.rm-callout b { color: var(--blue); }
+.rm-callout.green { background: rgba(37,211,102,0.06); border-color: rgba(37,211,102,0.2); }
+.rm-callout.green b { color: var(--green); }
+
+.rm-footer {
+  padding: 16px 32px; background: var(--surface); border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+}
+.rm-save-status { font-size: 12px; color: var(--text3); font-family: var(--mono); }
+
+/* Timing section — shown/hidden by trigger */
+.rm-timing { display: none; }
+.rm-timing.show { display: contents; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <span class="header-logo">MGS</span>
+  <span class="header-sep">›</span>
+  <span class="header-title">📋 Message Templates</span>
+  <div class="header-right">
+    <button class="btn btn-migrate" onclick="migrateSheet()" title="Add new rule columns to sheet">⬆️ Migrate Sheet</button>
+    <button class="btn btn-secondary" onclick="openRulesManager()" style="padding:8px 14px;font-size:12px;" title="Manage auto-send rules for all templates">⚙️ Rules Manager</button>
+    <button class="btn btn-new" onclick="newTemplate()">+ New Template</button>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- LEFT: FORM PANEL -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <h2 id="formTitle">✍️ New Template</h2>
+      <span id="formMode" style="font-size:11px;color:var(--text3);font-family:var(--mono);">NEW</span>
+    </div>
+
+    <div class="form-body">
+
+      <!-- TEMPLATE ID (auto) -->
+      <div class="field-group">
+        <label class="field-label">Template ID <span style="color:var(--text3);font-size:10px;">Auto-generated</span></label>
+        <input type="text" class="field-input" id="fldTemplateID" readonly placeholder="TPL-001"/>
+      </div>
+
+      <!-- TEMPLATE NAME -->
+      <div class="field-group">
+        <label class="field-label">Template Name *</label>
+        <input type="text" class="field-input" id="fldTemplateName" placeholder="e.g. Documents Ready" oninput="validateForm()"/>
+      </div>
+
+      <!-- CATEGORY -->
+      <div class="field-group">
+        <label class="field-label">Category</label>
+        <select class="field-select" id="fldCategory">
+          <option value="Notification">📢 Notification</option>
+          <option value="Alert">⚠️ Alert</option>
+          <option value="Reminder">🔔 Reminder</option>
+          <option value="Welcome">👋 Welcome</option>
+          <option value="Custom">💬 Custom</option>
+        </select>
+      </div>
+
+      <!-- MESSAGE BODY -->
+      <div class="field-group">
+        <label class="field-label">
+          Message Body *
+          <span class="char-count" id="charCount">0 / 1600</span>
+        </label>
+        <textarea class="field-textarea" id="fldMessageBody"
+                  placeholder="Type your message here. Use variables below to personalize..."
+                  oninput="updateCharCount(this); validateForm()"></textarea>
+        <div style="margin-top:8px;">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">Click to insert variable:</div>
+          <div class="vars-row">
+            <span class="var-chip" onclick="insertVar('{EmployerName}')">EmployerName</span>
+            <span class="var-chip" onclick="insertVar('{WorkerName}')">WorkerName</span>
+            <span class="var-chip" onclick="insertVar('{PassportExpiry}')">PassportExpiry</span>
+            <span class="var-chip" onclick="insertVar('{DocumentType}')">DocumentType</span>
+            <span class="var-chip" onclick="insertVar('{AgencyName}')">AgencyName</span>
+            <span class="var-chip" onclick="insertVar('{AgencyPhone}')">AgencyPhone</span>
+            <span class="var-chip" onclick="insertVar('{Date}')">Date</span>
+            <span class="var-chip" onclick="insertVar('{DaysUntil}')">DaysUntil</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MESSAGE IMAGE -->
+      <div class="field-group">
+        <label class="field-label">Message Image <span style="color:var(--text3);font-size:10px;">Optional</span></label>
+        <div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageFileInput').click()">
+          <img class="image-preview" id="imagePreview" src="" alt="Preview"/>
+          <span class="image-clear" id="imageClear" onclick="clearImage(event)">✕</span>
+          <div id="imageEmpty">
+            <div class="upload-icon">🖼️</div>
+            <div class="upload-label">Click to upload image</div>
+            <div class="upload-types">JPG, PNG, GIF · Max 5MB</div>
+          </div>
+        </div>
+        <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageFile(this)"/>
+        <div class="or-divider">— or paste image URL —</div>
+        <input type="text" class="field-input" id="fldImageURL"
+               placeholder="https://drive.google.com/..."
+               oninput="handleImageURL(this.value)"/>
+      </div>
+
+      <!-- ACTIVE TOGGLE -->
+      <div class="field-group">
+        <div class="toggle-row">
+          <span class="toggle-label">🟢 Active — available in Messaging Manager</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="fldActive" checked/>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════
+           RULES & CONDITIONS
+      ══════════════════════════════════════ -->
+      <div class="rules-section">
+        <div class="rules-header" onclick="toggleRulesPanel()">
+          <div class="rules-header-left">
+            <span style="font-size:15px;">⚙️</span>
+            <div>
+              <div class="rules-header-title">Rules &amp; Conditions</div>
+              <div class="rules-header-subtitle">Auto-send settings — or use ⚙️ Rules Manager for all templates</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="rules-summary-pills" id="rulesSummaryPills"></div>
+            <span class="rules-chevron" id="rulesChevron">▼</span>
+          </div>
+        </div>
+
+        <div class="rules-body" id="rulesBody">
+
+          <!-- RECIPIENT TYPE -->
+          <div class="field-group">
+            <div class="mini-label">👥 Recipient Type</div>
+            <select class="rules-select" id="fldRecipientType" onchange="updateRulesSummary()">
+              <option value="All">🌐 All Recipients</option>
+              <option value="Employer">🏠 Employers Only</option>
+              <option value="Worker">👷 Workers Only</option>
+              <option value="Agency">🏢 Agencies Only</option>
+            </select>
+          </div>
+
+          <!-- TRIGGER EVENT -->
+          <div class="field-group">
+            <div class="mini-label">⚡ Trigger Event</div>
+            <select class="rules-select" id="fldTriggerEvent" onchange="onTriggerChange(); updateRulesSummary();">
+              <option value="Manual">✍️ Manual — send when you choose</option>
+              <option value="Birthday">🎂 Birthday — auto on employer birthday</option>
+              <option value="Anniversary">💍 Anniversary — auto on anniversary</option>
+              <option value="PassportExpiry">⚠️ Passport Expiry — N days before expiry</option>
+              <option value="IkamaExpiry">🪪 Ikama Expiry — N days before expiry</option>
+              <option value="InsuranceExpiry">🏥 Insurance Expiry — N days before expiry</option>
+              <option value="WorkPermitExpiry">📋 Work Permit Expiry — N days before expiry</option>
+              <option value="DocumentReady">📋 Document Ready — when docs prepared</option>
+              <option value="WorkerArrival">✈️ Worker Arrival — on arrival date</option>
+              <option value="Scheduled">📅 Scheduled — recurring send (e.g. New Year)</option>
+            </select>
+          </div>
+
+          <!-- TIMING — only shown for event-based triggers -->
+          <div class="timing-section" id="timingSection">
+            <div class="rules-callout" id="timingCallout" style="margin-bottom:10px;">
+              ⏰ Set how many days <b>before</b> or <b>after</b> the event this message should be sent.
+            </div>
+            <div class="rules-grid">
+              <div>
+                <div class="mini-label">📅 Days Before Event</div>
+                <input type="number" class="rules-input" id="fldDaysBefore" min="0" max="365" placeholder="e.g. 7" oninput="updateRulesSummary()"/>
+              </div>
+              <div>
+                <div class="mini-label">📅 Days After Event</div>
+                <input type="number" class="rules-input" id="fldDaysAfter" min="0" max="365" placeholder="e.g. 0" oninput="updateRulesSummary()"/>
+              </div>
+            </div>
+          </div>
+
+          <!-- FREQUENCY -->
+          <div>
+            <div class="mini-label" style="margin-bottom:8px;">🔁 Frequency Control</div>
+            <div class="toggle-row" style="margin-bottom:8px;">
+              <span class="toggle-label" style="font-size:12px;">Send Once — never repeat to same recipient</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="fldSendOnce" onchange="updateRulesSummary()"/>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div>
+              <div class="mini-label">🚫 Min. Days Between Sends</div>
+              <input type="number" class="rules-input" id="fldMinDaysBetween"
+                     min="0" max="3650" placeholder="e.g. 30 — leave blank for no limit"
+                     oninput="updateRulesSummary()"/>
+              <div style="font-size:10px;color:var(--text3);margin-top:4px;">Don't send this template to the same recipient within N days</div>
+            </div>
+          </div>
+
+          <!-- REQUIRED FIELDS -->
+          <div>
+            <div class="mini-label" style="margin-bottom:6px;">🔒 Required Fields on Recipient</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Only show this template if recipient has these fields filled:</div>
+            <div class="req-tags" id="reqTagsContainer"></div>
+            <div style="display:flex;gap:6px;margin-top:8px;align-items:center;">
+              <select class="rules-select" id="reqFieldSelect" style="flex:1;">
+                <option value="">— pick a field to require —</option>
+                <option value="BirthDate">BirthDate</option>
+                <option value="Anniversary">Anniversary</option>
+                <option value="MobileNumber">MobileNumber</option>
+                <option value="ContactNumber">ContactNumber</option>
+                <option value="EmailAddress">EmailAddress</option>
+                <option value="PassportExpiry">PassportExpiry</option>
+                <option value="City">City</option>
+                <option value="Country">Country</option>
+              </select>
+              <button class="btn btn-secondary" style="padding:7px 12px;font-size:12px;white-space:nowrap;" onclick="addRequiredField()">+ Add</button>
+            </div>
+          </div>
+
+          <!-- SUMMARY CALLOUT -->
+          <div class="rules-callout" id="rulesSummaryCallout" style="display:none;"></div>
+
+        </div>
+      </div>
+
+    </div><!-- /form-body -->
+
+    <!-- FOOTER ACTIONS -->
+    <div class="panel-footer">
+      <button class="btn btn-danger" onclick="clearForm()">🗑️ Clear</button>
+      <button class="btn btn-secondary" onclick="previewTemplate()">👁️ Preview</button>
+      <button class="btn btn-primary" id="btnSave" onclick="saveTemplate()" disabled>💾 Save Template</button>
+    </div>
+  </div>
+
+  <!-- RIGHT: TEMPLATES LIST -->
+  <div class="right-panel">
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="filter-search" id="searchInput" placeholder="Search templates..." oninput="renderTemplates()"/>
+      </div>
+      <div class="filter-pills">
+        <button class="pill active" onclick="setFilter('all',this)">All</button>
+        <button class="pill active-pill" onclick="setFilter('active',this)">✅ Active</button>
+        <button class="pill inactive-pill" onclick="setFilter('inactive',this)">🚫 Inactive</button>
+      </div>
+      <span class="count-badge" id="countBadge">0 templates</span>
+    </div>
+
+    <!-- GRID -->
+    <div class="templates-body">
+      <div class="templates-grid" id="templatesGrid">
+        <div style="grid-column:1/-1;">
+          <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <div class="empty-title">No templates yet</div>
+            <div style="font-size:13px;color:var(--text3);">Create your first template on the left</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div style="font-size:13px;color:var(--text2);" id="loadingText">Saving...</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span id="toastIcon">✅</span>
+  <span id="toastMsg">Saved!</span>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <div class="modal-icon">🗑️</div>
+    <div class="modal-title">Delete Template?</div>
+    <div class="modal-desc" id="deleteModalDesc">This action cannot be undone.</div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" style="flex:1;justify-content:center;" onclick="closeModal()">Cancel</button>
+      <button class="btn" style="flex:1;justify-content:center;background:var(--red);color:white;" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+var allTemplates  = [];
+var editingID     = null;
+var deleteTarget  = null;
+var imageBase64   = '';
+var currentFilter = 'all';
+var requiredFields = [];   // array of field names
+var rulesPanelOpen = false;
+
+var CATEGORY_ICONS = {
+  'Notification': '📢',
+  'Alert':        '⚠️',
+  'Reminder':     '🔔',
+  'Welcome':      '👋',
+  'Custom':       '💬'
+};
+
+var TRIGGER_META = {
+  'Manual':         { icon: '✍️', label: 'Manual',     cls: 'manual' },
+  'Birthday':       { icon: '🎂', label: 'Birthday',   cls: 'birthday' },
+  'Anniversary':    { icon: '💍', label: 'Anniversary',cls: 'anniversary' },
+  'PassportExpiry': { icon: '⚠️', label: 'Passport',   cls: 'passport' },
+  'DocumentReady':  { icon: '📋', label: 'Doc Ready',  cls: 'document' },
+  'WorkerArrival':  { icon: '✈️', label: 'Arrival',    cls: 'arrival' },
+  'Scheduled':      { icon: '📅', label: 'Scheduled',  cls: 'scheduled' }
+};
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+function init() {
+  loadTemplates();
+}
+
+// ══════════════════════════════════════════════
+// LOAD
+// ══════════════════════════════════════════════
+function loadTemplates() {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      allTemplates = (result && result.data) ? result.data : [];
+      renderTemplates();
+    })
+    .withFailureHandler(function(e) {
+      showToast('❌ Failed to load: ' + e.message, 'error');
+    })
+    .gsrGetAll('MessageTemplates');
+}
+
+// ══════════════════════════════════════════════
+// RENDER GRID
+// ══════════════════════════════════════════════
+function renderTemplates() {
+  var search   = document.getElementById('searchInput').value.toLowerCase();
+  var filtered = allTemplates.filter(function(t) {
+    if (currentFilter === 'active'   && !t.Active)  return false;
+    if (currentFilter === 'inactive' && t.Active)   return false;
+    if (search) {
+      var hay = ((t.TemplateName||'') + (t.MessageBody||'') + (t.Category||'')).toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  document.getElementById('countBadge').textContent = filtered.length + ' template' + (filtered.length !== 1 ? 's' : '');
+
+  var grid = document.getElementById('templatesGrid');
+  if (!filtered.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;"><div class="empty-state">' +
+      '<div class="empty-icon">📋</div>' +
+      '<div class="empty-title">No templates found</div>' +
+      '<div style="font-size:13px;color:var(--text3);">Try a different filter</div>' +
+      '</div></div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(function(t) {
+    var isSelected = editingID === t.TemplateID;
+    var isActive   = t.Active == true || t.Active === 'true' || t.Active === 'TRUE';
+    var icon       = CATEGORY_ICONS[t.Category] || '💬';
+    var imgHtml    = t.ImageURL
+      ? '<div class="card-image"><img src="' + esc(t.ImageURL) + '" onerror="this.parentElement.innerHTML=\'<div class=card-image-placeholder>' + icon + '</div>\'"/></div>'
+      : '<div class="card-image-placeholder">' + icon + '</div>';
+
+    // Rules strip
+    var rulesHtml = buildCardRulesStrip(t);
+
+    return '<div class="template-card' + (isSelected?' selected':'') + (!isActive?' inactive':'') + '" onclick="selectTemplate(\'' + t.TemplateID + '\')">' +
+      imgHtml +
+      '<div class="card-body">' +
+        '<div class="card-top">' +
+          '<div>' +
+            '<div class="card-id">' + esc(t.TemplateID) + ' · ' + esc(t.Category||'Custom') + '</div>' +
+            '<div class="card-name">' + esc(t.TemplateName) + '</div>' +
+          '</div>' +
+          '<span class="' + (isActive?'badge-active':'badge-inactive') + '">' + (isActive?'Active':'Inactive') + '</span>' +
+        '</div>' +
+        '<div class="card-preview">' + esc(t.MessageBody||'') + '</div>' +
+        '<div class="card-footer">' +
+          '<div style="font-size:11px;color:var(--text3);font-family:var(--mono);">' + formatDate(t.UpdatedDate||t.CreatedDate) + '</div>' +
+          '<div class="card-actions">' +
+            '<button class="action-btn toggle" onclick="toggleActive(event,\'' + t.TemplateID + '\')" title="' + (isActive?'Deactivate':'Activate') + '">' + (isActive?'🚫':'✅') + '</button>' +
+            '<button class="action-btn edit" onclick="editTemplate(event,\'' + t.TemplateID + '\')" title="Edit">✏️</button>' +
+            '<button class="action-btn del" onclick="deleteTemplate(event,\'' + t.TemplateID + '\')" title="Delete">🗑️</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      (rulesHtml ? '<div class="card-rules-strip">' + rulesHtml + '</div>' : '') +
+    '</div>';
+  }).join('');
+}
+
+function buildCardRulesStrip(t) {
+  var parts = [];
+
+  // Trigger
+  var trigger = t.TriggerEvent || 'Manual';
+  var tm = TRIGGER_META[trigger] || TRIGGER_META['Manual'];
+  parts.push('<span class="trigger-badge ' + tm.cls + '">' + tm.icon + ' ' + tm.label + '</span>');
+
+  // Recipient
+  if (t.RecipientType && t.RecipientType !== 'All') {
+    parts.push('<span class="recipient-badge">👥 ' + esc(t.RecipientType) + '</span>');
+  }
+
+  // Timing
+  if (t.DaysBefore && String(t.DaysBefore) !== '0' && String(t.DaysBefore) !== '') {
+    parts.push('<span class="trigger-badge manual">-' + t.DaysBefore + 'd</span>');
+  }
+  if (t.DaysAfter && String(t.DaysAfter) !== '0' && String(t.DaysAfter) !== '') {
+    parts.push('<span class="trigger-badge manual">+' + t.DaysAfter + 'd</span>');
+  }
+
+  // SendOnce
+  if (t.SendOnce === true || t.SendOnce === 'true' || t.SendOnce === 'TRUE') {
+    parts.push('<span class="trigger-badge manual">1× only</span>');
+  }
+
+  // MinDaysBetween
+  if (t.MinDaysBetween && String(t.MinDaysBetween) !== '0' && String(t.MinDaysBetween) !== '') {
+    parts.push('<span class="trigger-badge manual">↻ min ' + t.MinDaysBetween + 'd</span>');
+  }
+
+  // RequiredField
+  if (t.RequiredField) {
+    var fields = String(t.RequiredField).split(',').map(function(f){ return f.trim(); }).filter(Boolean);
+    fields.forEach(function(f) {
+      parts.push('<span class="trigger-badge manual">🔒 ' + esc(f) + '</span>');
+    });
+  }
+
+  return parts.join('');
+}
+
+// ══════════════════════════════════════════════
+// SELECT / EDIT
+// ══════════════════════════════════════════════
+function selectTemplate(id) {
+  editTemplate(null, id);
+}
+
+function editTemplate(e, id) {
+  if (e) e.stopPropagation();
+  var t = allTemplates.find(function(x){ return x.TemplateID === id; });
+  if (!t) return;
+
+  editingID = id;
+  document.getElementById('formTitle').textContent = '✏️ Edit Template';
+  document.getElementById('formMode').textContent  = 'EDITING';
+  document.getElementById('fldTemplateID').value   = t.TemplateID;
+  document.getElementById('fldTemplateName').value = t.TemplateName || '';
+  document.getElementById('fldCategory').value     = t.Category || 'Custom';
+  document.getElementById('fldMessageBody').value  = t.MessageBody || '';
+  document.getElementById('fldImageURL').value     = t.ImageURL || '';
+  document.getElementById('fldActive').checked     = (t.Active == true || t.Active === 'true' || t.Active === 'TRUE');
+
+  // Load rules fields
+  document.getElementById('fldRecipientType').value  = t.RecipientType  || 'All';
+  document.getElementById('fldTriggerEvent').value   = t.TriggerEvent   || 'Manual';
+  document.getElementById('fldDaysBefore').value     = t.DaysBefore     || '';
+  document.getElementById('fldDaysAfter').value      = t.DaysAfter      || '';
+  document.getElementById('fldSendOnce').checked     = (t.SendOnce === true || t.SendOnce === 'true' || t.SendOnce === 'TRUE');
+  document.getElementById('fldMinDaysBetween').value = t.MinDaysBetween || '';
+
+  // Required fields
+  requiredFields = t.RequiredField
+    ? String(t.RequiredField).split(',').map(function(f){ return f.trim(); }).filter(Boolean)
+    : [];
+  renderReqTags();
+
+  onTriggerChange();
+  updateRulesSummary();
+  updateCharCount(document.getElementById('fldMessageBody'));
+
+  if (t.ImageURL) {
+    showImagePreview(t.ImageURL);
+  } else {
+    clearImageUI();
+  }
+  imageBase64 = '';
+
+  // Auto-open rules if any non-default rules are set
+  var hasRules = (t.RecipientType && t.RecipientType !== 'All') ||
+                 (t.TriggerEvent && t.TriggerEvent !== 'Manual') ||
+                 t.DaysBefore || t.DaysAfter || t.SendOnce || t.MinDaysBetween || t.RequiredField;
+  if (hasRules && !rulesPanelOpen) toggleRulesPanel();
+
+  renderTemplates();
+  validateForm();
+}
+
+function newTemplate() {
+  editingID = null;
+  document.getElementById('formTitle').textContent = '✍️ New Template';
+  document.getElementById('formMode').textContent  = 'NEW';
+  clearForm();
+  renderTemplates();
+}
+
+// ══════════════════════════════════════════════
+// RULES PANEL TOGGLE
+// ══════════════════════════════════════════════
+function toggleRulesPanel() {
+  rulesPanelOpen = !rulesPanelOpen;
+  document.getElementById('rulesBody').classList.toggle('open', rulesPanelOpen);
+  document.getElementById('rulesChevron').classList.toggle('open', rulesPanelOpen);
+}
+
+// ══════════════════════════════════════════════
+// TRIGGER CHANGE — show/hide timing fields
+// ══════════════════════════════════════════════
+function onTriggerChange() {
+  var trigger = document.getElementById('fldTriggerEvent').value;
+  var needsTiming = ['Birthday','Anniversary','PassportExpiry','IkamaExpiry',
+                     'InsuranceExpiry','WorkPermitExpiry','WorkerArrival','Scheduled'].indexOf(trigger) !== -1;
+  document.getElementById('timingSection').classList.toggle('show', needsTiming);
+
+  var callouts = {
+    'Birthday':         'Send <b>N days before</b> the employer\'s birthday (e.g. 7 = one week before)',
+    'Anniversary':      'Send <b>N days before</b> the anniversary date',
+    'PassportExpiry':   'Send <b>N days before</b> passport expires (e.g. 30 = one month warning)',
+    'IkamaExpiry':      'Send <b>N days before</b> the Ikama expires (e.g. 30)',
+    'InsuranceExpiry':  'Send <b>N days before</b> the insurance expires (e.g. 30)',
+    'WorkPermitExpiry': 'Send <b>N days before</b> the work permit expires (e.g. 30)',
+    'WorkerArrival':    'Send <b>on the worker\'s arrival date</b> (Days Before = 0) or set days in advance',
+    'Scheduled':        'Use <b>Days Before</b> for fixed annual dates (e.g. New Year → set to 0)'
+  };
+  var calloutEl = document.getElementById('timingCallout');
+  if (callouts[trigger]) calloutEl.innerHTML = '⏰ ' + callouts[trigger];
+}
+
+// ══════════════════════════════════════════════
+// REQUIRED FIELDS
+// ══════════════════════════════════════════════
+function addRequiredField() {
+  var sel = document.getElementById('reqFieldSelect');
+  var val = sel.value;
+  if (!val) return;
+  if (requiredFields.indexOf(val) === -1) {
+    requiredFields.push(val);
+    renderReqTags();
+    updateRulesSummary();
+  }
+  sel.value = '';
+}
+
+function removeRequiredField(field) {
+  requiredFields = requiredFields.filter(function(f){ return f !== field; });
+  renderReqTags();
+  updateRulesSummary();
+}
+
+function renderReqTags() {
+  var container = document.getElementById('reqTagsContainer');
+  if (!requiredFields.length) {
+    container.innerHTML = '<span style="font-size:11px;color:var(--text3);">No required fields set</span>';
+    return;
+  }
+  container.innerHTML = requiredFields.map(function(f) {
+    return '<span class="req-tag" onclick="removeRequiredField(\'' + esc(f) + '\')">' +
+      '🔒 ' + esc(f) + ' <span style="opacity:0.5;font-size:9px;">✕</span>' +
+    '</span>';
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+// RULES SUMMARY (pills + callout)
+// ══════════════════════════════════════════════
+function updateRulesSummary() {
+  var trigger   = document.getElementById('fldTriggerEvent').value;
+  var recipient = document.getElementById('fldRecipientType').value;
+  var daysBefore = document.getElementById('fldDaysBefore').value;
+  var daysAfter  = document.getElementById('fldDaysAfter').value;
+  var sendOnce   = document.getElementById('fldSendOnce').checked;
+  var minDays    = document.getElementById('fldMinDaysBetween').value;
+
+  var tm = TRIGGER_META[trigger] || TRIGGER_META['Manual'];
+
+  // Summary pills in header
+  var pills = document.getElementById('rulesSummaryPills');
+  var pillHtml = '';
+  if (trigger !== 'Manual') pillHtml += '<span class="trigger-badge ' + tm.cls + '" style="font-size:9px;">' + tm.icon + ' ' + tm.label + '</span>';
+  if (recipient !== 'All')  pillHtml += '<span class="recipient-badge" style="font-size:9px;">👥 ' + esc(recipient) + '</span>';
+  pills.innerHTML = pillHtml;
+
+  // Summary callout
+  var lines = [];
+  lines.push('📩 <b>Recipient:</b> ' + (recipient === 'All' ? 'All recipients' : recipient + 's only'));
+  lines.push('⚡ <b>Trigger:</b> ' + (trigger === 'Manual' ? 'Manual send only' : tm.icon + ' ' + trigger));
+
+  if (daysBefore) lines.push('📅 <b>Send</b> ' + daysBefore + ' day(s) before event');
+  if (daysAfter)  lines.push('📅 <b>Send</b> ' + daysAfter + ' day(s) after event');
+  if (sendOnce)   lines.push('🔂 <b>Send once</b> per recipient — no repeats');
+  if (minDays)    lines.push('⏱️ <b>Minimum</b> ' + minDays + ' days between sends to same recipient');
+  if (requiredFields.length) lines.push('🔒 <b>Only show if</b> recipient has: ' + requiredFields.join(', '));
+
+  var callout = document.getElementById('rulesSummaryCallout');
+  callout.style.display = '';
+  callout.innerHTML = lines.join('<br>');
+}
+
+// ══════════════════════════════════════════════
+// MIGRATE SHEET
+// ══════════════════════════════════════════════
+function openRulesManager() {
+  document.getElementById('rmOverlay').classList.add('show');
+  rmRenderList();
+}
+
+function closeRulesManager() {
+  document.getElementById('rmOverlay').classList.remove('show');
+  rmActiveID = null;
+  // Reload templates to reflect any saved rules
+  loadTemplates();
+}
+
+// ══════════════════════════════════════
+// RULES MANAGER STATE
+// ══════════════════════════════════════
+var rmActiveID = null;  // currently selected template ID
+
+// Smart defaults by template name keywords
+var RM_SMART_DEFAULTS = {
+  'newyear':    { recipientType:'All',      triggerEvent:'Scheduled',       daysBefore:'0', daysAfter:'0', sendOnce:'false', minDaysBetween:'330' },
+  'new year':   { recipientType:'All',      triggerEvent:'Scheduled',       daysBefore:'0', daysAfter:'0', sendOnce:'false', minDaysBetween:'330' },
+  'ikama':      { recipientType:'Worker',   triggerEvent:'IkamaExpiry',     daysBefore:'30',daysAfter:'0', sendOnce:'false', minDaysBetween:'60'  },
+  'iqama':      { recipientType:'Worker',   triggerEvent:'IkamaExpiry',     daysBefore:'30',daysAfter:'0', sendOnce:'false', minDaysBetween:'60'  },
+  'insurance':  { recipientType:'Worker',   triggerEvent:'InsuranceExpiry', daysBefore:'30',daysAfter:'0', sendOnce:'false', minDaysBetween:'60'  },
+  'work permit':{ recipientType:'Worker',   triggerEvent:'WorkPermitExpiry',daysBefore:'30',daysAfter:'0', sendOnce:'false', minDaysBetween:'60'  },
+  'passport':   { recipientType:'Worker',   triggerEvent:'PassportExpiry',  daysBefore:'30',daysAfter:'0', sendOnce:'false', minDaysBetween:'60'  },
+  'arrival':    { recipientType:'Employer', triggerEvent:'WorkerArrival',   daysBefore:'0', daysAfter:'0', sendOnce:'true',  minDaysBetween:''    },
+  'birthday':   { recipientType:'Employer', triggerEvent:'Birthday',        daysBefore:'0', daysAfter:'0', sendOnce:'false', minDaysBetween:'330' },
+  'anniversary':{ recipientType:'Employer', triggerEvent:'Anniversary',     daysBefore:'0', daysAfter:'0', sendOnce:'false', minDaysBetween:'330' },
+};
+
+function rmGetSmartDefault(templateName) {
+  var name = (templateName || '').toLowerCase();
+  for (var key in RM_SMART_DEFAULTS) {
+    if (name.indexOf(key) !== -1) return RM_SMART_DEFAULTS[key];
+  }
+  return { recipientType:'All', triggerEvent:'Manual', daysBefore:'', daysAfter:'', sendOnce:'false', minDaysBetween:'' };
+}
+
+// ══════════════════════════════════════
+// RENDER LIST
+// ══════════════════════════════════════
+function rmRenderList() {
+  var container = document.getElementById('rmListItems');
+  if (!allTemplates.length) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:16px;text-align:center;">No templates found</div>';
+    return;
+  }
+  container.innerHTML = allTemplates.map(function(t) {
+    var trigger    = t.TriggerEvent || 'Manual';
+    var configured = trigger !== 'Manual' && trigger !== '';
+    var isActive   = rmActiveID === t.TemplateID;
+    var dot        = configured ? 'configured' : 'manual';
+    var trigLabel  = RM_TRIGGER_LABEL(trigger);
+    return '<div class="rm-tpl-row' + (isActive ? ' active' : '') + '" onclick="rmSelectTemplate(\'' + esc(t.TemplateID) + '\')">' +
+      '<div class="rm-tpl-name">' + esc(t.TemplateName || '') + '</div>' +
+      '<div class="rm-tpl-badge"><span class="rm-tpl-dot ' + dot + '"></span>' + trigLabel + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function RM_TRIGGER_LABEL(trigger) {
+  var labels = {
+    'Manual':           'Manual send only',
+    'Birthday':         '🎂 Birthday',
+    'Anniversary':      '💍 Anniversary',
+    'PassportExpiry':   '⚠️ Passport Expiry',
+    'IkamaExpiry':      '🪪 Ikama Expiry',
+    'InsuranceExpiry':  '🏥 Insurance Expiry',
+    'WorkPermitExpiry': '📋 Work Permit Expiry',
+    'DocumentReady':    '📋 Document Ready',
+    'WorkerArrival':    '✈️ Worker Arrival',
+    'Scheduled':        '📅 Scheduled'
+  };
+  return labels[trigger] || trigger;
+}
+
+// ══════════════════════════════════════
+// SELECT TEMPLATE
+// ══════════════════════════════════════
+function rmSelectTemplate(id) {
+  rmActiveID = id;
+  var t = allTemplates.find(function(x){ return x.TemplateID === id; });
+  if (!t) return;
+
+  // Update list highlight
+  rmRenderList();
+
+  // Show footer
+  document.getElementById('rmFooter').style.display = '';
+  document.getElementById('rmFooterName').textContent = t.TemplateName || '';
+  document.getElementById('rmFooterID').textContent   = t.TemplateID || '';
+  document.getElementById('rmSaveStatus').textContent = '';
+
+  // Required fields
+  var reqFields = t.RequiredField
+    ? String(t.RequiredField).split(',').map(function(f){ return f.trim(); }).filter(Boolean)
+    : [];
+
+  var trigger = t.TriggerEvent || 'Manual';
+  var needsTiming = ['Birthday','Anniversary','PassportExpiry','IkamaExpiry',
+                     'InsuranceExpiry','WorkPermitExpiry','WorkerArrival','Scheduled'].indexOf(trigger) !== -1;
+
+  document.getElementById('rmEditor').innerHTML = rmBuildEditor(t, reqFields, needsTiming);
+  rmOnTriggerChange(); // sync visibility
+}
+
+function rmBuildEditor(t, reqFields, needsTiming) {
+  var trigger = t.TriggerEvent || 'Manual';
+
+  var triggerOptions = [
+    ['Manual',           '✍️ Manual — send when you choose'],
+    ['Birthday',         '🎂 Birthday — auto on employer birthday'],
+    ['Anniversary',      '💍 Anniversary — auto on anniversary'],
+    ['PassportExpiry',   '⚠️ Passport Expiry — N days before expiry'],
+    ['IkamaExpiry',      '🪪 Ikama Expiry — N days before expiry'],
+    ['InsuranceExpiry',  '🏥 Insurance Expiry — N days before expiry'],
+    ['WorkPermitExpiry', '📋 Work Permit Expiry — N days before expiry'],
+    ['DocumentReady',    '📋 Document Ready — when docs prepared'],
+    ['WorkerArrival',    '✈️ Worker Arrival — on arrival date'],
+    ['Scheduled',        '📅 Scheduled — recurring send (e.g. New Year)']
+  ].map(function(o){
+    return '<option value="' + o[0] + '"' + (trigger===o[0]?' selected':'') + '>' + o[1] + '</option>';
+  }).join('');
+
+  var recipientOptions = ['All','Employer','Worker','Agency'].map(function(r){
+    return '<option value="' + r + '"' + ((t.RecipientType||'All')===r?' selected':'') + '>' +
+      ({All:'🌐 All',Employer:'🏠 Employers',Worker:'👷 Workers',Agency:'🏢 Agencies'}[r]||r) + '</option>';
+  }).join('');
+
+  var reqTagsHtml = reqFields.length
+    ? reqFields.map(function(f){
+        return '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--surface);border:1px solid var(--border2);border-radius:4px;font-size:11px;font-family:var(--mono);color:var(--text2);">🔒 ' + esc(f) + '</span>';
+      }).join('')
+    : '<span style="font-size:11px;color:var(--text3);">None set</span>';
+
+  var reqFieldOptions = ['BirthDate','Anniversary','MobileNumber','ContactNumber','EmailAddress',
+    'PassportExpiry','IkamaExpiry','InsuranceExpiry','WorkPermitExpiry','ArrivalDate','City','Country']
+    .map(function(f){ return '<option value="' + f + '">' + f + '</option>'; }).join('');
+
+  return '' +
+    '<div class="rm-editor-title">' + esc(t.TemplateName||'') + '</div>' +
+    '<div class="rm-editor-id">' + esc(t.TemplateID||'') + ' · ' + esc(t.Category||'Custom') + '</div>' +
+
+    /* Smart hint */
+    '<div class="rm-callout green" id="rmSmartHint" style="display:none;"></div>' +
+
+    /* Section 1: Who */
+    '<div class="rm-section">' +
+      '<div class="rm-section-title">👥 Who receives this</div>' +
+      '<div class="rm-field">' +
+        '<div class="rm-label">Recipient Type</div>' +
+        '<select class="rm-select" id="rmRecipientType">' + recipientOptions + '</select>' +
+      '</div>' +
+    '</div>' +
+
+    /* Section 2: When */
+    '<div class="rm-section">' +
+      '<div class="rm-section-title">⚡ When it triggers</div>' +
+      '<div class="rm-field">' +
+        '<div class="rm-label">Trigger Event</div>' +
+        '<select class="rm-select" id="rmTriggerEvent" onchange="rmOnTriggerChange()">' + triggerOptions + '</select>' +
+      '</div>' +
+      '<div class="rm-timing rm-grid-2" id="rmTimingRow">' +
+        '<div class="rm-field">' +
+          '<div class="rm-label">📅 Days Before</div>' +
+          '<input type="number" class="rm-input" id="rmDaysBefore" min="0" max="365" placeholder="e.g. 30" value="' + esc(t.DaysBefore||'') + '"/>' +
+        '</div>' +
+        '<div class="rm-field">' +
+          '<div class="rm-label">📅 Days After</div>' +
+          '<input type="number" class="rm-input" id="rmDaysAfter" min="0" max="365" placeholder="e.g. 0" value="' + esc(t.DaysAfter||'') + '"/>' +
+        '</div>' +
+      '</div>' +
+      '<div class="rm-callout" id="rmTimingCallout" style="display:none;"></div>' +
+    '</div>' +
+
+    /* Section 3: Frequency */
+    '<div class="rm-section">' +
+      '<div class="rm-section-title">🔁 Frequency</div>' +
+      '<div class="rm-toggle-row">' +
+        '<div><div class="rm-toggle-label">Send Once — never repeat to same recipient</div>' +
+        '<div class="rm-toggle-sub">Useful for arrival notifications, welcome messages</div></div>' +
+        '<label class="toggle-switch">' +
+          '<input type="checkbox" id="rmSendOnce"' + ((t.SendOnce===true||t.SendOnce==='true'||t.SendOnce==='TRUE')?' checked':'') + '/>' +
+          '<span class="toggle-slider"></span>' +
+        '</label>' +
+      '</div>' +
+      '<div class="rm-field">' +
+        '<div class="rm-label">🚫 Min. Days Between Sends</div>' +
+        '<input type="number" class="rm-input" id="rmMinDaysBetween" min="0" max="3650" placeholder="e.g. 30 — blank = no limit" value="' + esc(t.MinDaysBetween||'') + '" style="max-width:240px;"/>' +
+        '<div style="font-size:11px;color:var(--text3);margin-top:4px;">Don\'t send to same recipient within N days</div>' +
+      '</div>' +
+    '</div>' +
+
+    /* Section 4: Required fields */
+    '<div class="rm-section">' +
+      '<div class="rm-section-title">🔒 Required Fields</div>' +
+      '<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Only show this template if recipient has these fields filled:</div>' +
+      '<div id="rmReqTags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">' + reqTagsHtml + '</div>' +
+      '<div style="display:flex;gap:8px;">' +
+        '<select class="rm-select" id="rmReqFieldSelect" style="max-width:240px;">' +
+          '<option value="">— pick a field to require —</option>' + reqFieldOptions +
+        '</select>' +
+        '<button class="btn btn-secondary" style="padding:8px 14px;font-size:12px;white-space:nowrap;" onclick="rmAddReqField()">+ Add</button>' +
+        '<button class="btn btn-danger" style="padding:8px 14px;font-size:12px;white-space:nowrap;" onclick="rmClearReqFields()">Clear</button>' +
+      '</div>' +
+    '</div>' +
+  '';
+}
+
+// ══════════════════════════════════════
+// TRIGGER CHANGE
+// ══════════════════════════════════════
+function rmOnTriggerChange() {
+  var trigEl = document.getElementById('rmTriggerEvent');
+  if (!trigEl) return;
+  var trigger = trigEl.value;
+  var needsTiming = ['Birthday','Anniversary','PassportExpiry','IkamaExpiry',
+                     'InsuranceExpiry','WorkPermitExpiry','WorkerArrival','Scheduled'].indexOf(trigger) !== -1;
+  var timingRow  = document.getElementById('rmTimingRow');
+  var callout    = document.getElementById('rmTimingCallout');
+  if (timingRow) timingRow.classList.toggle('show', needsTiming);
+  if (callout) {
+    var texts = {
+      'Birthday':         '🎂 Send <b>N days before</b> the employer\'s birthday (0 = on the day)',
+      'Anniversary':      '💍 Send <b>N days before</b> the anniversary',
+      'PassportExpiry':   '⚠️ Send <b>N days before</b> passport expires (e.g. 30 = one month warning)',
+      'IkamaExpiry':      '🪪 Send <b>N days before</b> the Ikama expires',
+      'InsuranceExpiry':  '🏥 Send <b>N days before</b> the insurance expires',
+      'WorkPermitExpiry': '📋 Send <b>N days before</b> the work permit expires',
+      'WorkerArrival':    '✈️ Send <b>on the arrival date</b> (Days Before = 0) or set days in advance',
+      'Scheduled':        '📅 Use <b>Days Before</b> for fixed annual dates like New Year (set to 0)'
+    };
+    if (texts[trigger]) {
+      callout.innerHTML = texts[trigger];
+      callout.style.display = '';
+    } else {
+      callout.style.display = 'none';
+    }
+  }
+}
+
+// ══════════════════════════════════════
+// REQUIRED FIELDS IN RM
+// ══════════════════════════════════════
+function rmGetReqFields() {
+  var tags = document.querySelectorAll('#rmReqTags [data-field]');
+  return Array.prototype.map.call(tags, function(el){ return el.getAttribute('data-field'); });
+}
+
+function rmAddReqField() {
+  var sel = document.getElementById('rmReqFieldSelect');
+  var val = sel.value; if (!val) return;
+  var existing = rmGetReqFields();
+  if (existing.indexOf(val) !== -1) { sel.value=''; return; }
+  existing.push(val);
+  rmRenderReqTags(existing);
+  sel.value = '';
+}
+
+function rmClearReqFields() {
+  rmRenderReqTags([]);
+}
+
+function rmRenderReqTags(fields) {
+  var container = document.getElementById('rmReqTags');
+  if (!container) return;
+  if (!fields.length) {
+    container.innerHTML = '<span style="font-size:11px;color:var(--text3);">None set</span>';
+    return;
+  }
+  container.innerHTML = fields.map(function(f){
+    return '<span data-field="' + esc(f) + '" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--surface);border:1px solid var(--border2);border-radius:4px;font-size:11px;font-family:var(--mono);color:var(--text2);cursor:pointer;" onclick="rmRemoveReqField(\'' + esc(f) + '\')">🔒 ' + esc(f) + ' <span style="opacity:0.5;font-size:9px;">✕</span></span>';
+  }).join('');
+}
+
+function rmRemoveReqField(field) {
+  var fields = rmGetReqFields().filter(function(f){ return f !== field; });
+  rmRenderReqTags(fields);
+}
+
+// ══════════════════════════════════════
+// SMART DEFAULT
+// ══════════════════════════════════════
+function rmApplySmartDefault() {
+  if (!rmActiveID) return;
+  var t = allTemplates.find(function(x){ return x.TemplateID === rmActiveID; });
+  if (!t) return;
+  var def = rmGetSmartDefault(t.TemplateName);
+
+  var recipEl   = document.getElementById('rmRecipientType');
+  var trigEl    = document.getElementById('rmTriggerEvent');
+  var beforeEl  = document.getElementById('rmDaysBefore');
+  var afterEl   = document.getElementById('rmDaysAfter');
+  var onceEl    = document.getElementById('rmSendOnce');
+  var minEl     = document.getElementById('rmMinDaysBetween');
+
+  if (recipEl)  recipEl.value      = def.recipientType;
+  if (trigEl)   trigEl.value       = def.triggerEvent;
+  if (beforeEl) beforeEl.value     = def.daysBefore;
+  if (afterEl)  afterEl.value      = def.daysAfter;
+  if (onceEl)   onceEl.checked     = def.sendOnce === 'true';
+  if (minEl)    minEl.value        = def.minDaysBetween;
+
+  rmOnTriggerChange();
+
+  var hint = document.getElementById('rmSmartHint');
+  if (hint) {
+    hint.style.display = '';
+    hint.innerHTML = '🧠 <b>Smart default applied</b> for "' + esc(t.TemplateName) + '" — review and save when ready.';
+    setTimeout(function(){ hint.style.display='none'; }, 4000);
+  }
+
+  document.getElementById('rmSaveStatus').textContent = '';
+}
+
+// ══════════════════════════════════════
+// SAVE
+// ══════════════════════════════════════
+function rmSaveRule() {
+  if (!rmActiveID) return;
+  var t = allTemplates.find(function(x){ return x.TemplateID === rmActiveID; });
+  if (!t) return;
+
+  var statusEl = document.getElementById('rmSaveStatus');
+  statusEl.textContent = 'Saving...';
+  statusEl.style.color = 'var(--text3)';
+
+  var params = {
+    templateID:     t.TemplateID,
+    templateName:   t.TemplateName,
+    category:       t.Category,
+    messageBody:    t.MessageBody,
+    imageURL:       t.ImageURL || '',
+    imageBase64:    '',
+    active:         t.Active === true || t.Active === 'true' || t.Active === 'TRUE',
+    // Rules from editor
+    recipientType:   (document.getElementById('rmRecipientType')   || {value:''}).value,
+    triggerEvent:    (document.getElementById('rmTriggerEvent')     || {value:'Manual'}).value,
+    daysBefore:      (document.getElementById('rmDaysBefore')       || {value:''}).value || '',
+    daysAfter:       (document.getElementById('rmDaysAfter')        || {value:''}).value || '',
+    sendOnce:        !!(document.getElementById('rmSendOnce')       || {}).checked,
+    minDaysBetween:  (document.getElementById('rmMinDaysBetween')   || {value:''}).value || '',
+    requiredField:   rmGetReqFields().join(',')
+  };
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result && result.success) {
+        statusEl.textContent = '✅ Saved!';
+        statusEl.style.color = 'var(--green)';
+        // Update local cache
+        var idx = allTemplates.findIndex(function(x){ return x.TemplateID === rmActiveID; });
+        if (idx !== -1) {
+          allTemplates[idx].RecipientType  = params.recipientType;
+          allTemplates[idx].TriggerEvent   = params.triggerEvent;
+          allTemplates[idx].DaysBefore     = params.daysBefore;
+          allTemplates[idx].DaysAfter      = params.daysAfter;
+          allTemplates[idx].SendOnce       = params.sendOnce;
+          allTemplates[idx].MinDaysBetween = params.minDaysBetween;
+          allTemplates[idx].RequiredField  = params.requiredField;
+        }
+        rmRenderList();
+        setTimeout(function(){ statusEl.textContent = ''; }, 3000);
+      } else {
+        statusEl.textContent = '❌ ' + ((result && result.error) || 'Save failed');
+        statusEl.style.color = 'var(--red)';
+      }
+    })
+    .withFailureHandler(function(e) {
+      statusEl.textContent = '❌ ' + e.message;
+      statusEl.style.color = 'var(--red)';
+    })
+    .saveTemplate(params);
+}
+
+
+function migrateSheet() {
+  showLoading('Migrating sheet — adding new rule columns...');
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      showToast(result.success ? '✅ ' + result.message : '❌ ' + result.error, result.success ? 'success' : 'error');
+      loadTemplates();
+    })
+    .withFailureHandler(function(e) {
+      hideLoading();
+      showToast('❌ Migration failed: ' + e.message, 'error');
+    })
+    .migrateTemplatesSheet();
+}
+
+// ══════════════════════════════════════════════
+// SAVE
+// ══════════════════════════════════════════════
+function saveTemplate() {
+  var name = document.getElementById('fldTemplateName').value.trim();
+  var body = document.getElementById('fldMessageBody').value.trim();
+  if (!name || !body) { showToast('⚠️ Name and Message Body are required', 'error'); return; }
+
+  showLoading('Saving template...');
+
+  var params = {
+    templateID:      editingID || '',
+    templateName:    name,
+    category:        document.getElementById('fldCategory').value,
+    messageBody:     body,
+    imageURL:        document.getElementById('fldImageURL').value.trim(),
+    imageBase64:     imageBase64,
+    active:          document.getElementById('fldActive').checked,
+    // Rules
+    recipientType:   document.getElementById('fldRecipientType').value,
+    triggerEvent:    document.getElementById('fldTriggerEvent').value,
+    daysBefore:      document.getElementById('fldDaysBefore').value || '',
+    daysAfter:       document.getElementById('fldDaysAfter').value  || '',
+    sendOnce:        document.getElementById('fldSendOnce').checked,
+    minDaysBetween:  document.getElementById('fldMinDaysBetween').value || '',
+    requiredField:   requiredFields.join(',')
+  };
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showToast('✅ Template saved!', 'success');
+        editingID = result.templateID || editingID;
+        loadTemplates();
+        if (!editingID) clearForm();
+      } else {
+        showToast('❌ ' + (result.error||'Save failed'), 'error');
+      }
+    })
+    .withFailureHandler(function(e) {
+      hideLoading();
+      showToast('❌ ' + e.message, 'error');
+    })
+    .saveTemplate(params);
+}
+
+// ══════════════════════════════════════════════
+// TOGGLE ACTIVE
+// ══════════════════════════════════════════════
+function toggleActive(e, id) {
+  e.stopPropagation();
+  var t = allTemplates.find(function(x){ return x.TemplateID === id; });
+  if (!t) return;
+  var newActive = !(t.Active == true || t.Active === 'true' || t.Active === 'TRUE');
+  google.script.run
+    .withSuccessHandler(function() {
+      showToast(newActive ? '✅ Template activated' : '🚫 Template deactivated', 'success');
+      loadTemplates();
+    })
+    .withFailureHandler(function(e) { showToast('❌ ' + e.message, 'error'); })
+    .toggleTemplate({ templateID: id, active: newActive });
+}
+
+// ══════════════════════════════════════════════
+// DELETE
+// ══════════════════════════════════════════════
+function deleteTemplate(e, id) {
+  e.stopPropagation();
+  var t = allTemplates.find(function(x){ return x.TemplateID === id; });
+  if (!t) return;
+  deleteTarget = id;
+  document.getElementById('deleteModalDesc').textContent = 'Delete "' + t.TemplateName + '"? This cannot be undone.';
+  document.getElementById('deleteModal').classList.add('show');
+}
+
+function confirmDelete() {
+  closeModal();
+  google.script.run
+    .withSuccessHandler(function() {
+      showToast('🗑️ Template deleted', 'success');
+      if (editingID === deleteTarget) { editingID = null; clearForm(); }
+      loadTemplates();
+    })
+    .withFailureHandler(function(e) { showToast('❌ ' + e.message, 'error'); })
+    .deleteTemplate({ templateID: deleteTarget });
+}
+
+function closeModal() {
+  document.getElementById('deleteModal').classList.remove('show');
+  deleteTarget = null;
+}
+
+// ══════════════════════════════════════════════
+// PREVIEW
+// ══════════════════════════════════════════════
+function previewTemplate() {
+  var body = document.getElementById('fldMessageBody').value;
+  if (!body) { showToast('⚠️ No message body to preview', 'error'); return; }
+  var preview = body
+    .replace(/{EmployerName}/g, 'Joseph Freiha')
+    .replace(/{WorkerName}/g, 'Maria Santos')
+    .replace(/{PassportExpiry}/g, '2026-06-15')
+    .replace(/{DocumentType}/g, 'Identity Card')
+    .replace(/{AgencyName}/g, 'MGS Agency')
+    .replace(/{AgencyPhone}/g, '+961-3-823339')
+    .replace(/{Date}/g, new Date().toLocaleDateString())
+    .replace(/{DaysUntil}/g, '7');
+  alert('📱 WhatsApp Preview:\n\n' + preview);
+}
+
+// ══════════════════════════════════════════════
+// IMAGE HANDLING
+// ══════════════════════════════════════════════
+function handleImageFile(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  if (file.size > 5*1024*1024) { showToast('⚠️ File too large (max 5MB)', 'error'); return; }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    imageBase64 = e.target.result;
+    document.getElementById('fldImageURL').value = '';
+    showImagePreview(e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleImageURL(url) {
+  imageBase64 = '';
+  if (url) showImagePreview(url);
+  else clearImageUI();
+}
+
+function showImagePreview(src) {
+  document.getElementById('imagePreview').src = src;
+  document.getElementById('imagePreview').classList.add('show');
+  document.getElementById('imageClear').classList.add('show');
+  document.getElementById('imageEmpty').style.display = 'none';
+  document.getElementById('imageUploadArea').classList.add('has-image');
+}
+
+function clearImage(e) {
+  if (e) e.stopPropagation();
+  imageBase64 = '';
+  document.getElementById('fldImageURL').value = '';
+  document.getElementById('imageFileInput').value = '';
+  clearImageUI();
+}
+
+function clearImageUI() {
+  document.getElementById('imagePreview').src = '';
+  document.getElementById('imagePreview').classList.remove('show');
+  document.getElementById('imageClear').classList.remove('show');
+  document.getElementById('imageEmpty').style.display = '';
+  document.getElementById('imageUploadArea').classList.remove('has-image');
+}
+
+// ══════════════════════════════════════════════
+// VARIABLES INSERT
+// ══════════════════════════════════════════════
+function insertVar(variable) {
+  var ta = document.getElementById('fldMessageBody');
+  var start = ta.selectionStart, end = ta.selectionEnd;
+  ta.value = ta.value.substring(0, start) + variable + ta.value.substring(end);
+  ta.selectionStart = ta.selectionEnd = start + variable.length;
+  ta.focus();
+  updateCharCount(ta);
+  validateForm();
+}
+
+// ══════════════════════════════════════════════
+// FORM HELPERS
+// ══════════════════════════════════════════════
+function updateCharCount(el) {
+  var len = el.value.length;
+  var cc  = document.getElementById('charCount');
+  cc.textContent = len + ' / 1600';
+  cc.classList.toggle('warn', len > 1400);
+}
+
+function validateForm() {
+  var name = document.getElementById('fldTemplateName').value.trim();
+  var body = document.getElementById('fldMessageBody').value.trim();
+  document.getElementById('btnSave').disabled = !(name && body);
+}
+
+function clearForm() {
+  document.getElementById('fldTemplateID').value   = '';
+  document.getElementById('fldTemplateName').value = '';
+  document.getElementById('fldCategory').value     = 'Notification';
+  document.getElementById('fldMessageBody').value  = '';
+  document.getElementById('fldImageURL').value     = '';
+  document.getElementById('fldActive').checked     = true;
+  document.getElementById('charCount').textContent = '0 / 1600';
+  // Reset rules
+  document.getElementById('fldRecipientType').value  = 'All';
+  document.getElementById('fldTriggerEvent').value   = 'Manual';
+  document.getElementById('fldDaysBefore').value     = '';
+  document.getElementById('fldDaysAfter').value      = '';
+  document.getElementById('fldSendOnce').checked     = false;
+  document.getElementById('fldMinDaysBetween').value = '';
+  requiredFields = [];
+  renderReqTags();
+  onTriggerChange();
+  updateRulesSummary();
+  imageBase64 = '';
+  clearImageUI();
+  validateForm();
+}
+
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-pills .pill').forEach(function(p){ p.classList.remove('active'); });
+  el.classList.add('active');
+  renderTemplates();
+}
+
+// ══════════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════════
+function showLoading(text) {
+  document.getElementById('loadingText').textContent = text || 'Loading...';
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+
+function showToast(msg, type) {
+  var toast = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent  = msg;
+  document.getElementById('toastIcon').textContent = type === 'error' ? '❌' : '✅';
+  toast.className = 'toast ' + (type||'');
+  toast.classList.add('show');
+  setTimeout(function(){ toast.classList.remove('show'); }, 3500);
+}
+
+function formatDate(val) {
+  if (!val) return '';
+  var d = new Date(val);
+  if (isNaN(d)) return val;
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function esc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+window.addEventListener('load', function() { init(); updateRulesSummary(); renderReqTags(); });
+document.addEventListener('DOMContentLoaded', function() { init(); updateRulesSummary(); renderReqTags(); });
+setTimeout(function(){ init(); updateRulesSummary(); renderReqTags(); }, 1000);
+</script>
+<!-- ══════════════════════════════════════════
+     RULES MANAGER OVERLAY
+══════════════════════════════════════════ -->
+<div class="rm-overlay" id="rmOverlay">
+
+  <!-- Header -->
+  <div class="rm-header">
+    <span style="font-size:18px;">⚙️</span>
+    <div>
+      <div class="rm-header-title">Rules Manager</div>
+      <div class="rm-header-sub">Configure auto-send rules for every template in one place</div>
+    </div>
+    <button class="rm-close" onclick="closeRulesManager()">✕ Close</button>
+  </div>
+
+  <!-- Body -->
+  <div class="rm-body">
+
+    <!-- Left: template list -->
+    <div class="rm-list" id="rmList">
+      <div class="rm-list-title">📋 Templates</div>
+      <div id="rmListItems">
+        <div style="font-size:12px;color:var(--text3);padding:20px;text-align:center;">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Right: editor -->
+    <div class="rm-editor" id="rmEditor">
+      <div class="rm-editor-empty">
+        <div style="font-size:40px;">⚙️</div>
+        <div style="font-size:15px;font-weight:600;color:var(--text2);">Select a template</div>
+        <div style="font-size:13px;">Choose a template on the left to configure its auto-send rules</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="rm-footer" id="rmFooter" style="display:none;">
+    <div>
+      <div style="font-size:13px;font-weight:600;" id="rmFooterName"></div>
+      <div style="font-size:11px;color:var(--text3);" id="rmFooterID"></div>
+    </div>
+    <span class="rm-save-status" id="rmSaveStatus"></span>
+    <div style="margin-left:auto;display:flex;gap:10px;">
+      <button class="btn btn-secondary" onclick="rmApplySmartDefault()" style="font-size:12px;padding:8px 14px;">🧠 Smart Default</button>
+      <button class="btn btn-primary" onclick="rmSaveRule()" style="min-width:140px;justify-content:center;">💾 Save Rules</button>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
