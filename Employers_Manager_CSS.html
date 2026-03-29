@@ -1,0 +1,156 @@
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+        .nav-panel {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .nav-header {
+            padding: 15px;
+            background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+            color: white;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .search-box {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 14px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .employer-list {
+            list-style: none;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        .employer-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+        .employer-item:hover { background: #e9ecef; border-left-color: #f5576c; }
+        .employer-item.active {
+            background: linear-gradient(135deg,#d4edda,#c3e6cb);
+            border-left: 4px solid #28a745;
+            font-weight: 700;
+            color: #155724;
+        }
+        .main-content {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 30px;
+            overflow-y: auto;
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.3s; font-size: 14px; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-light { background: #f8f9fa; color: #333; }
+        .btn-light:hover { background: #e9ecef; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e9ecef; }
+        .tab { padding: 12px 24px; background: none; border: none; cursor: pointer; font-weight: 600; color: #666; border-bottom: 3px solid transparent; transition: all 0.3s; }
+        .tab.active { color: #f5576c; border-bottom-color: #f5576c; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-weight: 600; margin-bottom: 5px; color: #333; }
+        .form-group input, .form-group textarea { padding: 10px; border: 1px solid #ced4da; border-radius: 5px; font-size: 14px; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #f5576c; }
+        .doc-card { background: white; border: 2px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 15px; }
+        .doc-card:hover { border-color: #f5576c; }
+
+        /* ── PAGINATION ── */
+        .pagination-wrap {
+            flex-shrink: 0;
+            padding: 8px 0 2px;
+            border-top: 1px solid #f0f0f0;
+            margin-top: 6px;
+        }
+        .pagination-info {
+            font-size: 11px;
+            color: #999;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            flex-wrap: wrap;
+        }
+        .pagination button {
+            min-width: 28px;
+            height: 28px;
+            padding: 0 5px;
+            border: 1px solid #dee2e6;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            color: #495057;
+            transition: all 0.2s;
+        }
+        .pagination button:hover:not(:disabled) { background: #f5576c; color: white; border-color: #f5576c; }
+        .pagination button.pg-active { background: #f5576c; color: white; border-color: #f5576c; }
+        .pagination button:disabled { opacity: 0.35; cursor: not-allowed; }
+        .pg-ellipsis { font-size: 12px; color: #aaa; padding: 0 2px; line-height: 28px; }
+
+        /* ── SYNC PROGRESS ── */
+        #syncProgressWrap {
+            display: none; background: #f0fff4; border: 2px solid #20c997;
+            border-radius: 10px; padding: 14px 18px; margin-bottom: 15px; animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
+        #syncProgressWrap .sync-title { font-weight: 700; color: #0a6640; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        #syncProgressWrap .sync-title .spin { display: inline-block; width: 16px; height: 16px; border: 3px solid #c3e6cb; border-top-color: #20c997; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #syncBar { height: 10px; background: #d4edda; border-radius: 6px; overflow: hidden; margin-bottom: 6px; }
+        #syncBarFill { height: 100%; background: linear-gradient(90deg, #20c997, #00b4d8); border-radius: 6px; transition: width 0.5s ease; width: 0%; }
+        #syncStatusText { font-size: 12px; color: #155724; display: flex; justify-content: space-between; }
+
+        /* ── SYNC BADGE ── */
+        .sync-badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 9px; font-weight: 700; margin-left: 5px; vertical-align: middle; }
+        .sync-badge.active   { background: #d4edda; color: #155724; }
+        .sync-badge.inactive { background: #f8d7da; color: #721c24; }
+        .sync-badge.synced   { background: #cce5ff; color: #004085; }
+        .sync-badge.manual   { background: #fff3cd; color: #856404; }
+
+        @keyframes msgSlideIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes uploadSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    </style>
