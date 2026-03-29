@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGS - Database Reset Manager</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            padding: 20px; min-height: 100vh;
+        }
+        .container {
+            max-width: 1000px; margin: 0 auto; background: white;
+            border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white; padding: 30px; text-align: center;
+        }
+        .header h1 { font-size: 32px; margin-bottom: 10px; }
+        .warning-banner {
+            background: #fff3cd; border: 2px solid #ffc107; border-left: 6px solid #ffc107;
+            padding: 20px; margin: 20px; border-radius: 8px;
+        }
+        .warning-banner h3 { color: #856404; margin-bottom: 10px; font-size: 20px; }
+        .warning-banner ul { color: #856404; margin-left: 20px; line-height: 1.8; }
+        .content { padding: 30px; }
+        .section {
+            background: #f8f9fa; padding: 20px; border-radius: 10px;
+            margin-bottom: 20px; border: 2px solid #e9ecef;
+        }
+        .section h3 { margin-bottom: 15px; color: #495057; font-size: 18px; }
+        .table-list {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px; margin-top: 15px;
+        }
+        .table-card {
+            background: white; padding: 15px; border-radius: 8px;
+            border: 2px solid #e9ecef; transition: all 0.3s;
+        }
+        .table-card:hover { border-color: #dc3545; box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2); }
+        .table-card.protected { border-color: #28a745; background: #f0fff4; }
+        .table-card.protected:hover { border-color: #28a745; box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2); }
+        .table-name { font-weight: 600; font-size: 16px; margin-bottom: 8px; color: #495057; }
+        .table-count { font-size: 24px; font-weight: 700; color: #dc3545; margin-bottom: 8px; }
+        .table-card.protected .table-count { color: #28a745; }
+        .table-description { font-size: 13px; color: #6c757d; margin-bottom: 12px; }
+        .btn {
+            padding: 10px 20px; border: none; border-radius: 6px;
+            font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s;
+        }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; transform: translateY(-2px); }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn-warning:hover { background: #e0a800; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-protected { background: #28a745; color: white; cursor: not-allowed; opacity: 0.7; }
+        .nuclear-section {
+            background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+            border: 3px solid #dc3545; padding: 25px; border-radius: 10px; margin-top: 30px;
+        }
+        .nuclear-warning { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .nuclear-icon { font-size: 48px; }
+        .nuclear-text h3 { color: #dc3545; font-size: 22px; margin-bottom: 5px; }
+        .nuclear-text p { color: #721c24; font-size: 14px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+        .stat-box {
+            background: white; padding: 20px; border-radius: 8px;
+            text-align: center; border: 2px solid #e9ecef;
+        }
+        .stat-label { font-size: 12px; color: #6c757d; margin-bottom: 5px; }
+        .stat-value { font-size: 28px; font-weight: 700; color: #dc3545; }
+        .action-buttons { display: flex; gap: 10px; margin-top: 15px; }
+        .back-link { text-align: center; margin-top: 20px; padding: 20px; }
+        .back-link a { color: #007bff; text-decoration: none; font-weight: 600; }
+        .protected-badge {
+            display: inline-block; background: #28a745; color: white;
+            padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
+        }
+        .protected-note {
+            background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px;
+            padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗑️ Database Reset Manager</h1>
+            <p>Manage and clear database tables</p>
+        </div>
+        
+        <div class="warning-banner">
+            <h3>⚠️ IMPORTANT WARNING</h3>
+            <ul>
+                <li><strong>Data deletion is permanent and cannot be undone</strong></li>
+                <li>Always backup important data before resetting</li>
+                <li>Consider exporting data before clearing tables</li>
+                <li>Use selective reset for specific tables only</li>
+            </ul>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <h3>📊 Database Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">Total Tables</div>
+                        <div class="stat-value" id="totalTables">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Total Records</div>
+                        <div class="stat-value" id="totalRecords">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Storage Used</div>
+                        <div class="stat-value" id="storageUsed">0 KB</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Last Updated</div>
+                        <div class="stat-value" style="font-size: 14px;" id="lastUpdated">-</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="protected-note">
+                🛡️ <strong>Protected Tables:</strong> Processing Costs, Nationalities, Worker Documents, Employer Documents, and Invoice Header cannot be cleared. These tables use Enable/Disable instead of Delete.
+            </div>
+            
+            <div class="section">
+                <h3>📋 Individual Table Management</h3>
+                <div class="table-list" id="tablesList"></div>
+            </div>
+            
+            <!-- Drive Folders Cleanup -->
+            <div class="section" style="border-color:#ff9800;">
+                <h3>📁 Google Drive Folder Cleanup</h3>
+                <p style="font-size:13px;color:#666;margin-bottom:15px;">Delete all worker/employer folders and files from Google Drive. Files go to Trash (recoverable for 30 days).</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                    <div class="table-card" style="border-color:#ff9800;">
+                        <div class="table-name">👷 Workers Folders</div>
+                        <div class="table-description">Passport scans, photos, ID documents, uploaded files</div>
+                        <div id="workersDriveStatus" style="font-size:13px;color:#666;margin:8px 0;">Ready</div>
+                        <button class="btn btn-danger" onclick="cleanDriveFolder('workers')" style="width:100%;margin-top:8px;">🗑️ Clean Workers Drive</button>
+                    </div>
+                    <div class="table-card" style="border-color:#ff9800;">
+                        <div class="table-name">💼 Employers Folders</div>
+                        <div class="table-description">Invoices, reports, pre-approval docs, visa documents</div>
+                        <div id="employersDriveStatus" style="font-size:13px;color:#666;margin:8px 0;">Ready</div>
+                        <button class="btn btn-danger" onclick="cleanDriveFolder('employers')" style="width:100%;margin-top:8px;">🗑️ Clean Employers Drive</button>
+                    </div>
+                </div>
+                <div style="margin-top:15px;">
+                    <button class="btn btn-danger" onclick="cleanDriveFolder('both')" style="width:100%;padding:14px;font-size:15px;">🗑️ Clean ALL Drive Folders (Workers + Employers)</button>
+                </div>
+                <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:12px;color:#856404;border-left:4px solid #ffc107;">
+                    💡 Files are moved to <strong>Google Drive Trash</strong> — recoverable for 30 days. After that, permanently deleted.
+                </div>
+            </div>
+            
+            <div class="nuclear-section">
+                <div class="nuclear-warning">
+                    <div class="nuclear-icon">☢️</div>
+                    <div class="nuclear-text">
+                        <h3>NUCLEAR OPTION: Reset Database</h3>
+                        <p>This will delete data from all UNPROTECTED tables. Protected tables (Fees, Nationalities, Documents) will be skipped.</p>
+                    </div>
+                </div>
+                <button class="btn btn-danger" onclick="resetAllDatabase()" style="width: 100%; padding: 15px; font-size: 16px;">
+                    🗑️ RESET DATABASE (skips protected tables)
+                </button>
+            </div>
+            
+            <div class="back-link">
+                <a href="Admin_Dashboard.html">← Back to Admin Dashboard</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // PROTECTED TABLES — cannot be cleared from this page
+        // ============================================================
+        // ============================================================
+        // DRIVE FOLDER CLEANUP
+        // ============================================================
+        function cleanDriveFolder(type) {
+            if (!verifyAdminPassword('Clean ' + type + ' Drive folders')) return;
+            
+            if (type === 'both') {
+                if (!confirm('🗑️ CLEAN ALL DRIVE FOLDERS\n\nThis will trash ALL worker AND employer folders and files.\n\n⚠️ Files go to Trash (30-day recovery).\n\nProceed?')) return;
+                cleanDriveSingle('workers', function() {
+                    cleanDriveSingle('employers', function() {
+                        alert('✅ ALL Drive Folders Cleaned!\n\n👷 Workers folders → Trash\n💼 Employers folders → Trash\n\n💡 Recoverable from Google Drive Trash for 30 days.');
+                    });
+                });
+                return;
+            }
+            
+            var label = type === 'workers' ? '👷 Workers' : '💼 Employers';
+            if (!confirm('🗑️ CLEAN ' + label.toUpperCase() + ' DRIVE FOLDERS\n\nThis will trash all ' + type + ' folders and files.\n\n⚠️ Files go to Trash (30-day recovery).\n\nProceed?')) return;
+            
+            cleanDriveSingle(type, function() {
+                alert('✅ ' + label + ' Drive Folders Cleaned!\n\n💡 Recoverable from Google Drive Trash for 30 days.');
+            });
+        }
+        
+        function cleanDriveSingle(type, callback) {
+            var statusEl = document.getElementById(type + 'DriveStatus');
+            if (statusEl) { statusEl.textContent = '⏳ Cleaning ' + type + ' folders...'; statusEl.style.color = '#ff9800'; }
+            
+            google.script.run
+                .withSuccessHandler(function(result) {
+                    if (result && result.success) {
+                        if (statusEl) { statusEl.textContent = '✅ Done! ' + (result.foldersDeleted || 0) + ' folders, ' + (result.filesDeleted || 0) + ' files trashed'; statusEl.style.color = '#28a745'; }
+                    } else {
+                        if (statusEl) { statusEl.textContent = '❌ Failed: ' + (result ? result.error : 'Unknown error'); statusEl.style.color = '#dc3545'; }
+                    }
+                    if (callback) callback();
+                })
+                .withFailureHandler(function(err) {
+                    if (statusEl) { statusEl.textContent = '❌ Error: ' + err.message; statusEl.style.color = '#dc3545'; }
+                    if (callback) callback();
+                })
+                .gsrCleanDriveFolders(type);
+        }
+
+        var PROTECTED_SHEETS = ['Processing_Costs', 'Nationalities', 'Worker_Documents', 'Employer_Documents', 'Invoice_Header'];
+        
+        function isProtected(cloudSheet) {
+            return cloudSheet && PROTECTED_SHEETS.indexOf(cloudSheet) >= 0;
+        }
+
+        function clearCloudSheet(sheetName, callback) {
+            if (!sheetName) { if (callback) callback(); return; }
+            // BLOCK protected tables
+            if (isProtected(sheetName)) {
+                alert('🛡️ PROTECTED TABLE\n\n"' + sheetName + '" cannot be cleared.\n\nThis table is protected. Use Enable/Disable in the manager page instead.');
+                if (callback) callback();
+                return;
+            }
+            google.script.run
+                .withSuccessHandler(function(r) {
+                    console.log('☁️ Cleared cloud sheet:', sheetName, r);
+                    if (callback) callback();
+                })
+                .withFailureHandler(function(e) {
+                    console.warn('☁️ Failed to clear cloud sheet:', sheetName, e.message);
+                    if (callback) callback();
+                })
+                .gsrClearSheet(sheetName);
+        }
+        
+        var DATABASE_TABLES = [
+            { key: 'mgsdb_workers', name: 'Workers', description: 'Worker profiles and information', icon: '👷', cloudSheet: 'Workers' },
+            { key: 'mgsdb_employers', name: 'Employers', description: 'Employer companies and contacts', icon: '🏢', cloudSheet: 'Employers' },
+            { key: 'mgsdb_local_agencies', name: 'Local Agencies', description: 'Recruitment agency information', icon: '🏛️', cloudSheet: 'Local_Agencies' },
+            { key: 'mgsdb_suppliers', name: 'Suppliers', description: 'Foreign supplier companies', icon: '🌍', cloudSheet: 'Suppliers' },
+            { key: 'mgsdb_processing_fees', name: 'Processing Fees', description: 'Processing cost and fee items', icon: '💲', cloudSheet: 'Processing_Costs' },
+            { key: 'mgsdb_invoices', name: 'Invoices', description: 'Invoice records and PDFs', icon: '💰', cloudSheet: 'Invoices' },
+            { key: 'mgsdb_receipts', name: 'Receipts / Payments', description: 'Payment receipts linked to invoices', icon: '🧾', cloudSheet: 'Receipts' },
+            { key: 'mgsdb_outgoing_payments', name: 'Outgoing Payments', description: 'Payments made to employers, suppliers, agencies', icon: '💸', cloudSheet: 'OutgoingPayments' },
+            { key: 'mgsdb_admin_password', name: 'Admin Password', description: 'Admin password for disable/enable actions', icon: '🔐' },
+            { key: 'mgsdb_worker_documents', name: 'Worker Documents', description: 'Worker document definitions', icon: '📋', cloudSheet: 'Worker_Documents' },
+            { key: 'mgsdb_employer_documents', name: 'Employer Documents', description: 'Employer document definitions', icon: '📄', cloudSheet: 'Employer_Documents' },
+            { key: 'mgsdb_nationalities', name: 'Nationalities', description: 'Country and nationality data', icon: '🌐', cloudSheet: 'Nationalities' },
+            { key: 'mgsdb_invoice_header', name: 'Invoice Header', description: 'Company info for invoice headers', icon: '🧾', cloudSheet: 'Invoice_Header' },
+            { key: 'mgsdb_items', name: 'Items', description: 'Items / products catalog', icon: '📦', cloudSheet: 'Items' },
+            { key: 'mgsdb_lastBackup_workers', name: 'Workers Backup Timestamp', description: 'Last backup date for workers data', icon: '⏱️' },
+            { key: 'mgsdb_lastBackup_employers', name: 'Employers Backup Timestamp', description: 'Last backup date for employers data', icon: '⏱️' },
+            { key: 'mgsdb_module_security', name: 'Module Security', description: 'Security settings per module', icon: '🛡️' },
+            { key: 'mgsdb_module_visibility', name: 'Module Visibility', description: 'Show/hide settings for modules', icon: '👁️' },
+            { key: 'mgsdb_page_locks', name: 'Page Locks', description: 'Lock status for pages', icon: '🔒' },
+            { key: 'mgsdb_page_passwords', name: 'Page Passwords', description: 'Passwords assigned to pages', icon: '🔑' },
+            { key: 'mgsdb_security_password', name: 'Security Password', description: 'Main security/admin password', icon: '🔐' },
+            { key: 'mgsdb_tab_unlock', name: 'Tab Unlock State', description: 'Unlocked tab session data', icon: '🔓' }
+        ];
+        
+        var _cloudCounts = {};
+
+        function loadStatistics() {
+            document.getElementById('totalTables').textContent = DATABASE_TABLES.length;
+            document.getElementById('storageUsed').textContent = 'Google Sheets';
+            document.getElementById('lastUpdated').textContent = new Date().toLocaleDateString();
+            var cloudTables = DATABASE_TABLES.filter(function(t) { return t.cloudSheet; });
+            var loaded = 0;
+            if (cloudTables.length === 0) { updateTotalRecords(); return; }
+            cloudTables.forEach(function(table) {
+                google.script.run
+                    .withSuccessHandler(function(data) {
+                        var arr = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+                        _cloudCounts[table.cloudSheet] = arr.length;
+                        loaded++;
+                        if (loaded === cloudTables.length) { updateTotalRecords(); renderTables(); }
+                    })
+                    .withFailureHandler(function() {
+                        _cloudCounts[table.cloudSheet] = 0;
+                        loaded++;
+                        if (loaded === cloudTables.length) { updateTotalRecords(); renderTables(); }
+                    })
+                    .gsrGetAll(table.cloudSheet);
+            });
+        }
+
+        function updateTotalRecords() {
+            var total = Object.values(_cloudCounts).reduce(function(s,v){ return s+v; }, 0);
+            document.getElementById('totalRecords').textContent = total.toLocaleString();
+        }
+        
+        function renderTables() {
+            var container = document.getElementById('tablesList');
+            container.innerHTML = '';
+            DATABASE_TABLES.forEach(function(table) {
+                var count = table.cloudSheet ? (_cloudCounts[table.cloudSheet] || 0) : 0;
+                var prot = isProtected(table.cloudSheet);
+                var card = document.createElement('div');
+                card.className = 'table-card' + (prot ? ' protected' : '');
+                var actionHtml = '';
+                if (prot) {
+                    actionHtml = '<button class="btn btn-warning" onclick="viewTable(\'' + table.key + '\')" style="flex:1;">👁️ View</button>'
+                        + '<button class="btn btn-protected" style="flex:1;" onclick="alert(\'🛡️ PROTECTED\\n\\n' + table.name + ' cannot be cleared.\\nUse Enable/Disable in its manager page.\')">🛡️ Protected</button>';
+                } else {
+                    actionHtml = '<button class="btn btn-warning" onclick="viewTable(\'' + table.key + '\')" style="flex:1;">👁️ View</button>'
+                        + '<button class="btn btn-danger" onclick="clearTable(\'' + table.key + '\', \'' + table.name.replace(/'/g, "\\'") + '\')" style="flex:1;">🗑️ Clear</button>';
+                }
+                card.innerHTML = '<div class="table-name">' + table.icon + ' ' + table.name + (prot ? ' <span class="protected-badge">🛡️ PROTECTED</span>' : '') + '</div>'
+                    + '<div class="table-count">' + count.toLocaleString() + '</div>'
+                    + '<div class="table-description">' + table.description + '</div>'
+                    + '<div class="action-buttons">' + actionHtml + '</div>';
+                container.appendChild(card);
+            });
+        }
+        
+        function viewTable(tableKey) {
+            var table = DATABASE_TABLES.find(function(t) { return t.key === tableKey; });
+            if (!table.cloudSheet) { alert('📋 ' + table.name + '\n\nThis is a local settings table.'); return; }
+            alert('⏳ Loading ' + table.name + ' from cloud...');
+            google.script.run
+                .withSuccessHandler(function(result) {
+                    var data = (result && result.data) ? result.data : (Array.isArray(result) ? result : []);
+                    if (data.length === 0) { alert('📋 ' + table.name + '\n\nTable is empty.'); return; }
+                    var message = '📋 ' + table.name + ' - ' + data.length + ' Records\n\n';
+                    data.slice(0, 5).forEach(function(record, idx) {
+                        message += 'Record ' + (idx + 1) + ':\n';
+                        Object.keys(record).slice(0, 3).forEach(function(key) {
+                            var value = record[key];
+                            var display = typeof value === 'string' && value.length > 30 ? value.substring(0, 30) + '...' : value;
+                            message += '  ' + key + ': ' + display + '\n';
+                        });
+                        message += '\n';
+                    });
+                    if (data.length > 5) message += '... and ' + (data.length - 5) + ' more records\n';
+                    alert(message);
+                })
+                .withFailureHandler(function(e) { alert('❌ Failed to load ' + table.name + ': ' + e.message); })
+                .gsrGetAll(table.cloudSheet);
+        }
+        
+        function verifyAdminPassword(actionName) {
+            var storedPassword = localStorage.getItem('mgsdb_admin_password');
+            if (!storedPassword) {
+                var newPass = prompt('🔐 No admin password set.\n\nCreate an admin password:');
+                if (!newPass || newPass.trim() === '') { alert('❌ Password is required.'); return false; }
+                localStorage.setItem('mgsdb_admin_password', newPass.trim());
+                storedPassword = newPass.trim();
+                alert('✅ Admin password set!');
+            }
+            var entered = prompt('🔐 ADMIN PASSWORD REQUIRED\n\nAction: ' + actionName + '\n\nEnter admin password:');
+            if (!entered || entered.trim() === '') return false;
+            if (entered.trim() !== storedPassword) { alert('❌ Incorrect password!'); return false; }
+            return true;
+        }
+        
+        function clearTable(tableKey, tableName) {
+            var table = DATABASE_TABLES.find(function(t) { return t.key === tableKey; });
+            // BLOCK protected tables
+            if (table && isProtected(table.cloudSheet)) {
+                alert('🛡️ PROTECTED TABLE\n\n"' + tableName + '" cannot be cleared from this page.\n\nUse the Enable/Disable toggle in its manager page instead.');
+                return;
+            }
+            if (!verifyAdminPassword('Clear ' + tableName)) return;
+            var count = table && table.cloudSheet ? (_cloudCounts[table.cloudSheet] || 0) : 0;
+            if (count === 0) { alert('ℹ️ ' + tableName + ' is already empty.'); return; }
+            var cloudNote = (table && table.cloudSheet) ? '\n\n☁️ This will also clear the Google Sheets cloud data.' : '';
+            if (!confirm('🗑️ CLEAR TABLE: ' + tableName + '\n\nThis will permanently delete ' + count + ' record' + (count !== 1 ? 's' : '') + '.' + cloudNote + '\n\n⚠️ THIS CANNOT BE UNDONE!\n\nProceed?')) return;
+            if (count > 10) {
+                if (!confirm('⚠️ FINAL CONFIRMATION\n\nYou are about to delete ' + count + ' records from ' + tableName + '.\n\nClick OK to proceed.')) return;
+            }
+            if (table && table.cloudSheet) {
+                clearCloudSheet(table.cloudSheet, function() {
+                    _cloudCounts[table.cloudSheet] = 0;
+                    updateTotalRecords();
+                    renderTables();
+                    alert('✅ Table Cleared!\n\n' + count + ' record' + (count !== 1 ? 's' : '') + ' deleted from ' + tableName + '.\n☁️ Cloud sheet cleared.');
+                });
+            } else { alert('✅ Table Cleared!'); renderTables(); }
+        }
+        
+        function resetAllDatabase() {
+            if (!verifyAdminPassword('☢️ RESET DATABASE')) return;
+            var totalRecords = Object.values(_cloudCounts).reduce(function(s,v){ return s+v; }, 0);
+            if (totalRecords === 0) { alert('ℹ️ Database is already empty.'); return; }
+            
+            // Count protected vs unprotected
+            var protectedCount = 0;
+            var clearableCount = 0;
+            DATABASE_TABLES.forEach(function(t) {
+                if (t.cloudSheet && _cloudCounts[t.cloudSheet]) {
+                    if (isProtected(t.cloudSheet)) protectedCount += _cloudCounts[t.cloudSheet];
+                    else clearableCount += _cloudCounts[t.cloudSheet];
+                }
+            });
+            var protectedNames = PROTECTED_SHEETS.join(', ');
+            
+            if (clearableCount === 0) { alert('ℹ️ No clearable records found.\n\nAll remaining data is in protected tables (' + protectedNames + ').'); return; }
+            
+            if (!confirm('☢️ RESET DATABASE\n\n⚠️ This will delete ' + clearableCount + ' records from unprotected tables.\n\n🛡️ SKIPPING protected tables (' + protectedNames + ') — ' + protectedCount + ' records safe.\n\nProceed?')) return;
+            if (!confirm('⚠️ SECOND CONFIRMATION\n\nDeleting ' + clearableCount + ' records.\nProtected tables will NOT be touched.\n\nContinue?')) return;
+            if (!confirm('🚨 FINAL WARNING\n\nClick OK to DELETE all unprotected data.\nProtected tables stay intact.')) return;
+            
+            var cleared = 0;
+            DATABASE_TABLES.forEach(function(table) {
+                if (table.cloudSheet && !isProtected(table.cloudSheet)) {
+                    clearCloudSheet(table.cloudSheet);
+                    if (_cloudCounts[table.cloudSheet]) cleared += _cloudCounts[table.cloudSheet];
+                    _cloudCounts[table.cloudSheet] = 0;
+                }
+            });
+            
+            alert('✅ DATABASE RESET COMPLETE\n\n🗑️ ' + cleared + ' records deleted from unprotected tables.\n🛡️ ' + protectedCount + ' records in protected tables preserved.\n\nProtected: ' + protectedNames);
+            loadStatistics();
+            renderTables();
+        }
+        
+        loadStatistics();
+        renderTables();
+    </script>
+</body>
+</html>
