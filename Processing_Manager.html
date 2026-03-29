@@ -1133,7 +1133,7 @@
             
             closeInvoicePopup();
 
-            /var recruitFee = parseFloat(w.RecruitmentFee) || totalAmount;
+           var recruitFee = parseFloat(w.RecruitmentFee) || totalAmount;
             var feeWarning = '';
             if (!w.RecruitmentFee || parseFloat(w.RecruitmentFee) === 0) {
                 feeWarning = '\n\n⚠️ No recruitment fee stamped — using invoice total ($' + totalAmount.toFixed(2) + ') as supplier credit amount.';
@@ -1269,6 +1269,11 @@
                     doc.text('Voucher: ' + voucherNum, col, y + 8);
                     doc.text('Linked Invoice: ' + invNumber, col, y + 16);
                     doc.text('Status: Pending — Payable upon worker arrival', col, y + 24);
+                    y += 32;
+                    doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(80,80,80);
+                    doc.text('Amount in Words:', col, y);
+                    doc.setFont(undefined, 'italic');
+                    doc.text(_numToWords(totalAmount), col, y + 7);
 
                     // Footer
                     doc.setFontSize(9); doc.setTextColor(160, 160, 160);
@@ -1295,6 +1300,28 @@
                 }
             })();
             // ── End Supplier Credit ────────────────────────────────────────────
+// ── Amount in words helper ──────────────────────────────────
+            function _numToWords(num) {
+                if (!num || num === 0) return 'Zero Dollars';
+                var ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+                var tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+                function convert(n) {
+                    if (n < 20) return ones[n];
+                    if (n < 100) return tens[Math.floor(n/10)] + (n%10 ? ' ' + ones[n%10] : '');
+                    if (n < 1000) return ones[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' and ' + convert(n%100) : '');
+                    if (n < 1000000) return convert(Math.floor(n/1000)) + ' Thousand' + (n%1000 ? ' ' + convert(n%1000) : '');
+                    return convert(Math.floor(n/1000000)) + ' Million' + (n%1000000 ? ' ' + convert(n%1000000) : '');
+                }
+                var whole = Math.floor(Math.abs(num));
+                var cents = Math.round((Math.abs(num) - whole) * 100);
+                var result = convert(whole) + ' Dollars';
+                if (cents > 0) result += ' and ' + convert(cents) + ' Cents';
+                return result;
+            }
+
+            var feesSummary = selectedFees.map(function(f) { return f.nameEN + ': $' + f.subtotal.toFixed(2); }).join('\n');
+            alert('✅ Invoice Issued & Sent to Accountant!\n\n📋 Invoice: ' + invNumber + '\n📅 Date: ' + invDate + '\n\n💲 Fee Items:\n' + feesSummary + '\n\n💰 Total: $' + totalAmount.toFixed(2) + '\n\n🧾 Supplier Credit: ' + voucherNum + ' ($' + recruitFee.toFixed(2) + ')\n👤 Supplier: ' + suppName + '\n\n🔒 Worker LOCKED\n📋 ' + workerName + ' → Preapproval\n📊 Invoice + Credit copied to Accountant' + feeWarning);
+            updateCounts(); renderTab();
 
             var feesSummary = selectedFees.map(function(f) { return f.nameEN + ': $' + f.subtotal.toFixed(2); }).join('\n');
             alert('✅ Invoice Issued & Sent to Accountant!\n\n📋 Invoice: ' + invNumber + '\n📅 Date: ' + invDate + '\n\n💲 Fee Items:\n' + feesSummary + '\n\n💰 Total: $' + totalAmount.toFixed(2) + '\n\n🧾 Supplier Credit: ' + voucherNum + ' ($' + recruitFee.toFixed(2) + ')\n👤 Supplier: ' + suppName + '\n\n🔒 Worker LOCKED\n📋 ' + workerName + ' → Preapproval\n📊 Invoice + Credit copied to Accountant' + feeWarning);
