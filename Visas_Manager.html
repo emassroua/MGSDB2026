@@ -1,0 +1,2006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGS - Supplier Section</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+        
+        .nav-panel {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .nav-header {
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .nav-header h2 {
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        
+        .nav-header p {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .search-box {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 14px;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        
+        .record-list {
+            list-style: none;
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .record-item {
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+        
+        .record-item:hover {
+            background: #e9ecef;
+            border-left-color: #667eea;
+        }
+        
+        .record-item.active {
+            background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+            border-left-color: #2563eb;
+            border-left-width: 5px;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+        }
+        
+        .record-item.active .id {
+            color: #1d4ed8;
+            font-weight: 800;
+        }
+        
+        .record-item.active .name {
+            color: #1e3a5f;
+            font-weight: 800;
+            font-size: 15px;
+        }
+        
+        .record-item .id {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        
+        .record-item .name {
+            color: #212529;
+            font-size: 14px;
+            margin-top: 3px;
+        }
+        
+        .nav-buttons {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .pagination-controls {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        
+        .pagination-controls label {
+            font-size: 12px;
+            color: #666;
+            margin-right: 5px;
+        }
+        
+        .pagination-controls select {
+            padding: 5px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .pagination-info {
+            font-size: 11px;
+            color: #666;
+            text-align: center;
+            margin-top: 5px;
+        }
+        
+        .page-buttons {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+        }
+        
+        .page-btn {
+            flex: 1;
+            padding: 6px;
+            font-size: 11px;
+            border: 1px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .page-btn:hover:not(:disabled) {
+            background: #667eea;
+            color: white;
+        }
+        
+        .page-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        
+        .form-panel {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-header {
+            padding: 20px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px 10px 0 0;
+        }
+        
+        .form-header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .form-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .form-toolbar {
+            padding: 15px 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .form-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 5px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            padding: 0 30px;
+        }
+        
+        .tab {
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+        }
+        
+        .tab:hover {
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: white;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .workers-list {
+            margin-top: 20px;
+        }
+        
+        /* Datasheet Modal */
+        .datasheet-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            overflow: auto;
+        }
+        
+        .datasheet-content {
+            background: white;
+            margin: 20px auto;
+            padding: 0;
+            width: 95%;
+            max-width: 1800px;
+            border-radius: 10px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .datasheet-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .datasheet-close {
+            color: white;
+            font-size: 35px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 20px;
+        }
+        
+        .datasheet-close:hover {
+            opacity: 0.7;
+        }
+        
+        .datasheet-body {
+            padding: 20px;
+            overflow: auto;
+            flex: 1;
+        }
+        
+        .datasheet-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        .datasheet-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        
+        .datasheet-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .datasheet-table tr:hover {
+            background: #f8f9fa;
+            cursor: pointer;
+        }
+        
+        .datasheet-table tr.selected {
+            background: #e7f3ff;
+        }
+        
+        .datasheet-footer {
+            padding: 15px 30px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .worker-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .worker-info {
+            flex: 1;
+        }
+        
+        .worker-info .name {
+            font-weight: 600;
+            font-size: 15px;
+            color: #212529;
+            margin-bottom: 5px;
+        }
+        
+        .worker-info .details {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        .worker-status {
+            display: flex;
+            gap: 5px;
+            font-size: 18px;
+        }
+        
+        .no-workers {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 4px;
+            font-size: 12px;
+        }
+        
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        select,
+        textarea {
+            padding: 6px 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+        
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+        
+        input:disabled {
+            background: #e9ecef;
+            cursor: not-allowed;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-light {
+            background: white;
+            color: #495057;
+            border: 1px solid #ced4da;
+        }
+        
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .required {
+            color: #dc3545;
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #667eea;
+            margin: 15px 0 10px 0;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #e9ecef;
+            grid-column: 1 / -1;
+        }
+        
+        .section-title:first-child {
+            margin-top: 0;
+        }
+        
+        .status-bar {
+            padding: 15px 30px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-text {
+            color: #6c757d;
+            font-size: 13px;
+        }
+        
+        .status-text.success {
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .status-text.error {
+            color: #dc3545;
+            font-weight: 600;
+        }
+        
+        .record-counter {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .info-box {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+        
+        .info-box strong {
+            display: block;
+            margin-bottom: 3px;
+        }
+        
+        /* Custom Red Checkboxes */
+        input[type="checkbox"] {
+            width: 20px !important;
+            height: 20px !important;
+            cursor: pointer !important;
+            accent-color: #dc3545; /* Red color when checked */
+            transform: scale(1.2);
+        }
+        
+        input[type="checkbox"]:disabled {
+            cursor: not-allowed !important;
+        }
+        
+        input[type="checkbox"]:checked {
+            filter: hue-rotate(0deg) saturate(2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation Panel -->
+        <div class="nav-panel">
+            <div class="nav-header">
+                <h2>🏢 Supplier Section</h2>
+                <p>MGS - Massroua General Services</p>
+            </div>
+            
+            <div class="info-box">
+                <strong>✅ Auto-Save Active!</strong>
+                All changes save automatically. Use Export/Import to backup.
+            </div>
+            
+            <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search suppliers...">
+            
+            <div class="pagination-controls">
+                <label>Show per page:</label>
+                <select id="pageSize" onchange="changePageSize()">
+                    <option value="50">50 records</option>
+                    <option value="100" selected>100 records</option>
+                    <option value="500">500 records</option>
+                    <option value="1000">1000 records</option>
+                    <option value="all">All records</option>
+                </select>
+                <div class="page-buttons">
+                    <button class="page-btn" id="prevBtn" onclick="previousPage()">◄ Previous</button>
+                    <button class="page-btn" id="nextBtn" onclick="nextPage()">Next ►</button>
+                </div>
+                <div class="pagination-info" id="pageInfo">Page 1 of 1</div>
+            </div>
+            
+            <ul class="record-list" id="recordList"></ul>
+            
+            <div style="margin-top: 10px; border-top: 1px solid #e9ecef;">
+                <div onclick="toggleNavButtons()" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 5px; cursor: pointer; user-select: none;" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''">
+                    <span style="font-weight: 700; font-size: 12px; color: #667eea; text-transform: uppercase; letter-spacing: 0.5px;">⚡ Actions</span>
+                    <span id="navBtnToggleIcon" style="font-size: 14px; color: #667eea; transition: transform 0.3s;">▲</span>
+                </div>
+                <div id="navButtonsPanel" class="nav-buttons" style="display: none;">
+                    <button class="btn btn-success" onclick="newSupplier()">➕ New Supplier</button>
+                    <button class="btn btn-light" onclick="loadSuppliers()">🔄 Refresh</button>
+                    <button class="btn btn-info" onclick="exportData()">📥 Export Backup</button>
+                    <button class="btn btn-secondary" onclick="importData()">📤 Import Backup</button>
+                    <button class="btn btn-primary" onclick="window.top.location.href='?page=Dashboard'" style="margin-top: 10px;">🏠 Dashboard</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Form Panel -->
+        <div class="form-panel">
+            <div class="form-header">
+                <h1>🏢 Supplier Management</h1>
+                <p>Add, Edit, Delete - All changes save automatically!</p>
+            </div>
+            
+            <div class="form-toolbar">
+                <button class="btn btn-success" onclick="saveSupplier()">💾 Save</button>
+                <button class="btn btn-primary" onclick="newSupplier()">➕ New</button>
+                <button class="btn btn-danger" onclick="deleteSupplier()">🗑️ Delete</button>
+                <button class="btn btn-secondary" onclick="clearForm()">🔄 Clear</button>
+                <button class="btn btn-info" onclick="showDatasheetView()">📊 Datasheet View</button>
+                <button class="btn btn-light" onclick="window.top.location.href='?page=Dashboard'" style="margin-left: auto;">🏠 Dashboard</button>
+            </div>
+            
+            <div class="form-content">
+                <!-- Tabs Navigation - All in One Line -->
+                <div class="tabs">
+                    <button type="button" class="tab active" onclick="openTab('info')">🏢 Supplier Info</button>
+                    <button type="button" class="tab" onclick="openWorkersTab('all')">📊 All Workers</button>
+                    <button type="button" class="tab" onclick="openWorkersTab('selected')">✅ Selected</button>
+                    <button type="button" class="tab" onclick="openWorkersTab('processing')">🔄 Processing</button>
+                    <button type="button" class="tab" onclick="openWorkersTab('deleted')">🗑️ Deleted</button>
+                    <button type="button" class="tab" onclick="openWorkersTab('cancelled')">❌ Cancelled</button>
+                    <button type="button" class="tab" onclick="openWorkersTab('arrived')">✈️ Arrived</button>
+                    <button type="button" onclick="debugWorkerData()" style="background: #ffc107; color: #000; margin-left: 10px;">🔍 Debug Worker</button>
+                    <button type="button" onclick="forceSelectWorkers()" style="background: #28a745; color: white;">✓ Force Select</button>
+                </div>
+                
+                <form id="supplierForm" onsubmit="return false;">
+                    <!-- Tab 1: Supplier Info -->
+                    <div id="tab-info" class="tab-content active">
+                        <div class="form-grid">
+                            <div class="section-title">Basic Information</div>
+                            
+                            <div class="form-group">
+                                <label>Supplier ID</label>
+                                <input type="text" id="SupplierID" readonly style="background: #e9ecef; cursor: not-allowed;">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Supplier Code <span class="required">*</span> (Exactly 4 characters)</label>
+                                <input type="text" id="SupplierCODE" required maxlength="4" style="text-transform: uppercase; width: 150px; font-size: 16px; letter-spacing: 2px;">
+                            </div>
+                            
+                            <div class="form-group full-width">
+                                <label>Business Name <span class="required">*</span></label>
+                                <input type="text" id="SupplierBusinessName" required>
+                            </div>
+                            
+                            <div class="section-title">Owner Information</div>
+                            
+                            <div class="form-group">
+                                <label>Owner Name</label>
+                                <input type="text" id="SupplierOwnerName">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Owner Contact Number</label>
+                                <input type="tel" id="SupplierOwnerContactNumber">
+                            </div>
+                            
+                            <div class="section-title">Location Information</div>
+                            
+                            <div class="form-group">
+                                <label>City</label>
+                                <input type="text" id="SupplierCity">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Country</label>
+                                <select id="SupplierCountry">
+                                    <option value=""></option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Nationality</label>
+                                <select id="SupplierNationality">
+                                    <option value=""></option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group full-width">
+                                <label>Address</label>
+                                <textarea id="SupplierAddress"></textarea>
+                            </div>
+                            
+                            <div class="section-title">Contact Information</div>
+                            
+                            <div class="form-group">
+                                <label>Email Address 1</label>
+                                <input type="email" id="EmailAddress1">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Email Address 2</label>
+                                <input type="email" id="EmailAddress2">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Contact Number 1</label>
+                                <input type="tel" id="ContactNumber1">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Contact Number 2</label>
+                                <input type="tel" id="ContactNumber2">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Contact Number 3</label>
+                                <input type="tel" id="ContactNumber3">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Mobile 1</label>
+                                <input type="tel" id="Mobile1">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Mobile 2</label>
+                                <input type="tel" id="Mobile2">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Mobile 3</label>
+                                <input type="tel" id="Mobile3">
+                            </div>
+                        </div>
+                        
+                        <!-- Portal Access Section -->
+                        <div style="margin-top: 20px; padding: 18px; background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 2px solid #93c5fd; border-radius: 12px;">
+                            <div style="font-weight: 700; font-size: 14px; color: #1d4ed8; margin-bottom: 14px;">🌐 Supplier Portal Access</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; align-items: end;">
+                                <div class="form-group" style="margin: 0;">
+                                    <label style="font-size: 12px; color: #334155;">Portal Password</label>
+                                    <div style="display: flex; gap: 6px;">
+                                        <input type="text" id="SupplierPassword" placeholder="Set password for supplier" style="flex: 1;">
+                                        <button type="button" onclick="generatePassword()" style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;" title="Generate random password">🎲</button>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin: 0;">
+                                    <label style="font-size: 12px; color: #334155;">Portal Access</label>
+                                    <select id="PortalAccess" style="padding: 8px;">
+                                        <option value="true">✅ Enabled</option>
+                                        <option value="false">🔒 Disabled</option>
+                                    </select>
+                                </div>
+                                <div style="font-size: 11px; color: #64748b; padding: 8px 0;">
+                                    Share <strong>Supplier_Portal.html</strong> + their code & password so they can view workers & upload documents.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Worker Tabs -->
+                    <div id="tab-workers-all" class="tab-content">
+                        <div style="margin-bottom: 20px;">
+                            <button type="button" class="btn btn-success" onclick="addWorkerForSupplier()">➕ Add New Worker</button>
+                            <button type="button" class="btn btn-light" onclick="loadWorkersForSupplier('all')">🔄 Refresh</button>
+                        </div>
+                        <div id="workersList-all" class="workers-list"></div>
+                    </div>
+                    
+                    <div id="tab-workers-selected" class="tab-content">
+                        <div style="margin-bottom: 20px;">
+                            <button type="button" class="btn btn-light" onclick="loadWorkersForSupplier('selected')">🔄 Refresh</button>
+                        </div>
+                        <div id="workersList-selected" class="workers-list"></div>
+                    </div>
+                    
+                    <div id="tab-workers-processing" class="tab-content">
+                        <div style="margin-bottom: 20px;">
+                            <button type="button" class="btn btn-light" onclick="loadWorkersForSupplier('processing')">🔄 Refresh</button>
+                        </div>
+                        <div id="workersList-processing" class="workers-list"></div>
+                    </div>
+                    
+                    <div id="tab-workers-deleted" class="tab-content">
+                        <div style="margin-bottom: 20px;">
+                            <button type="button" class="btn btn-light" onclick="loadWorkersForSupplier('deleted')">🔄 Refresh</button>
+                        </div>
+                        <div id="workersList-deleted" class="workers-list"></div>
+                    </div>
+                    
+                    <div id="tab-workers-cancelled" class="tab-content">
+                        <div style="margin-bottom: 20px;">
+                            <button type="button" class="btn btn-light" onclick="loadWorkersForSupplier('cancelled')">🔄 Refresh</button>
+                        </div>
+                        <div id="workersList-cancelled" class="workers-list"></div>
+                    </div>
+                    
+                    <div id="tab-workers-arrived" class="tab-content">
+                        <div style="margin-bottom: 20px;">
+                            <button type="button" class="btn btn-light" onclick="loadWorkersForSupplier('arrived')">🔄 Refresh</button>
+                        </div>
+                        <div id="workersList-arrived" class="workers-list"></div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="status-bar">
+                <span class="status-text" id="statusText">Ready</span>
+                <span class="record-counter" id="recordCounter">0 Suppliers</span>
+                <span id="cloudStatus" style="margin-left: 10px; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background: #fff3cd; color: #856404;">⏳ Loading...</span>
+                <span id="autoSaveStatus" style="margin-left: 8px; font-size: 11px; color: #6c757d;"></span>
+            </div>
+        </div>
+    </div>
+    
+    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="handleImport(event)">
+
+    <script>
+        // Password check disabled - authentication handled by Apps Script deployment settings
+        
+        // Initial data
+        // ==========================================
+        // CLOUD DATABASE MODULE
+        // ==========================================
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwI-2e6Zav1-AAdHOIV442lzSGkp1NxTayIbantWgLj-v2p2M4uwdMX3Vlhc_YoJSLH/exec';
+        
+        const CloudDB = {
+            url: GOOGLE_SCRIPT_URL,
+            ready: false,
+            
+            async get(params) {
+                try {
+                    var qs = Object.keys(params).map(k => k + '=' + encodeURIComponent(params[k])).join('&');
+                    var resp = await fetch(this.url + '?' + qs);
+                    return await resp.json();
+                } catch(e) {
+                    console.warn('☁️ CloudDB GET failed:', e.message);
+                    return null;
+                }
+            },
+            
+            async post(data) {
+                try {
+                    var resp = await fetch(this.url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify(data)
+                    });
+                    var text = await resp.text();
+                    try { return JSON.parse(text); } catch(e) { return null; }
+                } catch(e) {
+                    console.warn('☁️ CloudDB POST failed:', e.message);
+                    return null;
+                }
+            },
+            
+            async loadSheet(sheetName) {
+                var result = await this.get({ action: 'getAll', sheet: sheetName });
+                if (result && result.success) return result.data;
+                return null;
+            },
+            
+            async saveRow(sheetName, rowData) {
+                return await this.post({ action: 'saveRow', sheet: sheetName, row: rowData });
+            },
+            
+            async deleteRow(sheetName, id) {
+                return await this.post({ action: 'deleteRow', sheet: sheetName, id: id });
+            },
+            
+            async loadAll() {
+                console.log('☁️ Loading suppliers & workers from Google Sheets...');
+                var results = { suppliers: null, nationalities: null, workers: null };
+                try {
+                    var [s, n, w] = await Promise.all([
+                        this.loadSheet('Suppliers'),
+                        this.loadSheet('Nationalities'),
+                        this.loadSheet('Workers')
+                    ]);
+                    results.suppliers = s;
+                    results.nationalities = n;
+                    results.workers = w;
+                    if (s && s.length > 0) localStorage.setItem('mgsdb_suppliers', JSON.stringify(s));
+                    if (n && n.length > 0) localStorage.setItem('mgsdb_nationalities', JSON.stringify(n));
+                    if (w && w.length > 0) localStorage.setItem('mgsdb_workers', JSON.stringify(w));
+                    this.ready = true;
+                    console.log('☁️ Cloud loaded:', (s ? s.length : 0), 'suppliers,', (n ? n.length : 0), 'nationalities,', (w ? w.length : 0), 'workers');
+                } catch(e) {
+                    console.warn('☁️ Cloud load failed:', e.message);
+                }
+                return results;
+            }
+        };
+        
+        let suppliers = [
+            {SupplierID: "SuP001", SupplierCODE: "SAR", SupplierBusinessName: "SARA TRAVELS", SupplierOwnerName: "", SupplierOwnerContactNumber: "", SupplierCity: "", SupplierCountry: "", SupplierNationality: "", SupplierAddress: "", EmailAddress1: "", EmailAddress2: "", ContactNumber1: "", ContactNumber2: "", ContactNumber3: "", Mobile1: "", Mobile2: "", Mobile3: ""},
+            {SupplierID: "SuP002", SupplierCODE: "YOD", SupplierBusinessName: "YODIT REC", SupplierOwnerName: "", SupplierOwnerContactNumber: "", SupplierCity: "", SupplierCountry: "", SupplierNationality: "", SupplierAddress: "", EmailAddress1: "", EmailAddress2: "", ContactNumber1: "", ContactNumber2: "", ContactNumber3: "", Mobile1: "", Mobile2: "", Mobile3: ""},
+            {SupplierID: "SuP003", SupplierCODE: "ALX", SupplierBusinessName: "ALEX ENTRPRISE", SupplierOwnerName: "", SupplierOwnerContactNumber: "", SupplierCity: "", SupplierCountry: "", SupplierNationality: "", SupplierAddress: "", EmailAddress1: "", EmailAddress2: "", ContactNumber1: "", ContactNumber2: "", ContactNumber3: "", Mobile1: "", Mobile2: "", Mobile3: ""},
+            {SupplierID: "SuP004", SupplierCODE: "LOU", SupplierBusinessName: "LouLOu", SupplierOwnerName: "", SupplierOwnerContactNumber: "", SupplierCity: "", SupplierCountry: "", SupplierNationality: "", SupplierAddress: "", EmailAddress1: "", EmailAddress2: "", ContactNumber1: "", ContactNumber2: "", ContactNumber3: "", Mobile1: "", Mobile2: "", Mobile3: ""},
+            {SupplierID: "SuP005", SupplierCODE: "PVT", SupplierBusinessName: "Private", SupplierOwnerName: "", SupplierOwnerContactNumber: "", SupplierCity: "", SupplierCountry: "", SupplierNationality: "", SupplierAddress: "", EmailAddress1: "", EmailAddress2: "", ContactNumber1: "", ContactNumber2: "", ContactNumber3: "", Mobile1: "", Mobile2: "", Mobile3: ""},
+            {SupplierID: "SuP006", SupplierCODE: "NAS", SupplierBusinessName: "Travel And Tourism", SupplierOwnerName: "", SupplierOwnerContactNumber: "", SupplierCity: "", SupplierCountry: "", SupplierNationality: "", SupplierAddress: "", EmailAddress1: "", EmailAddress2: "", ContactNumber1: "", ContactNumber2: "", ContactNumber3: "", Mobile1: "", Mobile2: "", Mobile3: ""},
+            {SupplierID: "SuP007", SupplierCODE: "GEN", SupplierBusinessName: "Genet", SupplierOwnerName: "", SupplierOwnerContactNumber: "", SupplierCity: "", SupplierCountry: "", SupplierNationality: "", SupplierAddress: "", EmailAddress1: "", EmailAddress2: "", ContactNumber1: "", ContactNumber2: "", ContactNumber3: "", Mobile1: "", Mobile2: "", Mobile3: ""}
+        ];
+        
+        let workers = []; // Will load from localStorage
+        let nationalities = []; // Will load from localStorage
+        let currentSupplier = null;
+        let allWorkers = [];
+        let filteredSuppliers = [];
+        let currentPage = 1;
+        let pageSize = 100;
+        let currentStatusFilter = 'all'; // Track current status filter
+        
+        // Open workers tab and filter by status
+        function openWorkersTab(status) {
+            // Update active tab styling
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Hide all tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Show selected workers tab
+            document.getElementById('tab-workers-' + status).classList.add('active');
+            
+            // Load workers for this supplier with status filter
+            loadWorkersForSupplier(status);
+        }
+        
+        // Tab switching
+        function openTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById('tab-' + tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load workers when workers tab is opened
+            if (tabName === 'workers' && currentSupplier) {
+                loadWorkersForSupplier();
+            }
+        }
+        
+        // Debug worker data
+        function debugWorkerData() {
+            if (!currentSupplier) {
+                alert('⚠️ Please select a supplier first!');
+                return;
+            }
+            
+            const workers = JSON.parse(localStorage.getItem('mgsdb_workers') || '[]');
+            const supplierCode = currentSupplier.SupplierCODE;
+            
+            // Find workers for this supplier
+            const supplierWorkers = workers.filter(w => w.SupplierCode === supplierCode);
+            
+            if (supplierWorkers.length === 0) {
+                alert(`No workers found for supplier: ${supplierCode}`);
+                return;
+            }
+            
+            // Create debug report
+            let report = `🔍 WORKER DEBUG REPORT\n`;
+            report += `Supplier: ${currentSupplier.SupplierName} (${supplierCode})\n`;
+            report += `Total Workers: ${supplierWorkers.length}\n\n`;
+            
+            supplierWorkers.forEach((w, i) => {
+                const code = w.WorkerCode || `${w.SupplierCode}-${String(w.WorkerID).padStart(4, '0')}`;
+                report += `Worker ${i + 1}: ${code}\n`;
+                report += `  Name: ${w.WFullName || 'N/A'}\n`;
+                report += `  SupplierCode: ${w.SupplierCode}\n`;
+                report += `  EmployerCode: ${w.EmployerCode || 'N/A'}\n`;
+                report += `  EmployerID: ${w.EmployerID || 'N/A'}\n`;
+                report += `  Selected: ${w.Selected} (${typeof w.Selected})\n`;
+                report += `  Deleted: ${w.Deleted}\n`;
+                report += `  Cancelled: ${w.Cancelled}\n`;
+                report += `  Arrived: ${w.Arrived}\n`;
+                report += `\n`;
+            });
+            
+            // Count selected workers
+            const selectedCount = supplierWorkers.filter(w => w.Selected === true).length;
+            report += `Selected Workers (Selected === true): ${selectedCount}\n`;
+            
+            console.log(report);
+            alert(report);
+        }
+        
+        // Force select workers with EmployerCode
+        function forceSelectWorkers() {
+            if (!currentSupplier) {
+                alert('⚠️ Please select a supplier first!');
+                return;
+            }
+            
+            const workers = JSON.parse(localStorage.getItem('mgsdb_workers') || '[]');
+            const supplierCode = currentSupplier.SupplierCODE;
+            
+            let updated = 0;
+            
+            workers.forEach(w => {
+                // If worker belongs to this supplier and has EmployerCode
+                if (w.SupplierCode === supplierCode && w.EmployerCode) {
+                    // Force set Selected to boolean true
+                    w.Selected = true;
+                    updated++;
+                }
+            });
+            
+            if (updated === 0) {
+                alert('No workers with EmployerCode found for this supplier.');
+                return;
+            }
+            
+            // Save back
+            localStorage.setItem('mgsdb_workers', JSON.stringify(workers));
+            
+            alert(`✅ Force Selected!\n\nUpdated ${updated} worker(s) to Selected = true\n\nClick "✅ Selected" tab to see them.`);
+            
+            // Refresh if on selected tab
+            var activeTab = document.querySelector('.tab.active');
+            if (activeTab && activeTab.textContent.includes('Selected')) {
+                loadWorkersForSupplier('selected');
+            }
+        }
+        
+        // Load workers for current supplier
+        function loadWorkersForSupplier(status = 'all') {
+            if (!currentSupplier) {
+                const listId = 'workersList-' + status;
+                const listElement = document.getElementById(listId);
+                if (listElement) {
+                    listElement.innerHTML = '<div class="no-workers">Please select a supplier first</div>';
+                }
+                return;
+            }
+            
+            // Use global allWorkers
+            workers = allWorkers;
+            
+            // Get supplier's numeric ID (extract from SuP001 format)
+            const supplierNumericID = parseInt(currentSupplier.SupplierID.replace(/\D/g, ''));
+            
+            // Filter workers for this supplier - try multiple matching methods
+            let supplierWorkers = workers.filter(w => {
+                // Try numeric match
+                if (w.SupplierID === supplierNumericID) return true;
+                // Try string match
+                if (String(w.SupplierID) === String(supplierNumericID)) return true;
+                // Try SupplierCode match
+                if (w.SupplierCode && w.SupplierCode === currentSupplier.SupplierCODE) return true;
+                return false;
+            });
+            
+            // Apply status filter
+            if (status !== 'all') {
+                const statusField = status.charAt(0).toUpperCase() + status.slice(1); // Capitalize
+                console.log('🔍 Filtering by status:', status, '→ Field:', statusField);
+                console.log('📊 Workers before filter:', supplierWorkers.length);
+                
+                // Log each worker's status field value
+                supplierWorkers.forEach((w, i) => {
+                    const workerCode = `${w.SupplierCode}-${String(w.WorkerID).padStart(4, '0')}`;
+                    console.log(`Worker ${i + 1} (${workerCode}):`, {
+                        [statusField]: w[statusField],
+                        type: typeof w[statusField],
+                        EmployerCode: w.EmployerCode
+                    });
+                });
+                
+                // More robust filtering - accepts true, "true", 1, "1"
+                supplierWorkers = supplierWorkers.filter(w => {
+                    const value = w[statusField];
+                    // Accept: true, "true", 1, "1"
+                    return value === true || value === 'true' || value === 1 || value === '1';
+                });
+                
+                console.log('✅ Workers after filter:', supplierWorkers.length);
+            }
+            
+            const listId = 'workersList-' + status;
+            const workersList = document.getElementById(listId);
+            
+            if (!workersList) return;
+            
+            if (supplierWorkers.length === 0) {
+                const statusLabel = status === 'all' ? '' : ` (${status})`;
+                workersList.innerHTML = `
+                    <div class="no-workers">
+                        <h3>No Workers${statusLabel}</h3>
+                        <p>This supplier has no ${status === 'all' ? 'workers' : status + ' workers'} assigned.</p>
+                        ${status === 'all' ? '<p style="margin-top: 10px;">Click "Add New Worker" to create one.</p>' : ''}
+                    </div>
+                `;
+                return;
+            }
+            
+            // Create table header
+            workersList.innerHTML = `
+                <table style="width: 100%; border-collapse: collapse; background: white; font-size: 13px;">
+                    <thead>
+                        <tr style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                            <th style="padding: 6px 8px; text-align: left; border: 1px solid #ddd; width: 110px;">Worker Code</th>
+                            <th style="padding: 6px 8px; text-align: left; border: 1px solid #ddd;">Full Name</th>
+                            <th style="padding: 6px 8px; text-align: left; border: 1px solid #ddd; width: 100px;">Nationality</th>
+                            <th style="padding: 6px 8px; text-align: center; border: 1px solid #ddd; width: 320px;">Status</th>
+                            <th style="padding: 6px 8px; text-align: center; border: 1px solid #ddd; width: 100px;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="workersTableBody-${status}"></tbody>
+                </table>
+            `;
+            
+            const tbody = document.getElementById('workersTableBody-' + status);
+            
+            supplierWorkers.forEach(worker => {
+                // Create worker code (SupplierCode-WorkerID)
+                const workerCode = `${worker.SupplierCode || currentSupplier.SupplierCODE}-${String(worker.WorkerID).padStart(4, '0')}`;
+                
+                const row = document.createElement('tr');
+                row.style.borderBottom = '1px solid #ddd';
+                row.style.transition = 'background 0.2s';
+                row.onmouseenter = () => row.style.background = '#f8f9fa';
+                row.onmouseleave = () => row.style.background = 'white';
+                
+                // Build action buttons based on status tab
+                let actionButtons = `
+                    <button 
+                        onclick="openWorkerManager(${worker.WorkerID})" 
+                        style="padding: 5px 10px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;"
+                    >👁️ View</button>`;
+                
+                if (status === 'selected') {
+                    actionButtons += `
+                        <button onclick="sendToProcess('${workerCode}', ${worker.WorkerID})" style="padding: 5px 10px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;">🔄 Process</button>
+                        <button onclick="unlinkWorkerSupplier('${workerCode}', ${worker.WorkerID})" style="padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;">🗑️ Unlink</button>`;
+                }
+                
+                if (status === 'processing') {
+                    actionButtons += `
+                        <button onclick="markArrived('${workerCode}', ${worker.WorkerID})" style="padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;">✈️ Arrived</button>`;
+                }
+                
+                // Check processing status
+                var isProcessing = worker.Processing === true || worker.Processing === 'true';
+                
+                row.innerHTML = `
+                    <td style="padding: 5px 8px; border: 1px solid #ddd;">
+                        <strong style="font-size: 12px;">${workerCode}</strong>
+                    </td>
+                    <td style="padding: 5px 8px; border: 1px solid #ddd;">
+                        ${worker.WFullName || worker.WorkerFirstName || 'Unnamed Worker'}
+                    </td>
+                    <td style="padding: 5px 8px; border: 1px solid #ddd;">
+                        ${worker.Nationality || 'N/A'}
+                    </td>
+                    <td style="padding: 5px 8px; border: 1px solid #ddd; text-align: center;">
+                        <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                            <label style="display: flex; align-items: center; gap: 3px; font-size: 11px; white-space: nowrap;">
+                                <input type="checkbox" ${worker.Selected ? 'checked' : ''} disabled>
+                                ✅
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 3px; font-size: 11px; white-space: nowrap;">
+                                <input type="checkbox" ${isProcessing ? 'checked' : ''} disabled>
+                                🔄
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 3px; font-size: 11px; white-space: nowrap;">
+                                <input type="checkbox" ${worker.Cancelled ? 'checked' : ''} disabled>
+                                ❌
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 3px; font-size: 11px; white-space: nowrap;">
+                                <input type="checkbox" ${worker.Arrived ? 'checked' : ''} disabled>
+                                ✈️
+                            </label>
+                        </div>
+                    </td>
+                    <td style="padding: 5px 8px; border: 1px solid #ddd; text-align: center;">
+                        <div style="display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
+                            ${actionButtons}
+                        </div>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        function addWorkerForSupplier() {
+            if (!currentSupplier) {
+                alert('Please select a supplier first!');
+                return;
+            }
+            
+            // Open Workers Manager in new tab/window with this supplier pre-selected
+            const url = '?page=Workers_Manager&supplier=' + currentSupplier.SupplierID;
+            window.top.location.href = url;
+        }
+        
+        // Send worker to processing
+        async function sendToProcess(workerCode, workerId) {
+            var worker = allWorkers.find(w => w.WorkerID === workerId);
+            if (!worker) {
+                alert('❌ Worker not found!');
+                return;
+            }
+            var name = worker.WFullName || worker.WorkerFirstName || workerCode;
+            var yes = confirm('🔄 Send to Processing?\n\nWorker: ' + name + '\nCode: ' + workerCode + '\n\nThis will move the worker to the Processing tab.');
+            if (!yes) return;
+            
+            worker.Processing = true;
+            worker.ProcessingStage = 'processing';
+            
+            // Save to localStorage
+            localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
+            
+            // Sync to cloud
+            if (CloudDB.ready) {
+                CloudDB.saveRow('Workers', worker).then(function(r) {
+                    if (r && r.success) console.log('☁️ Worker sent to processing:', workerCode);
+                });
+            }
+            
+            alert('✅ Worker sent to Processing!\n\n👷 ' + name + '\n📋 ' + workerCode);
+            loadWorkersForSupplier('selected');
+        }
+        
+        // Unlink worker from employer (from Supplier Manager)
+        async function unlinkWorkerSupplier(workerCode, workerId) {
+            var worker = allWorkers.find(w => w.WorkerID === workerId);
+            if (!worker) {
+                alert('❌ Worker not found!');
+                return;
+            }
+            if (worker.Locked === true || worker.Locked === 'true') {
+                alert('🔒 Worker is LOCKED!\n\nWorker: ' + (worker.WFullName || workerCode) + '\n\nThis worker has been invoiced and locked.\nOnly an admin can unlock this worker.');
+                return;
+            }
+            var name = worker.WFullName || worker.WorkerFirstName || workerCode;
+            var yes = confirm('🗑️ Unlink Worker?\n\nWorker: ' + name + '\nCode: ' + workerCode + '\n\nThis will remove the worker from the employer and un-select them.');
+            if (!yes) return;
+            
+            worker.Selected = false;
+            worker.Processing = false;
+            worker.EmployerCode = null;
+            worker.EmployerID = null;
+            
+            localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
+            
+            if (CloudDB.ready) {
+                CloudDB.saveRow('Workers', worker).then(function(r) {
+                    if (r && r.success) console.log('☁️ Worker unlinked:', workerCode);
+                });
+            }
+            
+            alert('✅ Worker unlinked!\n\n👷 ' + name + ' is no longer assigned to any employer.');
+            loadWorkersForSupplier('selected');
+            renderSupplierList(); // Update counts
+        }
+        
+        // Mark worker as arrived
+        async function markArrived(workerCode, workerId) {
+            var worker = allWorkers.find(w => w.WorkerID === workerId);
+            if (!worker) {
+                alert('❌ Worker not found!');
+                return;
+            }
+            var name = worker.WFullName || worker.WorkerFirstName || workerCode;
+            var yes = confirm('✈️ Mark as Arrived?\n\nWorker: ' + name + '\nCode: ' + workerCode);
+            if (!yes) return;
+            
+            worker.Arrived = true;
+            worker.Processing = false;
+            
+            localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
+            
+            if (CloudDB.ready) {
+                CloudDB.saveRow('Workers', worker).then(function(r) {
+                    if (r && r.success) console.log('☁️ Worker marked arrived:', workerCode);
+                });
+            }
+            
+            alert('✅ Worker marked as Arrived!\n\n✈️ ' + name);
+            loadWorkersForSupplier('processing');
+        }
+        
+        function openWorkerManager(workerID) {
+            // Open Workers Manager to edit this worker
+            const url = '?page=Workers_Manager&worker=' + workerID;
+            window.top.location.href = url;
+        }
+        
+        // Load from localStorage
+        async function init() {
+            console.log('🚀 Supplier Manager v2.0 - CLOUD DATABASE');
+            
+            // STEP 1: Load from localStorage INSTANTLY
+            var saved;
+            saved = localStorage.getItem('mgsdb_suppliers');
+            if (saved) { try { suppliers = JSON.parse(saved); } catch(e) {} }
+            
+            saved = localStorage.getItem('mgsdb_nationalities');
+            if (saved) { try { nationalities = JSON.parse(saved); } catch(e) {} }
+            
+            saved = localStorage.getItem('mgsdb_workers');
+            if (saved) { try { allWorkers = JSON.parse(saved); } catch(e) {} }
+            
+            console.log('📦 Local data loaded:', suppliers.length, 'suppliers,', allWorkers.length, 'workers');
+            
+            // STEP 2: Render UI immediately
+            populateNationalityDropdowns();
+            loadSuppliers();
+            
+            // STEP 3: Cloud sync in background
+            var cloudData = await CloudDB.loadAll();
+            var cloudUpdated = false;
+            
+            if (cloudData.suppliers && cloudData.suppliers.length > 0) {
+                // Merge: keep local suppliers not in cloud (newly added)
+                var cloudMap = {};
+                cloudData.suppliers.forEach(function(s) { cloudMap[s.SupplierID] = s; });
+                
+                // Find local-only suppliers and push to cloud
+                var localOnly = suppliers.filter(function(s) { return !cloudMap[s.SupplierID]; });
+                localOnly.forEach(function(s) {
+                    cloudData.suppliers.push(s);
+                    if (CloudDB.ready) {
+                        CloudDB.saveRow('Suppliers', s).catch(function(){});
+                        console.log('☁️ Pushed local supplier to cloud:', s.SupplierID, s.SupplierBusinessName);
+                    }
+                });
+                
+                suppliers = cloudData.suppliers;
+                localStorage.setItem('mgsdb_suppliers', JSON.stringify(suppliers));
+                cloudUpdated = true;
+                console.log('☁️ Suppliers synced:', cloudData.suppliers.length, 'cloud +', localOnly.length, 'local-only');
+            }
+            
+            if (cloudData.nationalities && cloudData.nationalities.length > 0) {
+                nationalities = cloudData.nationalities;
+                cloudUpdated = true;
+            }
+            
+            // Load workers for counts
+            if (cloudData.workers && cloudData.workers.length > 0) {
+                // Preserve local Processing data that cloud may not have yet
+                var localProcMap = {};
+                allWorkers.forEach(function(w) {
+                    if ((w.Processing === true || w.Processing === 'true') || (w.Locked === true || w.Locked === 'true')) {
+                        localProcMap[w.WorkerID] = { Processing: w.Processing, ProcessingStage: w.ProcessingStage || 'processing', Locked: w.Locked, LockedDate: w.LockedDate, InvoiceNumber: w.InvoiceNumber };
+                    }
+                });
+                cloudData.workers.forEach(function(w) {
+                    var lp = localProcMap[w.WorkerID];
+                    if (lp) {
+                        if (!(w.Processing === true || w.Processing === 'true') && (lp.Processing === true || lp.Processing === 'true')) {
+                            w.Processing = true; w.ProcessingStage = lp.ProcessingStage;
+                        }
+                        if (!(w.Locked === true || w.Locked === 'true') && (lp.Locked === true || lp.Locked === 'true')) {
+                            w.Locked = true; w.LockedDate = lp.LockedDate; w.InvoiceNumber = lp.InvoiceNumber;
+                        }
+                    }
+                });
+                allWorkers = cloudData.workers;
+                localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
+                cloudUpdated = true;
+                console.log('☁️ Workers loaded from cloud:', allWorkers.length);
+            }
+            
+            // STEP 4: Re-render if cloud had data
+            if (cloudUpdated) {
+                CloudDB.ready = true;
+                populateNationalityDropdowns();
+                loadSuppliers();
+                console.log('☁️ UI refreshed with cloud data. CloudDB.ready = true');
+            }
+            
+            // If cloud loaded at all (even empty), mark ready
+            if (cloudData.suppliers !== null) {
+                CloudDB.ready = true;
+            }
+            
+            // Cloud status badge
+            var badge = document.getElementById('cloudStatus');
+            if (badge) {
+                if (CloudDB.ready) {
+                    badge.textContent = '☁️ Cloud';
+                    badge.style.background = '#d4edda';
+                    badge.style.color = '#155724';
+                } else {
+                    badge.textContent = '📦 Offline';
+                    badge.style.background = '#fff3cd';
+                    badge.style.color = '#856404';
+                }
+            }
+        }
+        
+        // ==========================================
+        // SAVE PROTECTION SYSTEM
+        // ==========================================
+        var _hasUnsavedChanges = false;
+        
+        document.addEventListener('input', function(e) {
+            if (e.target.closest('.form-content')) {
+                _hasUnsavedChanges = true;
+                var el = document.getElementById('autoSaveStatus');
+                if (el) el.textContent = '⚠️ Unsaved changes...';
+            }
+        });
+        
+        window.addEventListener('beforeunload', function(e) {
+            if (_hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = '⚠️ You have unsaved changes!';
+                return e.returnValue;
+            }
+        });
+        
+        function markAsSaved() {
+            _hasUnsavedChanges = false;
+            var el = document.getElementById('autoSaveStatus');
+            if (el) el.textContent = '✅ Saved ' + new Date().toLocaleTimeString();
+        }
+        
+        // Auto-save every 30 seconds
+        setInterval(function() {
+            if (_hasUnsavedChanges && currentSupplier) {
+                saveSupplier();
+                console.log('⏰ Auto-saved supplier:', currentSupplier.SupplierID);
+            }
+        }, 30000);
+        
+        function saveToStorage() {
+            localStorage.setItem('mgsdb_suppliers', JSON.stringify(suppliers));
+            // Sync current supplier to cloud
+            if (CloudDB.ready && currentSupplier) {
+                CloudDB.saveRow('Suppliers', currentSupplier).then(function(r) {
+                    if (r && r.success) console.log('☁️ Synced to cloud:', currentSupplier.SupplierID, r.action);
+                });
+            }
+        }
+        
+        function loadNationalities() {
+            // Legacy - data now loaded in init()
+            const saved = localStorage.getItem('mgsdb_nationalities');
+            if (saved && nationalities.length === 0) nationalities = JSON.parse(saved);
+            populateNationalityDropdowns();
+        }
+        
+        function populateNationalityDropdowns() {
+            // Populate Country dropdown
+            const countrySelect = document.getElementById('SupplierCountry');
+            countrySelect.innerHTML = '<option value=""></option>';
+            
+            // Populate Nationality dropdown
+            const nationalitySelect = document.getElementById('SupplierNationality');
+            nationalitySelect.innerHTML = '<option value=""></option>';
+            
+            // Handle both localStorage and cloud data formats
+            const activeNationalities = nationalities
+                .filter(n => {
+                    if (n.Active !== undefined) return n.Active === true;
+                    if (n.NationalityEN || n.Country || n.Nationality) return true;
+                    return false;
+                })
+                .sort((a, b) => {
+                    var cA = a.Country || a.NationalityEN || '';
+                    var cB = b.Country || b.NationalityEN || '';
+                    return cA.localeCompare(cB);
+                });
+            
+            activeNationalities.forEach(nat => {
+                var country = nat.Country || nat.NationalityEN || '';
+                var nationality = nat.Nationality || nat.NationalityEN || '';
+                
+                if (country) {
+                    const countryOption = document.createElement('option');
+                    countryOption.value = country;
+                    countryOption.textContent = country;
+                    countrySelect.appendChild(countryOption);
+                }
+                
+                if (nationality) {
+                    const nationalityOption = document.createElement('option');
+                    nationalityOption.value = nationality;
+                    nationalityOption.textContent = nationality;
+                    nationalitySelect.appendChild(nationalityOption);
+                }
+            });
+        }
+        
+        function toggleNavButtons() {
+            var panel = document.getElementById('navButtonsPanel');
+            var icon = document.getElementById('navBtnToggleIcon');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'flex';
+                icon.textContent = '▼';
+            } else {
+                panel.style.display = 'none';
+                icon.textContent = '▲';
+            }
+        }
+        
+        function loadSuppliers() {
+            renderSupplierList();
+            updateCounter();
+            if (suppliers.length > 0 && !currentSupplier) {
+                selectSupplier(suppliers[0]);
+            }
+        }
+        
+        function renderSupplierList() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            
+            // Filter by search only
+            filteredSuppliers = suppliers.filter(s => {
+                // Search filter
+                if (!searchTerm) return true; // Show all if no search term
+                
+                // Search in ALL fields
+                const searchableText = [
+                    s.SupplierID,
+                    s.SupplierCODE,
+                    s.SupplierBusinessName,
+                    s.SupplierOwnerName,
+                    s.SupplierOwnerContactNumber,
+                    s.SupplierCity,
+                    s.SupplierCountry,
+                    s.SupplierNationality,
+                    s.SupplierAddress,
+                    s.EmailAddress1,
+                    s.EmailAddress2,
+                    s.ContactNumber1,
+                    s.ContactNumber2,
+                    s.ContactNumber3,
+                    s.Mobile1,
+                    s.Mobile2,
+                    s.Mobile3
+                ].join(' ').toLowerCase();
+                
+                return searchableText.includes(searchTerm);
+            });
+            
+            const list = document.getElementById('recordList');
+            list.innerHTML = '';
+            
+            // Calculate pagination
+            const totalPages = pageSize === 'all' ? 1 : Math.ceil(filteredSuppliers.length / pageSize);
+            if (currentPage > totalPages) currentPage = totalPages || 1;
+            
+            // Get records for current page
+            let displaySuppliers;
+            if (pageSize === 'all') {
+                displaySuppliers = filteredSuppliers;
+            } else {
+                const startIndex = (currentPage - 1) * pageSize;
+                const endIndex = startIndex + parseInt(pageSize);
+                displaySuppliers = filteredSuppliers.slice(startIndex, endIndex);
+            }
+            
+            // Render suppliers
+            displaySuppliers.forEach(supplier => {
+                const li = document.createElement('li');
+                li.className = 'record-item';
+                if (currentSupplier && currentSupplier.SupplierID === supplier.SupplierID) {
+                    li.classList.add('active');
+                }
+                
+                // Count workers for this supplier
+                var totalWorkers = allWorkers.filter(w => 
+                    String(w.SupplierID) === String(supplier.SupplierID) || 
+                    String(w.SupplierCode) === String(supplier.SupplierCODE)
+                );
+                var totalCount = totalWorkers.length;
+                var selectedCount = totalWorkers.filter(w => 
+                    w.Selected === true || w.Selected === 'true' || w.EmployerCode
+                ).length;
+                var processingCount = totalWorkers.filter(w => 
+                    w.Processing === true || w.Processing === 'true'
+                ).length;
+                
+                li.innerHTML = `
+                    <div class="id">ID: ${supplier.SupplierID}</div>
+                    <div class="name">${supplier.SupplierBusinessName}</div>
+                    <div style="display: flex; gap: 6px; margin-top: 4px; font-size: 11px; font-weight: 600;">
+                        <span style="background: #e3f2fd; color: #1565c0; padding: 2px 8px; border-radius: 10px;">👷 ${totalCount}</span>
+                        <span style="background: ${selectedCount > 0 ? '#e8f5e9' : '#f5f5f5'}; color: ${selectedCount > 0 ? '#2e7d32' : '#999'}; padding: 2px 8px; border-radius: 10px;">✅ ${selectedCount}</span>
+                        <span style="background: ${processingCount > 0 ? '#fff3e0' : '#f5f5f5'}; color: ${processingCount > 0 ? '#e65100' : '#999'}; padding: 2px 8px; border-radius: 10px;">🔄 ${processingCount}</span>
+                    </div>
+                `;
+                li.onclick = () => selectSupplier(supplier);
+                list.appendChild(li);
+            });
+            
+            // Update pagination info
+            updatePaginationInfo();
+        }
+        
+        function updatePaginationInfo() {
+            const totalPages = pageSize === 'all' ? 1 : Math.ceil(filteredSuppliers.length / pageSize);
+            const startRecord = pageSize === 'all' ? 1 : ((currentPage - 1) * parseInt(pageSize)) + 1;
+            const endRecord = pageSize === 'all' ? filteredSuppliers.length : Math.min(currentPage * parseInt(pageSize), filteredSuppliers.length);
+            
+            document.getElementById('pageInfo').textContent = 
+                pageSize === 'all' 
+                ? `Showing all ${filteredSuppliers.length} records`
+                : `Page ${currentPage} of ${totalPages} (${startRecord}-${endRecord} of ${filteredSuppliers.length})`;
+            
+            // Enable/disable buttons
+            document.getElementById('prevBtn').disabled = currentPage <= 1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+        }
+        
+        function changePageSize() {
+            const select = document.getElementById('pageSize');
+            pageSize = select.value === 'all' ? 'all' : parseInt(select.value);
+            currentPage = 1;
+            renderSupplierList();
+        }
+        
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderSupplierList();
+            }
+        }
+        
+        function nextPage() {
+            const totalPages = Math.ceil(filteredSuppliers.length / pageSize);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderSupplierList();
+            }
+        }
+        
+        function selectSupplier(supplier) {
+            currentSupplier = supplier;
+            
+            document.getElementById('SupplierID').value = supplier.SupplierID;
+            document.getElementById('SupplierCODE').value = supplier.SupplierCODE || '';
+            document.getElementById('SupplierBusinessName').value = supplier.SupplierBusinessName || '';
+            document.getElementById('SupplierOwnerName').value = supplier.SupplierOwnerName || '';
+            document.getElementById('SupplierOwnerContactNumber').value = supplier.SupplierOwnerContactNumber || '';
+            document.getElementById('SupplierCity').value = supplier.SupplierCity || '';
+            document.getElementById('SupplierCountry').value = supplier.SupplierCountry || '';
+            document.getElementById('SupplierNationality').value = supplier.SupplierNationality || '';
+            document.getElementById('SupplierAddress').value = supplier.SupplierAddress || '';
+            document.getElementById('EmailAddress1').value = supplier.EmailAddress1 || '';
+            document.getElementById('EmailAddress2').value = supplier.EmailAddress2 || '';
+            document.getElementById('ContactNumber1').value = supplier.ContactNumber1 || '';
+            document.getElementById('ContactNumber2').value = supplier.ContactNumber2 || '';
+            document.getElementById('ContactNumber3').value = supplier.ContactNumber3 || '';
+            document.getElementById('Mobile1').value = supplier.Mobile1 || '';
+            document.getElementById('Mobile2').value = supplier.Mobile2 || '';
+            document.getElementById('Mobile3').value = supplier.Mobile3 || '';
+            document.getElementById('SupplierPassword').value = supplier.SupplierPassword || '';
+            document.getElementById('PortalAccess').value = (supplier.PortalAccess === false || supplier.PortalAccess === 'false') ? 'false' : 'true';
+            
+            renderSupplierList();
+            setStatus('Loaded: ' + supplier.SupplierBusinessName);
+        }
+        
+        function newSupplier() {
+            currentSupplier = null;
+            
+            // Get next ID in SuP### format BEFORE clearing
+            let maxNum = 0;
+            suppliers.forEach(s => {
+                const num = parseInt(s.SupplierID.replace('SuP', ''));
+                if (num > maxNum) maxNum = num;
+            });
+            const nextId = 'SuP' + String(maxNum + 1).padStart(3, '0');
+            
+            // NOW clear the form
+            clearForm();
+            
+            // Set the ID AFTER clearing
+            document.getElementById('SupplierID').value = nextId;
+            document.getElementById('SupplierCODE').focus();
+            
+            renderSupplierList();
+            setStatus('New supplier - Fill form and click Save. ID: ' + nextId);
+        }
+        
+        function saveSupplier() {
+            const code = document.getElementById('SupplierCODE').value.trim();
+            const name = document.getElementById('SupplierBusinessName').value.trim();
+            const supplierId = document.getElementById('SupplierID').value.trim();
+            
+            if (!supplierId) {
+                alert('Supplier ID is missing! Please click "New Supplier" to generate an ID.');
+                return;
+            }
+            
+            if (!code || !name) {
+                alert('Supplier Code and Business Name are required!');
+                return;
+            }
+            
+            if (code.length !== 4) {
+                alert('Supplier Code must be exactly 4 characters!');
+                document.getElementById('SupplierCODE').focus();
+                return;
+            }
+            
+            // Check for duplicate Supplier Code
+            const duplicateCode = suppliers.find(s => 
+                s.SupplierCODE.toUpperCase() === code.toUpperCase() && 
+                s.SupplierID !== supplierId
+            );
+            
+            if (duplicateCode) {
+                alert(`Supplier Code "${code.toUpperCase()}" is already used by "${duplicateCode.SupplierBusinessName}"!\n\nPlease use a different code.`);
+                document.getElementById('SupplierCODE').focus();
+                document.getElementById('SupplierCODE').select();
+                return;
+            }
+            
+            const supplier = {
+                SupplierID: supplierId,
+                SupplierCODE: code.toUpperCase(),
+                SupplierBusinessName: name,
+                SupplierOwnerName: document.getElementById('SupplierOwnerName').value,
+                SupplierOwnerContactNumber: document.getElementById('SupplierOwnerContactNumber').value,
+                SupplierCity: document.getElementById('SupplierCity').value,
+                SupplierCountry: document.getElementById('SupplierCountry').value,
+                SupplierNationality: document.getElementById('SupplierNationality').value,
+                SupplierAddress: document.getElementById('SupplierAddress').value,
+                EmailAddress1: document.getElementById('EmailAddress1').value,
+                EmailAddress2: document.getElementById('EmailAddress2').value,
+                ContactNumber1: document.getElementById('ContactNumber1').value,
+                ContactNumber2: document.getElementById('ContactNumber2').value,
+                ContactNumber3: document.getElementById('ContactNumber3').value,
+                Mobile1: document.getElementById('Mobile1').value,
+                Mobile2: document.getElementById('Mobile2').value,
+                Mobile3: document.getElementById('Mobile3').value,
+                SupplierPassword: document.getElementById('SupplierPassword').value,
+                PortalAccess: document.getElementById('PortalAccess').value
+            };
+            
+            console.log('Saving supplier:', supplier); // Debug
+            
+            const index = suppliers.findIndex(s => s.SupplierID === supplier.SupplierID);
+            if (index >= 0) {
+                suppliers[index] = supplier;
+                setStatus('✅ Supplier updated!', true);
+            } else {
+                suppliers.push(supplier);
+                setStatus('✅ Supplier added!', true);
+            }
+            
+            currentSupplier = supplier;
+            saveToStorage();
+            markAsSaved();
+            loadSuppliers();
+        }
+        
+        function generatePassword() {
+            var chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            var pass = '';
+            for (var i = 0; i < 8; i++) {
+                pass += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('SupplierPassword').value = pass;
+            _hasUnsavedChanges = true;
+        }
+        
+        function deleteSupplier() {
+            if (!currentSupplier) {
+                alert('No supplier selected!');
+                return;
+            }
+            
+            if (!confirm(`Delete "${currentSupplier.SupplierBusinessName}"?`)) {
+                return;
+            }
+            
+            var deletedId = currentSupplier.SupplierID;
+            suppliers = suppliers.filter(s => s.SupplierID !== deletedId);
+            localStorage.setItem('mgsdb_suppliers', JSON.stringify(suppliers));
+            
+            // Delete from cloud
+            if (CloudDB.ready) {
+                CloudDB.deleteRow('Suppliers', deletedId).then(function(r) {
+                    console.log('☁️ Deleted from cloud:', deletedId);
+                });
+            }
+            
+            setStatus('✅ Supplier deleted!', true);
+            clearForm();
+            loadSuppliers();
+        }
+        
+        function clearForm() {
+            document.getElementById('supplierForm').reset();
+            document.getElementById('SupplierID').value = '';
+            currentSupplier = null;
+            renderSupplierList();
+        }
+        
+        function updateCounter() {
+            document.getElementById('recordCounter').textContent = suppliers.length + ' Suppliers';
+        }
+        
+        function setStatus(message, success = false) {
+            const statusText = document.getElementById('statusText');
+            statusText.textContent = message;
+            statusText.className = 'status-text' + (success ? ' success' : '');
+            
+            setTimeout(() => {
+                statusText.textContent = 'Ready';
+                statusText.className = 'status-text';
+            }, 3000);
+        }
+        
+        function exportData() {
+            const dataStr = JSON.stringify(suppliers, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'suppliers_backup_' + new Date().toISOString().split('T')[0] + '.json';
+            link.click();
+            setStatus('✅ Backup exported!', true);
+        }
+        
+        function importData() {
+            document.getElementById('importFile').click();
+        }
+        
+        function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        suppliers = imported;
+                        saveToStorage();
+                        loadSuppliers();
+                        setStatus('✅ Data imported successfully!', true);
+                    } else {
+                        alert('Invalid backup file format!');
+                    }
+                } catch (error) {
+                    alert('Error reading backup file!');
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        // Search functionality
+        document.getElementById('searchBox').addEventListener('input', renderSupplierList);
+        
+        // Enforce 4-character limit on Supplier Code with visual feedback
+        document.getElementById('SupplierCODE').addEventListener('input', function(e) {
+            const value = e.target.value.toUpperCase();
+            e.target.value = value.slice(0, 4); // Only allow 4 characters
+            
+            // Visual feedback
+            if (value.length < 4) {
+                e.target.style.borderColor = '#ffc107';
+                e.target.style.backgroundColor = '#fff3cd';
+            } else {
+                e.target.style.borderColor = '#28a745';
+                e.target.style.backgroundColor = '#d4edda';
+            }
+        });
+        
+        // Datasheet View Functions
+        function showDatasheetView() {
+            const modal = document.getElementById('datasheetModal');
+            modal.style.display = 'block';
+            renderDatasheetTable();
+        }
+        
+        function closeDatasheetView() {
+            const modal = document.getElementById('datasheetModal');
+            modal.style.display = 'none';
+        }
+        
+        function renderDatasheetTable() {
+            const tbody = document.getElementById('datasheetBody');
+            tbody.innerHTML = '';
+            
+            suppliers.forEach(sup => {
+                const row = document.createElement('tr');
+                row.onclick = () => {
+                    closeDatasheetView();
+                    selectSupplier(sup);
+                };
+                
+                row.innerHTML = `
+                    <td>${sup.SupplierID}</td>
+                    <td><strong>${sup.SupplierCODE || ''}</strong></td>
+                    <td>${sup.SupplierBusinessName || ''}</td>
+                    <td>${sup.SupplierOwnerName || ''}</td>
+                    <td>${sup.SupplierOwnerContact || ''}</td>
+                    <td>${sup.City || ''}</td>
+                    <td>${sup.Country || ''}</td>
+                    <td>${sup.SupplierEmail1 || ''}</td>
+                    <td>${sup.SupplierMobile1 || ''}</td>
+                    <td>${sup.SupplierMobile2 || ''}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('datasheetCount').textContent = `${suppliers.length} records`;
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('datasheetModal');
+            if (event.target == modal) {
+                closeDatasheetView();
+            }
+        }
+        
+        // Initialize
+        init();
+    </script>
+    
+    <!-- Datasheet View Modal -->
+    <div id="datasheetModal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); overflow: auto;">
+        <div style="background: white; margin: 20px auto; width: 95%; max-width: 1800px; border-radius: 10px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 30px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="margin: 0;">📊 Datasheet View - All Suppliers</h2>
+                <span onclick="closeDatasheetView()" style="color: white; font-size: 35px; font-weight: bold; cursor: pointer; line-height: 20px;">&times;</span>
+            </div>
+            <div style="padding: 20px; overflow: auto; flex: 1;">
+                <table id="datasheetTable" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr style="background: #667eea; color: white;">
+                            <th style="padding: 12px 8px; text-align: left; position: sticky; top: 0; font-weight: 600; white-space: nowrap;">ID</th>
+                            <th style="padding: 12px 8px; text-align: left; position: sticky; top: 0; font-weight: 600; white-space: nowrap;">Code</th>
+                            <th style="padding: 12px 8px; text-align: left; position: sticky; top: 0; font-weight: 600; white-space: nowrap;">Business Name</th>
+                            <th style="padding: 12px 8px; text-align: left; position: sticky; top: 0; font-weight: 600; white-space: nowrap;">Owner Name</th>
+                            <th style="padding: 12px 8px; text-align: left; position: sticky; top: 0; font-weight: 600; white-space: nowrap;">Owner Contact</th>
+                            <th style="padding: 12px 8px; text-align: left; position: sticky; top: 0; font-weight: 600; white-space: nowrap;">City</th>
+                            <th style="padding: 12px 8px; text-align: left; position: sticky; top: 0; font-weight: 600; white-space: nowrap;">Country</th>
+                            <th style="padding: 12px 8px; text-align: left; position: sticky; top: 0; font-weight: 600; white-space: nowrap;">Email 1</th>
+                            <th style="padding: 12px 8px; text-align: left; position: sticky; top: 0; font-weight: 600; white-space: nowrap;">Mobile 1</th>
+                            <th style="padding: 12px 8px; text-align: left; position: sticky; top: 0; font-weight: 600; white-space: nowrap;">Mobile 2</th>
+                        </tr>
+                    </thead>
+                    <tbody id="datasheetBody" style="font-size: 13px;">
+                    </tbody>
+                </table>
+            </div>
+            <div style="padding: 15px 30px; background: #f8f9fa; border-top: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center;">
+                <span id="datasheetCount" style="color: #6c757d;">0 records</span>
+                <button class="btn btn-success" onclick="closeDatasheetView()">✓ Close</button>
+            </div>
+        </div>
+    </div>
+    
+</body>
+</html>
