@@ -1520,10 +1520,7 @@
                 try { return await gsr('gsrPost', [d]); } catch(e) { return {success:false, error:e.message}; }
             }
         };
-        
-        // Initialize
-        async function init() {
-          // ── SUPPLIER CREDITS ──────────────────────────────────────────────────
+           // ── SUPPLIER CREDITS ──────────────────────────────────────────────────
         async function renderSupplierCreditsList() {
             var container = document.getElementById('supplierCreditsList');
             var summaryBar = document.getElementById('scSummaryBar');
@@ -1745,6 +1742,9 @@
         }
         // ── END SUPPLIER CREDITS ──────────────────────────────────────────────
 
+        // Initialize
+        async function init() {
+       
         async function init() {
             console.log('💰 Accountant Dashboard - INIT');
             loadData();
