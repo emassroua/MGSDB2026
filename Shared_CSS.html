@@ -1,0 +1,113 @@
+<style>
+/* ========================================
+   MGSDB2026 - Shared Responsive CSS
+   Modify this file to update ALL pages
+   ======================================== */
+
+/* Mobile first - base improvements */
+* { box-sizing: border-box; }
+
+/* Tables scroll on mobile */
+table { width: 100%; }
+.table-responsive, table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+thead, tbody, tr { display: table; width: 100%; table-layout: fixed; }
+
+/* Buttons stack on small screens */
+@media (max-width: 768px) {
+  /* General layout */
+  body { font-size: 14px; }
+  
+  /* Sidebars collapse */
+  .sidebar { width: 100% !important; min-width: unset !important; }
+  .main-content { margin-left: 0 !important; width: 100% !important; }
+  
+  /* Flex layouts stack */
+  .flex-row, .d-flex, [style*="display:flex"], [style*="display: flex"] {
+    flex-wrap: wrap !important;
+  }
+  
+  /* Cards full width */
+  .card, .module-card, .stat-card {
+    width: 100% !important;
+    min-width: unset !important;
+    margin: 8px 0 !important;
+  }
+  
+  /* Buttons */
+  button, .btn {
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    min-height: 40px;
+  }
+  
+  /* Inputs */
+  input, select, textarea {
+    width: 100% !important;
+    font-size: 16px !important; /* prevents zoom on iOS */
+    padding: 10px !important;
+  }
+  
+  /* Forms */
+  .form-row, .form-group { margin-bottom: 12px; }
+  
+  /* Fixed px widths override */
+  [style*="width:300px"], [style*="width: 300px"],
+  [style*="width:400px"], [style*="width: 400px"],
+  [style*="width:500px"], [style*="width: 500px"] {
+    width: 100% !important;
+  }
+  
+  /* Modals */
+  .modal-content, .modal-box, [class*="modal"] {
+    width: 95% !important;
+    max-width: 95vw !important;
+    margin: 10px auto !important;
+  }
+  
+  /* Tables */
+  table { font-size: 12px; }
+  td, th { padding: 8px 6px !important; }
+  
+  /* Hide non-essential columns on mobile */
+  .hide-mobile { display: none !important; }
+  
+  /* Grid layouts */
+  .grid, [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Dashboard module grid */
+  .modules-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  /* Navigation */
+  .nav-tabs { overflow-x: auto; white-space: nowrap; }
+  .tab-button { font-size: 12px !important; padding: 8px 10px !important; }
+}
+
+@media (max-width: 480px) {
+  /* Extra small phones */
+  .modules-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  h1 { font-size: 20px !important; }
+  h2 { font-size: 17px !important; }
+  h3 { font-size: 15px !important; }
+  
+  .stat-card .stat-value { font-size: 24px !important; }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Tablets */
+  .modules-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+  .sidebar { width: 240px !important; }
+}
+</style>
