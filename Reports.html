@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports - MGSDB2026</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#4a1470,#7b1fa2);min-height:100vh;padding:20px}
+.page{max-width:900px;margin:0 auto}
+.card{background:white;border-radius:14px;padding:24px 28px;margin-bottom:18px;box-shadow:0 4px 20px rgba(0,0,0,0.15)}
+.header{display:flex;align-items:center;gap:16px}
+.header h1{color:#4a1470;font-size:22px;font-weight:800}
+.header p{color:#888;font-size:13px;margin-top:3px}
+.cloud-btn{margin-left:auto;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;background:#fff3cd;color:#856404;cursor:pointer;border:none;white-space:nowrap}
+.cloud-btn.ok{background:#d4edda;color:#155724}
+.cloud-btn.err{background:#f8d7da;color:#721c24}
+.search-wrap{position:relative}
+.search-input{width:100%;padding:14px 18px;border:2px solid #e0d0f0;border-radius:10px;font-size:15px;outline:none;transition:border 0.2s}
+.search-input:focus{border-color:#7b1fa2}
+.results-box{position:absolute;top:calc(100% + 4px);left:0;right:0;background:white;border:1px solid #e0d0f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;max-height:320px;overflow-y:auto;display:none}
+.res-item{padding:11px 16px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background 0.12s}
+.res-item:hover{background:#f3e5f5}
+.res-item:last-child{border-bottom:none}
+.res-name{font-weight:700;font-size:14px;color:#333}
+.res-sub{font-size:12px;color:#888;margin-top:2px}
+.emp-card{display:none}
+.emp-card.show{display:block}
+.emp-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.emp-name{font-size:20px;font-weight:800;color:#4a1470}
+.emp-sub{font-size:13px;color:#888;margin-top:3px}
+.emp-sub2{font-size:13px;color:#7b1fa2;font-weight:600;margin-top:2px}
+.details-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.detail-box{background:#f8f0ff;border-radius:8px;padding:10px 14px}
+.detail-label{font-size:11px;color:#888;font-weight:600;text-transform:uppercase}
+.detail-value{font-size:13px;color:#333;font-weight:700;margin-top:3px}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.stat{background:linear-gradient(135deg,#4a1470,#7b1fa2);color:white;border-radius:10px;padding:14px;text-align:center}
+.stat-n{font-size:26px;font-weight:800}
+.stat-l{font-size:11px;opacity:0.85;margin-top:3px}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{padding:12px 22px;border:none;border-radius:9px;font-weight:700;cursor:pointer;font-size:13px;color:white;transition:filter 0.2s}
+.btn:hover{filter:brightness(1.1)}
+.btn:disabled{filter:brightness(0.6);cursor:not-allowed}
+/* Save popup overlay */
+#saveOverlay{display:none;position:fixed;inset:0;background:rgba(74,20,140,0.88);z-index:99999;align-items:center;justify-content:center}
+.save-box{background:white;border-radius:18px;padding:36px 44px;text-align:center;min-width:340px;max-width:500px;box-shadow:0 10px 50px rgba(0,0,0,0.4)}
+.save-title{font-size:20px;font-weight:800;color:#4a1470;margin-bottom:8px}
+.save-step{font-size:14px;color:#666;margin-bottom:6px;min-height:20px}
+.save-file{font-size:12px;color:#7b1fa2;font-weight:600;margin-bottom:16px;min-height:16px;word-break:break-all;padding:0 10px}
+.prog-wrap{height:12px;background:#e0d0f0;border-radius:6px;overflow:hidden;margin-bottom:6px}
+.prog-fill{height:100%;background:linear-gradient(90deg,#4a1470,#7b1fa2);border-radius:6px;transition:width 0.25s;width:0%}
+.prog-pct{font-size:13px;color:#999;margin-bottom:4px}
+/* Report overlay */
+#overlay{display:none;position:fixed;inset:0;background:rgba(74,20,140,0.85);z-index:9998;align-items:center;justify-content:center}
+.ov-box{background:white;border-radius:16px;padding:32px 40px;text-align:center;min-width:380px;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,0.3)}
+.ov-title{font-size:16px;font-weight:800;color:#4a1470;margin-bottom:6px}
+.ov-sub{font-size:13px;color:#888;margin-bottom:20px}
+.ov-prog{height:8px;background:#e0d0f0;border-radius:4px;overflow:hidden;margin-bottom:14px}
+.ov-fill{height:100%;background:linear-gradient(90deg,#4a1470,#7b1fa2);border-radius:4px;transition:width 0.4s}
+.ov-step{font-size:13px;color:#666}
+.dots{display:flex;justify-content:center;gap:8px;margin-top:14px}
+.dot{width:10px;height:10px;border-radius:50%;background:#e0e0e0;transition:background 0.3s}
+/* Toast */
+#toast{display:none;position:fixed;bottom:28px;right:28px;padding:14px 22px;border-radius:10px;font-weight:700;font-size:14px;z-index:99999;box-shadow:0 4px 15px rgba(0,0,0,0.3);max-width:420px;color:white}
+.spinner{display:inline-block;width:16px;height:16px;border:3px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="card header">
+    <div style="font-size:38px">📊</div>
+    <div>
+      <h1>Employer Reports</h1>
+      <p>Search employer → Generate report &amp; save documents</p>
+    </div>
+    <button class="cloud-btn" id="cloudBtn" onclick="loadData()">⏳ Loading...</button>
+  </div>
+
+  <!-- Search -->
+  <div class="card">
+    <h2 style="color:#4a1470;font-size:16px;font-weight:800;margin-bottom:16px">🔍 Search Employer</h2>
+    <div class="search-wrap">
+      <input class="search-input" id="searchInput" type="text" placeholder="Type employer name, code, or agency..." oninput="onSearch(this.value)" autocomplete="off">
+      <div class="results-box" id="resultsBox"></div>
+    </div>
+  </div>
+
+  <!-- Employer card -->
+  <div class="card emp-card" id="empCard">
+    <div class="emp-hdr">
+      <div>
+        <div class="emp-name"  id="eN">—</div>
+        <div class="emp-sub"   id="eC">—</div>
+        <div class="emp-sub2"  id="eA">—</div>
+      </div>
+      <button class="btn" style="background:#888;padding:8px 16px" onclick="clearEmp()">✕ Clear</button>
+    </div>
+    <div class="details-grid" id="eDetails"></div>
+    <div class="stats-row"    id="eStats"></div>
+    <div class="btn-row">
+      <button class="btn" style="background:linear-gradient(135deg,#4a1470,#7b1fa2)" onclick="generateReport()">📄 Generate Report</button>
+      <button class="btn" style="background:linear-gradient(135deg,#1565c0,#1976d2)" id="btnDocs" onclick="openDocViewer()">📂 View Documents</button>
+      <button class="btn" style="background:#c62828" id="btnSave" onclick="startSaveToDrive()">💾 Save Docs to Drive</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Save progress overlay -->
+<div id="saveOverlay">
+  <div class="save-box">
+    <div class="save-title" id="spTitle">💾 Saving to Drive</div>
+    <div class="save-step"  id="spStep">Preparing...</div>
+    <div class="save-file"  id="spFile"></div>
+    <div class="prog-wrap"><div class="prog-fill" id="spFill"></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px">
+      <div class="prog-pct" id="spPct">0%</div>
+      <div style="font-size:13px;color:#7b1fa2;font-weight:700" id="spTimer">⏱ 0s</div>
+    </div>
+    <button id="spCancel" onclick="cancelSave()" style="margin-top:16px;padding:9px 28px;border:2px solid #c62828;background:white;color:#c62828;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">✕ Cancel</button>
+  </div>
+</div>
+
+<!-- Report overlay -->
+<div id="overlay">
+  <div class="ov-box">
+    <div class="ov-title" id="ovTitle">📄 Generating Report</div>
+    <div class="ov-sub" id="ovSub">Please wait...</div>
+    <div style="position:relative;margin-bottom:6px">
+      <div class="ov-prog"><div class="ov-fill" id="ovFill" style="width:0%"></div></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div id="ovPct" style="font-size:13px;font-weight:800;color:#7b1fa2">0%</div>
+      <div id="ovTimer" style="font-size:12px;color:#aaa;font-weight:600">⏱ 0s</div>
+    </div>
+    <div class="ov-step" id="ovStep">Starting...</div>
+    <div id="ovFile" style="font-size:11px;color:#b39ddb;margin-top:4px;min-height:14px;word-break:break-all;padding:0 4px"></div>
+    <div class="dots" style="margin-top:12px">
+      <div class="dot" id="d1"></div><div class="dot" id="d2"></div>
+      <div class="dot" id="d3"></div><div class="dot" id="d4"></div>
+      <div class="dot" id="d5"></div><div class="dot" id="d6"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── State ──────────────────────────────────────────────────────────
+var allEmployers = [], allWorkers = [], allAgencies = [];
+var currentEmp   = null;
+var currentFiles = [];
+var docWin       = null;
+var _saveCancel  = false;
+var _saveTimer   = null;
+var _saveStart   = 0;
+var _rpTimer     = null;  // report generation timer
+var _rpStart     = 0;
+
+// ── EmployerCode: AgencyCode + EmployerID + Initials of EFN ───────
+// Format: MGSC1331JKK  (always recalculated — never trust sheet value alone)
+function computeEmployerCode(emp) {
+    var agC      = (emp.AgencyCode  || '').toUpperCase().trim();
+    var id       = String(emp.EmployerID || '').trim();
+    var fullName = (emp.EFN || emp.EmployerName || emp.ContactName || '').trim();
+    var initials = fullName
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(function(w){ return w[0].toUpperCase(); })
+        .join('');
+    return agC + id + initials;
+}
+
+// ── Phone number international helpers ────────────────────────────
+
+// Country-code prefix → {flag, name}. Ordered longest-first so +1868
+// matches before +1. Covers all countries that appear in recruitment.
+var PHONE_CC = [
+    // 4-digit codes first
+    ['+1242','🇧🇸','Bahamas'],['+1246','🇧🇧','Barbados'],['+1264','🇦🇮','Anguilla'],
+    ['+1268','🇦🇬','Antigua'],['+1284','🇻🇬','BVI'],['+1340','🇻🇮','USVI'],
+    ['+1345','🇰🇾','Cayman'],['+1441','🇧🇲','Bermuda'],['+1473','🇬🇩','Grenada'],
+    ['+1649','🇹🇨','Turks'],['+1664','🇲🇸','Montserrat'],['+1670','🇲🇵','CNMI'],
+    ['+1671','🇬🇺','Guam'],['+1684','🇦🇸','Am. Samoa'],['+1721','🇸🇽','Sint Maarten'],
+    ['+1758','🇱🇨','St. Lucia'],['+1767','🇩🇲','Dominica'],['+1784','🇻🇨','St. Vincent'],
+    ['+1787','🇵🇷','Puerto Rico'],['+1809','🇩🇴','Dom. Rep.'],['+1868','🇹🇹','Trinidad'],
+    ['+1869','🇰🇳','St. Kitts'],['+1876','🇯🇲','Jamaica'],['+1939','🇵🇷','Puerto Rico'],
+    // 3-digit codes
+    ['+212','🇲🇦','Morocco'],['+213','🇩🇿','Algeria'],['+216','🇹🇳','Tunisia'],
+    ['+218','🇱🇾','Libya'],['+220','🇬🇲','Gambia'],['+221','🇸🇳','Senegal'],
+    ['+222','🇲🇷','Mauritania'],['+223','🇲🇱','Mali'],['+224','🇬🇳','Guinea'],
+    ['+225','🇨🇮','Côte d\'Ivoire'],['+226','🇧🇫','Burkina Faso'],['+227','🇳🇪','Niger'],
+    ['+228','🇹🇬','Togo'],['+229','🇧🇯','Benin'],['+230','🇲🇺','Mauritius'],
+    ['+231','🇱🇷','Liberia'],['+232','🇸🇱','Sierra Leone'],['+233','🇬🇭','Ghana'],
+    ['+234','🇳🇬','Nigeria'],['+235','🇹🇩','Chad'],['+236','🇨🇫','CAR'],
+    ['+237','🇨🇲','Cameroon'],['+238','🇨🇻','Cape Verde'],['+239','🇸🇹','São Tomé'],
+    ['+240','🇬🇶','Eq. Guinea'],['+241','🇬🇦','Gabon'],['+242','🇨🇬','Congo'],
+    ['+243','🇨🇩','DR Congo'],['+244','🇦🇴','Angola'],['+245','🇬🇼','Guinea-Bissau'],
+    ['+246','🇮🇴','BIOT'],['+247','🇦🇨','Ascension'],['+248','🇸🇨','Seychelles'],
+    ['+249','🇸🇩','Sudan'],['+250','🇷🇼','Rwanda'],['+251','🇪🇹','Ethiopia'],
+    ['+252','🇸🇴','Somalia'],['+253','🇩🇯','Djibouti'],['+254','🇰🇪','Kenya'],
+    ['+255','🇹🇿','Tanzania'],['+256','🇺🇬','Uganda'],['+257','🇧🇮','Burundi'],
+    ['+258','🇲🇿','Mozambique'],['+260','🇿🇲','Zambia'],['+261','🇲🇬','Madagascar'],
+    ['+262','🇷🇪','Réunion'],['+263','🇿🇼','Zimbabwe'],['+264','🇳🇦','Namibia'],
+    ['+265','🇲🇼','Malawi'],['+266','🇱🇸','Lesotho'],['+267','🇧🇼','Botswana'],
+    ['+268','🇸🇿','Eswatini'],['+269','🇰🇲','Comoros'],['+27','🇿🇦','South Africa'],
+    ['+290','🇸🇭','St. Helena'],['+291','🇪🇷','Eritrea'],['+297','🇦🇼','Aruba'],
+    ['+298','🇫🇴','Faroe Islands'],['+299','🇬🇱','Greenland'],
+    ['+30','🇬🇷','Greece'],['+31','🇳🇱','Netherlands'],['+32','🇧🇪','Belgium'],
+    ['+33','🇫🇷','France'],['+34','🇪🇸','Spain'],['+36','🇭🇺','Hungary'],
+    ['+351','🇵🇹','Portugal'],['+352','🇱🇺','Luxembourg'],['+353','🇮🇪','Ireland'],
+    ['+354','🇮🇸','Iceland'],['+355','🇦🇱','Albania'],['+356','🇲🇹','Malta'],
+    ['+357','🇨🇾','Cyprus'],['+358','🇫🇮','Finland'],['+359','🇧🇬','Bulgaria'],
+    ['+370','🇱🇹','Lithuania'],['+371','🇱🇻','Latvia'],['+372','🇪🇪','Estonia'],
+    ['+373','🇲🇩','Moldova'],['+374','🇦🇲','Armenia'],['+375','🇧🇾','Belarus'],
+    ['+376','🇦🇩','Andorra'],['+377','🇲🇨','Monaco'],['+378','🇸🇲','San Marino'],
+    ['+380','🇺🇦','Ukraine'],['+381','🇷🇸','Serbia'],['+382','🇲🇪','Montenegro'],
+    ['+385','🇭🇷','Croatia'],['+386','🇸🇮','Slovenia'],['+387','🇧🇦','Bosnia'],
+    ['+389','🇲🇰','N. Macedonia'],['+39','🇮🇹','Italy'],['+40','🇷🇴','Romania'],
+    ['+41','🇨🇭','Switzerland'],['+420','🇨🇿','Czech Rep.'],['+421','🇸🇰','Slovakia'],
+    ['+423','🇱🇮','Liechtenstein'],['+43','🇦🇹','Austria'],['+44','🇬🇧','UK'],
+    ['+45','🇩🇰','Denmark'],['+46','🇸🇪','Sweden'],['+47','🇳🇴','Norway'],
+    ['+48','🇵🇱','Poland'],['+49','🇩🇪','Germany'],
+    // Middle East & Gulf (important for recruitment)
+    ['+90','🇹🇷','Turkey'],['+91','🇮🇳','India'],['+92','🇵🇰','Pakistan'],
+    ['+93','🇦🇫','Afghanistan'],['+94','🇱🇰','Sri Lanka'],['+95','🇲🇲','Myanmar'],
+    ['+960','🇲🇻','Maldives'],['+961','🇱🇧','Lebanon'],['+962','🇯🇴','Jordan'],
+    ['+963','🇸🇾','Syria'],['+964','🇮🇶','Iraq'],['+965','🇰🇼','Kuwait'],
+    ['+966','🇸🇦','Saudi Arabia'],['+967','🇾🇪','Yemen'],['+968','🇴🇲','Oman'],
+    ['+970','🇵🇸','Palestine'],['+971','🇦🇪','UAE'],['+972','🇮🇱','Israel'],
+    ['+973','🇧🇭','Bahrain'],['+974','🇶🇦','Qatar'],['+975','🇧🇹','Bhutan'],
+    ['+976','🇲🇳','Mongolia'],['+977','🇳🇵','Nepal'],
+    ['+98','🇮🇷','Iran'],['+992','🇹🇯','Tajikistan'],['+993','🇹🇲','Turkmenistan'],
+    ['+994','🇦🇿','Azerbaijan'],['+995','🇬🇪','Georgia'],['+996','🇰🇬','Kyrgyzstan'],
+    ['+998','🇺🇿','Uzbekistan'],
+    // Asia-Pacific
+    ['+60','🇲🇾','Malaysia'],['+61','🇦🇺','Australia'],['+62','🇮🇩','Indonesia'],
+    ['+63','🇵🇭','Philippines'],['+64','🇳🇿','New Zealand'],['+65','🇸🇬','Singapore'],
+    ['+66','🇹🇭','Thailand'],['+670','🇹🇱','Timor-Leste'],['+672','🇳🇫','Norfolk Is.'],
+    ['+673','🇧🇳','Brunei'],['+674','🇳🇷','Nauru'],['+675','🇵🇬','PNG'],
+    ['+676','🇹🇴','Tonga'],['+677','🇸🇧','Solomon Is.'],['+678','🇻🇺','Vanuatu'],
+    ['+679','🇫🇯','Fiji'],['+680','🇵🇼','Palau'],['+682','🇨🇰','Cook Is.'],
+    ['+685','🇼🇸','Samoa'],['+686','🇰🇮','Kiribati'],['+688','🇹🇻','Tuvalu'],
+    ['+689','🇵🇫','Fr. Polynesia'],['+690','🇹🇰','Tokelau'],['+691','🇫🇲','Micronesia'],
+    ['+692','🇲🇭','Marshall Is.'],['+7','🇷🇺','Russia'],
+    ['+81','🇯🇵','Japan'],['+82','🇰🇷','South Korea'],['+84','🇻🇳','Vietnam'],
+    ['+855','🇰🇭','Cambodia'],['+856','🇱🇦','Laos'],['+86','🇨🇳','China'],
+    ['+880','🇧🇩','Bangladesh'],['+886','🇹🇼','Taiwan'],
+    // Americas
+    ['+1','🇺🇸','USA/Canada'],['+52','🇲🇽','Mexico'],['+53','🇨🇺','Cuba'],
+    ['+54','🇦🇷','Argentina'],['+55','🇧🇷','Brazil'],['+56','🇨🇱','Chile'],
+    ['+57','🇨🇴','Colombia'],['+58','🇻🇪','Venezuela'],['+591','🇧🇴','Bolivia'],
+    ['+592','🇬🇾','Guyana'],['+593','🇪🇨','Ecuador'],['+595','🇵🇾','Paraguay'],
+    ['+597','🇸🇷','Suriname'],['+598','🇺🇾','Uruguay'],['+599','🇨🇼','Curaçao']
+];
+
+/**
+ * Given a raw phone string, return {flag, country, formatted, isLebanon, hasCC}
+ * Handles:
+ *   +961 X XXX XXXX  → Lebanon with CC
+ *   +966 5X XXXX XXXX → Saudi with CC
+ *   00961...         → normalises 00 → +
+ *   03 123 456       → no CC, treated as unknown/local
+ */
+function parsePhone(raw) {
+    var s = String(raw || '').trim().replace(/[\s\-().]/g, '');
+    // Normalise 00XX → +XX
+    if (/^00[1-9]/.test(s)) s = '+' + s.slice(2);
+
+    var flag = '📞', country = '', hasCC = false;
+
+    var iso2 = '';
+    if (s.charAt(0) === '+') {
+        hasCC = true;
+        // Walk from longest prefix to shortest to find match
+        for (var i = 0; i < PHONE_CC.length; i++) {
+            if (s.indexOf(PHONE_CC[i][0]) === 0) {
+                flag    = PHONE_CC[i][1];
+                country = PHONE_CC[i][2];
+                iso2    = PHONE_CC[i][3] || '';
+                break;
+            }
+        }
+        if (!country) { flag = '🌐'; country = 'International'; iso2 = 'XX'; }
+    }
+
+    // Pretty-format Lebanese numbers: +961 X XXX XXXX or +961 XX XXX XXX
+    var formatted = raw.trim();
+    if (hasCC && s.indexOf('+961') === 0) {
+        var local = s.slice(4); // strip +961
+        if (local.length === 7)      formatted = '+961 ' + local.slice(0,1) + ' ' + local.slice(1,4) + ' ' + local.slice(4);
+        else if (local.length === 8) formatted = '+961 ' + local.slice(0,2) + ' ' + local.slice(2,5) + ' ' + local.slice(5);
+    }
+
+    return {
+        flag:      flag,
+        country:   country,
+        iso2:      iso2,
+        formatted: formatted,
+        isLebanon: hasCC && s.indexOf('+961') === 0,
+        hasCC:     hasCC
+    };
+}
+
+// ── Phone numbers: collect ALL filled phone/mobile/contact fields ──
+var PHONE_FIELD_PATTERNS = /phone|mobile|whatsapp|tel|contact.*num|num.*contact|gsm|fax/i;
+var PHONE_LABEL_MAP = {
+    phone:          'Phone',    phone1:         'Phone 1',
+    phone2:         'Phone 2',  phone3:         'Phone 3',
+    mobile:         'Mobile',   mobile1:        'Mobile 1',
+    mobile2:        'Mobile 2', contactnumber:  'Contact No.',
+    contactnumber2: 'Contact No. 2', contactnumber3: 'Contact No. 3',
+    contactphone:   'Contact Phone', whatsapp:  'WhatsApp',
+    whatsappnumber: 'WhatsApp', telephone:      'Telephone',
+    tel:            'Tel',      fax:            'Fax',   gsm: 'GSM'
+};
+
+function getPhoneNumbers(emp) {
+    var seen   = {};
+    var result = [];
+    Object.keys(emp).forEach(function(key) {
+        if (!PHONE_FIELD_PATTERNS.test(key)) return;
+        var val = String(emp[key] || '').trim();
+        if (!val || val === '-' || val === 'undefined' || val === 'null') return;
+        // Normalise for dedup (strip spaces/dashes)
+        var norm = val.replace(/[\s\-().]/g,'');
+        if (seen[norm]) return;
+        seen[norm] = true;
+        // Numbered fields e.g. MobileNumber7 → "Mobile 7", PhoneNumber2 → "Phone 2"
+        var keyL  = key.toLowerCase();
+        var label = PHONE_LABEL_MAP[keyL];
+        if (!label) {
+            var numMatch = key.match(/^([A-Za-z]+?)(\d+)$/);
+            if (numMatch) {
+                var base = PHONE_LABEL_MAP[numMatch[1].toLowerCase()] || numMatch[1].replace(/([A-Z])/g,' $1').trim();
+                label = base + ' ' + numMatch[2];
+            } else {
+                label = key.replace(/([A-Z])/g,' $1').trim();
+            }
+        }
+        var parsed   = parsePhone(val);
+        result.push({ label: label, value: val, parsed: parsed });
+    });
+    if (!result.length) {
+        var fallback = (emp.ContactNumber || emp.Phone || '').trim();
+        if (fallback) {
+            result.push({ label: 'Phone', value: fallback, parsed: parsePhone(fallback) });
+        }
+    }
+    return result;
+}
+
+// ── google.script.run wrapper ──────────────────────────────────────
+function gsr(fn, args) {
+    return new Promise(function(resolve, reject) {
+        google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            [fn].apply(google.script.run, args || []);
+    });
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────
+function toast(msg, color, ms) {
+    var t = document.getElementById('toast');
+    t.textContent = msg; t.style.background = color; t.style.display = 'block';
+    clearTimeout(t._t);
+    t._t = setTimeout(function(){ t.style.display='none'; }, ms||5000);
+}
+
+// Save overlay
+function spShow(title, step, file, pct) {
+    if (!_saveTimer) {
+        _saveStart = Date.now();
+        _saveTimer = setInterval(function() {
+            var secs = Math.round((Date.now() - _saveStart) / 1000);
+            var txt  = secs < 60 ? '⏱ ' + secs + 's' : '⏱ ' + Math.floor(secs/60) + 'm ' + (secs%60) + 's';
+            var t1 = document.getElementById('spTimer'); if(t1) t1.textContent = txt;
+            if (docWin && !docWin.closed) {
+                var t2 = docWin.document.getElementById('dvTimer'); if(t2) t2.textContent = txt;
+            }
+        }, 1000);
+    }
+    document.getElementById('saveOverlay').style.display = 'flex';
+    if (title !== undefined) document.getElementById('spTitle').textContent = title;
+    if (step  !== undefined) document.getElementById('spStep').textContent  = step;
+    if (file  !== undefined) document.getElementById('spFile').textContent  = file || '';
+    if (pct   !== undefined) {
+        document.getElementById('spFill').style.width = pct + '%';
+        document.getElementById('spPct').textContent  = Math.round(pct) + '%';
+    }
+    if (docWin && !docWin.closed) {
+        var dv = docWin.document.getElementById('dvOverlay');
+        if (dv) {
+            dv.style.display = 'flex';
+            if (title !== undefined) { var t=docWin.document.getElementById('dvTitle'); if(t) t.textContent=title; }
+            if (step  !== undefined) { var s=docWin.document.getElementById('dvStep');  if(s) s.textContent=step; }
+            if (file  !== undefined) { var f=docWin.document.getElementById('dvFile');  if(f) f.textContent=file||''; }
+            if (pct   !== undefined) {
+                var pf=docWin.document.getElementById('dvPF');   if(pf)  pf.style.width=pct+'%';
+                var pc=docWin.document.getElementById('dvPct');  if(pc)  pc.textContent=Math.round(pct)+'%';
+            }
+        }
+    }
+}
+function spHide(ms) {
+    clearInterval(_saveTimer); _saveTimer = null;
+    setTimeout(function(){
+        document.getElementById('saveOverlay').style.display='none';
+        if (docWin && !docWin.closed) {
+            var dv = docWin.document.getElementById('dvOverlay');
+            if (dv) dv.style.display='none';
+        }
+    }, ms||0);
+}
+function cancelSave() {
+    _saveCancel = true;
+    spShow('🚫 Cancelling...', 'Stopping after current file...', '', undefined);
+}
+
+// Report overlay
+function rpShow(step, pct, dot, file, title) {
+    var el = document.getElementById('overlay');
+    if (el.style.display !== 'flex') {
+        el.style.display = 'flex';
+        // Start timer on first show
+        _rpStart = Date.now();
+        if (_rpTimer) clearInterval(_rpTimer);
+        _rpTimer = setInterval(function() {
+            var secs = Math.round((Date.now() - _rpStart) / 1000);
+            var txt  = secs < 60 ? '⏱ ' + secs + 's' : '⏱ ' + Math.floor(secs/60) + 'm ' + (secs%60) + 's';
+            var t = document.getElementById('ovTimer'); if(t) t.textContent = txt;
+        }, 1000);
+    }
+    if (title !== undefined) { var ot=document.getElementById('ovTitle'); if(ot) ot.textContent=title; }
+    document.getElementById('ovStep').textContent = step;
+    document.getElementById('ovFill').style.width = pct + '%';
+    document.getElementById('ovPct').textContent  = Math.round(pct) + '%';
+    if (file !== undefined) { var of=document.getElementById('ovFile'); if(of) of.textContent=file||''; }
+    for (var i=1; i<=6; i++) document.getElementById('d'+i).style.background = i<=dot ? '#7b1fa2' : '#e0e0e0';
+}
+function rpHide(ms) {
+    clearInterval(_rpTimer); _rpTimer = null;
+    var doClose = function() {
+        var ov = document.getElementById('overlay');
+        if (ov) ov.style.display = 'none';
+        // Reset for next run
+        var ot=document.getElementById('ovTitle'); if(ot) ot.textContent='📄 Generating Report';
+        var of=document.getElementById('ovFile');  if(of) of.textContent='';
+        var op=document.getElementById('ovPct');   if(op) op.textContent='0%';
+        var ow=document.getElementById('ovFill');  if(ow) ow.style.width='0%';
+        var tm=document.getElementById('ovTimer'); if(tm) tm.textContent='⏱ 0s';
+    };
+    if (ms) setTimeout(doClose, ms); else doClose();
+}
+
+// ── Data loading ───────────────────────────────────────────────────
+// Phase 1: employers only → search unlocks immediately
+// Phase 2: workers + agencies silently in background
+async function loadData() {
+    var btn = document.getElementById('cloudBtn');
+    btn.textContent = '⏳ Loading...'; btn.className = 'cloud-btn';
+
+    // ── Phase 1: Employers only ──────────────────────────────────
+    try {
+        var r = await gsr('getEmployers');
+        if (r && r.success) allEmployers = r.data || [];
+        btn.textContent = '☁️ ' + allEmployers.length + ' employers ⟳';
+        btn.className = 'cloud-btn ok';
+    } catch(e) {
+        btn.textContent = '❌ Retry'; btn.className = 'cloud-btn err';
+        console.error('loadData employers:', e); return;
+    }
+
+    // ── Phase 2: Workers + Agencies in background ────────────────
+    Promise.all([gsr('getWorkers'), gsr('getAgencies')])
+        .then(function(res) {
+            if (res[0] && res[0].success) allWorkers  = res[0].data || [];
+            if (res[1] && res[1].success) allAgencies = res[1].data || [];
+            btn.textContent = '☁️ ' + allEmployers.length + ' employers';
+            btn.className = 'cloud-btn ok';
+            if (currentEmp) renderEmpCard(currentEmp);
+        })
+        .catch(function(e){ console.warn('Background load:', e); });
+}
+
+// ── Search ─────────────────────────────────────────────────────────
+function onSearch(q) {
+    var box = document.getElementById('resultsBox');
+    if (!q || q.length < 2) { box.style.display='none'; return; }
+    var ql = q.toLowerCase();
+    // Score-ranked search across EVERY field on the employer object
+    var scored = [];
+    allEmployers.forEach(function(e){
+        var code    = computeEmployerCode(e);
+        var agObj   = allAgencies.find(function(a){ return a.AgencyCode===e.AgencyCode; });
+        var agName  = agObj ? (agObj.AgencyName||'') : '';
+        // Priority fields — match here scores higher (shown first)
+        var primary = [
+            code,
+            e.EmployerCode||'', e.EmployerName||'', e.EFN||'',
+            e.AgencyCode||'', agName,
+            e.ContactName||'', e.Country||'', e.City||''
+        ].join(' ').toLowerCase();
+        // All remaining fields as flat string
+        var full = (primary + ' ' + JSON.stringify(e)).toLowerCase();
+        if (!full.includes(ql)) return;
+        // Score: 2 if match in primary fields, 1 if only in full dump
+        scored.push({ e:e, code:code, agN:agObj?(agObj.AgencyName||e.AgencyCode):(e.AgencyCode||''), score: primary.includes(ql)?2:1 });
+    });
+    // Sort by score desc, then by employer name asc
+    scored.sort(function(a,b){
+        if (b.score !== a.score) return b.score - a.score;
+        return (a.e.EmployerName||a.e.EFN||'').localeCompare(b.e.EmployerName||b.e.EFN||'');
+    });
+    var hits = scored.slice(0, 25);
+    if (!hits.length) {
+        box.innerHTML = '<div style="padding:12px 16px;color:#aaa;font-size:13px">No employers found</div>';
+        box.style.display = 'block'; return;
+    }
+    box.innerHTML = hits.map(function(item){
+        var e = item.e;
+        return '<div class="res-item" onclick="pickEmp('+e.EmployerID+')">'
+            + '<div class="res-name">'+(e.EmployerName||e.EFN||'Unknown')+'</div>'
+            + '<div class="res-sub">Code: <b>'+item.code+'</b>'
+            + (item.agN ? ' &nbsp;•&nbsp; Agency: <b>'+item.agN+'</b>' : '')
+            + (e.Country ? ' &nbsp;•&nbsp; '+e.Country : '')
+            + '</div>'
+            + '</div>';
+    }).join('');
+    box.style.display = 'block';
+}
+
+document.addEventListener('click', function(e){
+    if (!e.target.closest('.search-wrap')) document.getElementById('resultsBox').style.display='none';
+});
+
+// ── Pick employer ──────────────────────────────────────────────────
+function pickEmp(id) {
+    var emp = allEmployers.find(function(e){ return String(e.EmployerID)===String(id); });
+    if (!emp) return;
+    currentEmp   = emp;
+    currentFiles = [];
+    var code = computeEmployerCode(emp);
+    document.getElementById('resultsBox').style.display = 'none';
+    document.getElementById('searchInput').value = (emp.EmployerName||emp.EFN||'') + ' (' + code + ')';
+    renderEmpCard(emp);
+}
+
+function renderEmpCard(emp) {
+    var ag   = allAgencies.find(function(a){ return a.AgencyCode===emp.AgencyCode; });
+    var agN  = ag ? (ag.AgencyName||emp.AgencyCode) : (emp.AgencyCode||'—');
+    var code = computeEmployerCode(emp);
+    var wks  = allWorkers.filter(function(w){
+        return (w.Processing===true||w.Processing==='true'||w.Processing==='Yes')
+            && (String(w.EmployerCode)===String(code)
+             || String(w.EmployerCode)===String(emp.EmployerCode||'')
+             || String(w.EmployerID)===String(emp.EmployerID));
+    });
+
+    document.getElementById('eN').textContent = emp.EmployerName||emp.EFN||'—';
+    document.getElementById('eC').textContent = 'Code: '+code+' • ID: '+(emp.EmployerID||'—');
+    document.getElementById('eA').textContent = 'Agency: '+agN+' ('+(emp.AgencyCode||'—')+')';
+
+    var phones = getPhoneNumbers(emp);
+    var phonesHtml = phones.length
+        ? phones.map(function(p){
+            var pr = p.parsed;
+            // Color: Lebanon = purple, other international = blue, no CC = amber warning
+            var bg, color, extra = '';
+            if (pr.isLebanon) {
+                bg = '#ede7f6'; color = '#4a1470';
+            } else if (pr.hasCC) {
+                bg = '#e3f2fd'; color = '#0d47a1';
+                extra = ' <span style="font-size:10px;color:#1565c0;font-weight:600">('+pr.country+')</span>';
+            } else {
+                bg = '#fff8e1'; color = '#e65100';
+                extra = ' <span title="No country code — add +CC for international" style="font-size:10px;color:#e65100;font-weight:700" >⚠ no +CC</span>';
+            }
+            return '<div style="display:inline-flex;align-items:center;background:'+bg+';border-radius:7px;padding:4px 10px;margin:2px 4px 2px 0;font-size:12px;font-weight:700;color:'+color+'">'
+                + '<span style="margin-right:5px;font-size:14px">'+pr.flag+'</span>'
+                + p.label+': '+pr.formatted
+                + extra
+                + '</div>';
+          }).join('')
+        : '<span style="color:#aaa;font-size:12px">—</span>';
+    document.getElementById('eDetails').innerHTML = [
+        {l:'Phone(s)', v:'__PHONES__'},
+        {l:'Email',    v:emp.EmailAddress||emp.Email||'—'},
+        {l:'City',     v:emp.City||'—'},
+        {l:'Country',  v:emp.Country||'—'}
+    ].map(function(d){
+        var val = d.v === '__PHONES__'
+            ? '<div style="margin-top:4px;line-height:1.9">'+phonesHtml+'</div>'
+            : '<div class="detail-value">'+d.v+'</div>';
+        return '<div class="detail-box"><div class="detail-label">'+d.l+'</div>'+val+'</div>';
+    }).join('');
+
+    document.getElementById('eStats').innerHTML = [
+        {n:wks.length,     l:'Active Workers'},
+        {n:emp.EmployerFolderID?'✓':'✗', l:'Drive Folder'},
+        {n:new Date().toLocaleDateString('en-GB'), l:'Today'}
+    ].map(function(s){
+        return '<div class="stat"><div class="stat-n">'+s.n+'</div><div class="stat-l">'+s.l+'</div></div>';
+    }).join('');
+
+    document.getElementById('empCard').classList.add('show');
+}
+
+function clearEmp() {
+    currentEmp=null; currentFiles=[];
+    document.getElementById('empCard').classList.remove('show');
+    document.getElementById('searchInput').value='';
+}
+
+// ── Folder helpers ─────────────────────────────────────────────────
+function folderInfo(emp) {
+    var folderId   = emp.EmployerFolderID||'';
+    var folderName = emp.EmployerFolderName||emp.EmployerFolder||'';
+    if (!folderName) {
+        var agC = emp.AgencyCode||'';
+        folderName = agC
+            ? agC+' ('+emp.EmployerID+') '+(emp.EmployerName||emp.EFN||'')
+            : computeEmployerCode(emp)+'_'+(emp.EmployerName||emp.EFN||'');
+    }
+    return {folderId:folderId, folderName:folderName};
+}
+
+// ── List files ─────────────────────────────────────────────────────
+// listFiles      → excludes Report_ files (for Doc Viewer & Save Docs)
+// listAllFiles   → ALL files including reports (for PDF document listing)
+async function listFiles(emp) {
+    var fi = folderInfo(emp);
+    var r  = await gsr('listFilesForEmployer', [fi.folderId, fi.folderName]);
+    if (!r || !r.success) { toast('❌ Could not list files: '+(r&&r.error||'unknown'), '#c62828'); return []; }
+    return (r.files||[]).filter(function(f){ return !/^Report_/i.test(String(f.name||'')); });
+}
+async function listAllFiles(emp) {
+    var fi = folderInfo(emp);
+    var r  = await gsr('listFilesForEmployer', [fi.folderId, fi.folderName]);
+    if (!r || !r.success) return [];
+    return r.files || [];   // unfiltered — includes Report_ files
+}
+
+// ── View Documents ─────────────────────────────────────────────────
+async function openDocViewer() {
+    if (!currentEmp) return;
+    var btn = document.getElementById('btnDocs');
+    btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Loading...';
+    try {
+        if (!currentFiles.length) currentFiles = await listFiles(currentEmp);
+        buildDocViewerWindow(currentFiles, currentEmp);
+    } catch(e) { toast('❌ '+e.message, '#c62828'); }
+    btn.disabled=false; btn.textContent='📂 View Documents';
+}
+
+function buildDocViewerWindow(files, emp) {
+    var empName = emp.EmployerName||emp.EFN||'';
+    var empCode = computeEmployerCode(emp);
+
+    var h = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+empName+' Documents</title>';
+    h += '<style>';
+    h += '*{margin:0;padding:0;box-sizing:border-box}';
+    h += 'body{font-family:"Segoe UI",sans-serif;background:linear-gradient(135deg,#4a1470,#7b1fa2);padding:14px;min-height:100vh}';
+    h += '.hdr{background:white;border-radius:12px;padding:18px 22px;margin-bottom:12px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,0.18)}';
+    h += '.hdr h1{color:#4a1470;font-size:19px;margin-bottom:3px}';
+    h += '.hdr h2{font-size:13px;color:#555;margin-bottom:10px}';
+    h += '.btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px}';
+    h += '.btn{padding:9px 17px;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;color:white}';
+    h += '.sel-bar{background:white;padding:9px 18px;border-radius:9px;margin:0 auto 10px;max-width:920px;display:flex;align-items:center;justify-content:space-between}';
+    h += '.gallery{max-width:920px;margin:0 auto}';
+    h += '.card{background:white;border-radius:10px;margin-bottom:13px;box-shadow:0 2px 10px rgba(0,0,0,0.1);overflow:hidden}';
+    h += '.card.sel{outline:3px solid #7b1fa2}';
+    h += '.ch{background:linear-gradient(135deg,#4a1470,#7b1fa2);color:white;padding:9px 15px;display:flex;justify-content:space-between;align-items:center}';
+    h += '.ct{font-weight:700;font-size:13px}';
+    h += '.cs{font-size:11px;opacity:0.8;margin-top:2px}';
+    h += '.ch a{color:white;text-decoration:none;font-size:12px;background:rgba(255,255,255,0.22);padding:4px 10px;border-radius:5px;font-weight:600}';
+    h += '.cb{padding:7px;text-align:center;background:#f9f9f9}';
+    h += '.chk{width:17px;height:17px;cursor:pointer;accent-color:#7b1fa2;flex-shrink:0;margin-right:9px}';
+    h += '.grp{background:#e8eaf6;padding:7px 14px;font-weight:700;font-size:13px;color:#4a1470;border-radius:7px;margin-bottom:7px;margin-top:3px}';
+    h += '@media print{.hdr .btns,.sel-bar{display:none!important}.ch{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
+    h += '@page{size:A4;margin:0}';
+    h += '#dvOverlay{display:none;position:fixed;inset:0;background:rgba(74,20,140,0.88);z-index:9999;align-items:center;justify-content:center}';
+    h += '#dvBox{background:white;border-radius:16px;padding:30px 38px;text-align:center;min-width:300px;max-width:460px;box-shadow:0 8px 40px rgba(0,0,0,0.35)}';
+    h += '#dvTitle{font-size:18px;font-weight:800;color:#4a1470;margin-bottom:8px}';
+    h += '#dvStep{font-size:13px;color:#666;margin-bottom:6px;min-height:18px}';
+    h += '#dvFile{font-size:12px;color:#7b1fa2;font-weight:600;margin-bottom:14px;min-height:16px;word-break:break-all}';
+    h += '#dvPW{height:11px;background:#e0d0f0;border-radius:6px;overflow:hidden;margin-bottom:5px}';
+    h += '#dvPF{height:100%;background:linear-gradient(90deg,#4a1470,#7b1fa2);border-radius:6px;transition:width 0.25s;width:0%}';
+    h += '#dvPct{font-size:12px;color:#999}';
+    h += '</style></head><body>';
+    h += '<div id="dvOverlay"><div id="dvBox">';
+    h += '<div id="dvTitle" style="font-size:18px;font-weight:800;color:#4a1470;margin-bottom:8px">💾 Saving to Drive</div>';
+    h += '<div id="dvStep" style="font-size:13px;color:#666;margin-bottom:6px;min-height:18px">Preparing...</div>';
+    h += '<div id="dvFile" style="font-size:12px;color:#7b1fa2;font-weight:600;margin-bottom:14px;min-height:16px;word-break:break-all"></div>';
+    h += '<div id="dvPW" style="height:11px;background:#e0d0f0;border-radius:6px;overflow:hidden;margin-bottom:5px"><div id="dvPF" style="height:100%;background:linear-gradient(90deg,#4a1470,#7b1fa2);border-radius:6px;transition:width 0.25s;width:0%"></div></div>';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px">';
+    h += '<div id="dvPct" style="font-size:12px;color:#999">0%</div>';
+    h += '<div id="dvTimer" style="font-size:13px;color:#7b1fa2;font-weight:700">⏱ 0s</div>';
+    h += '</div>';
+    h += '<button onclick="window.opener&&window.opener.cancelSave()" style="margin-top:16px;padding:9px 28px;border:2px solid #c62828;background:white;color:#c62828;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">✕ Cancel</button>';
+    h += '</div></div>';
+
+    h += '<div class="hdr">';
+    h += '<h1>📂 Employer Documents</h1>';
+    h += '<h2>'+empName+' &nbsp;•&nbsp; '+empCode+'</h2>';
+    h += '<div style="color:#666;font-size:13px;margin-bottom:10px"><b>'+files.length+' file(s)</b></div>';
+    h += '<div class="btns">';
+    h += '<button class="btn" style="background:#555" onclick="selAll(true)">☑️ All</button>';
+    h += '<button class="btn" style="background:#888" onclick="selAll(false)">⬜ None</button>';
+    h += '<button class="btn" style="background:#4a1470" onclick="doPrint(true)">🖨️ Print Selected</button>';
+    h += '<button class="btn" style="background:#7b1fa2" onclick="doPrint(false)">🖨️ Print All</button>';
+    h += '<button class="btn" style="background:#c62828" onclick="window.opener._saveToDrive(false)">💾 Save All</button>';
+    h += '<button class="btn" style="background:#b71c1c" onclick="window.opener._saveToDrive(true)">💾 Save Selected</button>';
+    h += '</div></div>';
+
+    h += '<div class="sel-bar">';
+    h += '<label style="font-weight:600;cursor:pointer"><input type="checkbox" id="mCB" onchange="selAll(this.checked)" style="width:16px;height:16px;margin-right:8px;vertical-align:middle;accent-color:#7b1fa2"> Select All</label>';
+    h += '<div id="selCnt" style="font-weight:700;color:#7b1fa2">0 / '+files.length+'</div>';
+    h += '</div>';
+
+    h += '<div class="gallery">';
+    var groups={};
+    files.forEach(function(f,i){ var g=f.subfolder||'General'; if(!groups[g])groups[g]=[]; groups[g].push({f:f,i:i}); });
+    var ci=0;
+    Object.keys(groups).sort().forEach(function(g){
+        if(Object.keys(groups).length>1) h+='<div class="grp">📁 '+g+' ('+groups[g].length+')</div>';
+        groups[g].forEach(function(item){
+            var f=item.f; var idx=ci++;
+            var mt=String(f.mimeType||'');
+            var isPdf=mt==='application/pdf'; var isImg=mt.indexOf('image/')===0;
+            var icon=isPdf?'📄':isImg?'🖼️':'📎';
+            var fid=f.id||'';
+            var fdate=f.date?new Date(f.date).toLocaleDateString('en-GB'):'';
+            var fsz=f.size>0?(f.size>1048576?(f.size/1048576).toFixed(1)+' MB':(f.size/1024).toFixed(0)+' KB'):'';
+            var prev=fid
+                ? '<div class="lazy" data-src="https://drive.google.com/file/d/'+fid+'/preview" style="width:100%;height:490px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;font-size:13px;color:#888" onclick="loadFr(this)">▶ Click to load</div>'
+                  + '<div style="padding:4px;font-size:11px;color:#999"><a href="'+f.url+'" target="_blank" style="color:#7b1fa2">Open in Drive ↗</a></div>'
+                : '<div style="padding:36px;color:#999">📎 <a href="'+f.url+'" target="_blank" style="color:#7b1fa2">Open in Drive</a></div>';
+            h += '<div class="card" id="dc'+idx+'">';
+            h += '<div class="ch"><div style="display:flex;align-items:center">';
+            h += '<input type="checkbox" class="chk" id="ck'+idx+'" onchange="updCnt()">';
+            h += '<div><div class="ct">'+icon+' '+(idx+1)+'. '+f.name+'</div>';
+            h += '<div class="cs">'+fsz+(fsz&&fdate?' • ':'')+fdate+'</div></div></div>';
+            h += f.url?'<a href="'+f.url+'" target="_blank">📂 Open</a>':'';
+            h += '</div><div class="cb">'+prev+'</div></div>';
+        });
+    });
+    h += '</div></body></html>';
+
+    docWin = window.open('', '_blank');
+    if (!docWin) { toast('⚠️ Allow pop-ups for this site', '#ff9800'); return; }
+    docWin.document.write(h); docWin.document.close();
+
+    docWin.loadFr = function(div) {
+        var iframe = docWin.document.createElement('iframe');
+        iframe.src = div.getAttribute('data-src');
+        iframe.style.cssText = 'width:100%;height:490px;border:none;border-radius:6px;display:block';
+        div.parentNode.replaceChild(iframe, div);
+    };
+    var obs = new docWin.IntersectionObserver(function(entries){
+        entries.forEach(function(e){ if(e.isIntersecting&&e.target.classList.contains('lazy')){ docWin.loadFr(e.target); obs.unobserve(e.target); } });
+    }, {rootMargin:'200px'});
+    docWin.document.querySelectorAll('.lazy').forEach(function(el){ obs.observe(el); });
+
+    docWin.selAll = function(v){ docWin.document.querySelectorAll('.chk').forEach(function(c){c.checked=v;}); var m=docWin.document.getElementById('mCB'); if(m)m.checked=v; docWin.updCnt(); };
+    docWin.updCnt = function(){ var t=docWin.document.querySelectorAll('.chk').length; var s=docWin.document.querySelectorAll('.chk:checked').length; var el=docWin.document.getElementById('selCnt'); if(el)el.textContent=s+' / '+t; };
+    docWin.doPrint = function(onlySel) {
+        var items=[]; docWin.document.querySelectorAll('.card').forEach(function(d){ var chk=d.querySelector('.chk'); if(onlySel&&!(chk&&chk.checked))return; var a=d.querySelector('.ch a'); var url=a?a.href:''; var m=url.match(/\/d\/([a-zA-Z0-9_-]+)/); var fid=m?m[1]:''; var t=d.querySelector('.ct'); var raw=t?t.textContent.trim():''; var nm=raw.replace(/^.{1,3}\s*\d+\.\s*/,''); var isPdf=/\.pdf$/i.test(nm); items.push({title:nm,fid:fid,isPdf:isPdf}); });
+        if(!items.length){alert('No files selected');return;}
+        var ph='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Print</title>';
+        ph+='<style>*{margin:0;padding:0}body{font-family:sans-serif}.top{background:linear-gradient(135deg,#4a1470,#7b1fa2);color:white;padding:14px;text-align:center}.pbtn{padding:9px 18px;border:none;border-radius:7px;font-weight:700;cursor:pointer;color:white;margin:0 4px}.pg{page-break-after:always}.pg:last-child{page-break-after:avoid}.ph{background:linear-gradient(135deg,#4a1470,#7b1fa2);color:white;padding:8px 14px;font-weight:700;font-size:13px}.pg img{max-width:100%;max-height:calc(100vh - 50px);object-fit:contain;display:block;margin:auto}@media print{.top{display:none!important}.ph{-webkit-print-color-adjust:exact;print-color-adjust:exact}}@page{size:A4;margin:0}</style>';
+        ph+='</head><body><div class="top"><h2>🖨️ Documents ('+items.length+')</h2><button class="pbtn" style="background:#28a745" onclick="window.print()">🖨️ Print</button><button class="pbtn" style="background:#6c757d" onclick="window.close()">✕ Close</button></div>';
+        items.forEach(function(c){ ph+='<div class="pg"><div class="ph">'+c.title+'</div>'; if(c.fid){if(c.isPdf)ph+='<img src="https://drive.google.com/thumbnail?id='+c.fid+'&sz=w1200">'; else ph+='<img src="https://lh3.googleusercontent.com/d/'+c.fid+'=w1200" onerror="this.src=\'https://drive.google.com/thumbnail?id='+c.fid+'&sz=w1200\'">';} ph+='</div>'; });
+        ph+='</body></html>'; var pw=window.open('','_blank'); if(pw){pw.document.write(ph);pw.document.close();}
+    };
+}
+
+// ── Save Docs to Drive — BATCHED ───────────────────────────────────
+async function startSaveToDrive() {
+    if (!currentEmp) return;
+    if (!currentFiles.length) {
+        spShow('💾 Saving to Drive', 'Fetching file list...', '', 2);
+        try { currentFiles = await listFiles(currentEmp); } catch(e) { spHide(); toast('❌ '+e.message,'#c62828'); return; }
+    }
+    if (!currentFiles.length) { toast('No files found in folder', '#888'); return; }
+    await runSave(currentFiles);
+}
+
+window._saveToDrive = async function(onlySelected) {
+    if (!currentEmp) return;
+    var filesToSave = [];
+    if (onlySelected && docWin && !docWin.closed) {
+        docWin.document.querySelectorAll('.card').forEach(function(d) {
+            var chk = d.querySelector('.chk');
+            if (!(chk && chk.checked)) return;
+            var a = d.querySelector('.ch a'); var url = a ? a.href : '';
+            var m = url.match(/\/d\/([a-zA-Z0-9_-]+)/); var fid = m ? m[1] : '';
+            var t = d.querySelector('.ct'); var raw = t ? t.textContent.trim() : '';
+            var nm = raw.replace(/^.{1,3}\s*\d+\.\s*/, '');
+            var isPdf = /\.pdf$/i.test(nm);
+            var isImg = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(nm);
+            if (fid && (isPdf || isImg)) filesToSave.push({title:nm, fid:fid, isPdf:isPdf});
+        });
+        if (!filesToSave.length) { toast('No files selected', '#888'); return; }
+    } else {
+        if (!currentFiles.length) {
+            spShow('💾 Saving to Drive', 'Fetching file list...', '', 2);
+            try { currentFiles = await listFiles(currentEmp); } catch(e) { spHide(); toast('❌ '+e.message,'#c62828'); return; }
+        }
+        filesToSave = currentFiles
+            .filter(function(f){ var mt=String(f.mimeType||''); return mt==='application/pdf'||mt.indexOf('image/')===0; })
+            .map(function(f){ var isPdf=f.mimeType==='application/pdf'; return {title:f.name||'', fid:f.id||'', isPdf:isPdf}; })
+            .filter(function(x){ return x.fid; });
+    }
+    if (!filesToSave.length) { toast('No PDF or image files found', '#888'); return; }
+    await runSave(filesToSave);
+};
+
+async function runSave(allItems) {
+    _saveCancel = false;
+    clearInterval(_saveTimer); _saveTimer = null;
+
+    var fi         = folderInfo(currentEmp);
+    var emp        = currentEmp;
+    var empCode    = computeEmployerCode(emp);
+    var reportDate = new Date().toISOString().split('T')[0];
+    var CHUNK      = 25;
+    var totalParts = Math.ceil(allItems.length / CHUNK);
+
+    spShow('💾 Saving to Drive', 'Fetching all files from Drive...', allItems.length + ' files', 5);
+
+    var fileIds = allItems.map(function(x){ return x.fid; });
+    var allContents;
+    try {
+        allContents = await gsr('getAllFileContents', [fileIds]);
+    } catch(e) {
+        spHide();
+        toast('❌ Batch fetch failed: ' + e.message, '#c62828');
+        return;
+    }
+    if (!allContents || !allContents.success) {
+        spHide();
+        toast('❌ ' + (allContents && allContents.error || 'Unknown error'), '#c62828');
+        return;
+    }
+    var contentMap = allContents.files || {};
+
+    spShow('💾 Saving to Drive', 'Loading PDF library...', '', 10);
+    if (!window.jspdf) {
+        await new Promise(function(res, rej) {
+            var s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+            s.onload = res; s.onerror = rej;
+            document.head.appendChild(s);
+        });
+    }
+
+    var uploaded = [], failed = 0;
+    var pageW=210, pageH=297, margin=10;
+    var firstPageInChunk = true;
+
+    for (var chunkIdx = 0; chunkIdx < totalParts; chunkIdx++) {
+        if (_saveCancel) break;
+        var start = chunkIdx * CHUNK;
+        var end   = Math.min(start + CHUNK, allItems.length);
+        var chunk = allItems.slice(start, end);
+        var doc   = new window.jspdf.jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+        firstPageInChunk = true;
+
+        for (var j = 0; j < chunk.length; j++) {
+            if (_saveCancel) break;
+            var item    = chunk[j];
+            var globalI = start + j;
+            var pct     = 15 + Math.round((globalI / allItems.length) * 70);
+            spShow('💾 Saving to Drive',
+                'File ' + (globalI+1) + ' of ' + allItems.length + ' — part ' + (chunkIdx+1) + '/' + totalParts,
+                (globalI+1) + '. ' + item.title.substring(0, 60), pct);
+            await new Promise(function(r){ setTimeout(r, 30); });
+
+            var fileB64 = null, fileMime = 'image/jpeg', iw = 800, ih = 600;
+            var fc = contentMap[item.fid];
+            if (fc && fc.content) { fileB64 = fc.content; fileMime = fc.mimeType || 'image/jpeg'; }
+
+            if (fileB64 && fileMime === 'application/pdf') {
+                try {
+                    if (!window.pdfjsLib) {
+                        await new Promise(function(res,rej){ var s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+                        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    }
+                    var bytes  = Uint8Array.from(atob(fileB64), function(c){ return c.charCodeAt(0); });
+                    var pdfd   = await window.pdfjsLib.getDocument({data:bytes}).promise;
+                    var numPgs = pdfd.numPages;
+                    for (var pgNum = 1; pgNum <= numPgs; pgNum++) {
+                        if (!firstPageInChunk) doc.addPage();
+                        firstPageInChunk = false;
+                        doc.setFillColor(74,20,140); doc.rect(0,0,pageW,12,'F');
+                        doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','bold');
+                        doc.text((globalI+1)+'. '+item.title.substring(0,72)+(numPgs>1?' (p'+pgNum+'/'+numPgs+')':''), 5, 8);
+                        var pg2 = await pdfd.getPage(pgNum);
+                        var vp2 = pg2.getViewport({scale:1.6});
+                        var cv2 = document.createElement('canvas');
+                        cv2.width = vp2.width; cv2.height = vp2.height;
+                        await pg2.render({canvasContext:cv2.getContext('2d'), viewport:vp2}).promise;
+                        var pg64 = cv2.toDataURL('image/jpeg', 0.85).split(',')[1];
+                        var r3=vp2.height/vp2.width, dw2=pageW-margin*2, dh2=dw2*r3;
+                        if (dh2>pageH-14){dh2=pageH-14; dw2=dh2/r3;}
+                        doc.addImage(pg64,'JPEG',(pageW-dw2)/2,14,dw2,dh2,undefined,'FAST');
+                        var pgPct = 15 + Math.round(((globalI + pgNum/numPgs) / allItems.length) * 70);
+                        spShow(undefined, 'File '+(globalI+1)+'/'+allItems.length+(numPgs>1?' — page '+pgNum+'/'+numPgs:''), (globalI+1)+'. '+item.title.substring(0,55), pgPct);
+                        await new Promise(function(r){ setTimeout(r, 30); });
+                    }
+                    fileB64 = null;
+                } catch(pe) { fileB64 = null; console.warn('PDF.js:', pe.message); }
+            }
+
+            if (fileB64) {
+                if (!firstPageInChunk) doc.addPage();
+                firstPageInChunk = false;
+                doc.setFillColor(74,20,140); doc.rect(0,0,pageW,12,'F');
+                doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','bold');
+                doc.text((globalI+1)+'. '+item.title.substring(0,85), 5, 8);
+                var tmp = new Image();
+                await new Promise(function(res){
+                    tmp.onload = function(){ if(iw===800&&ih===600){iw=tmp.naturalWidth||800; ih=tmp.naturalHeight||600;} res(); };
+                    tmp.onerror = res;
+                    tmp.src = 'data:'+fileMime+';base64,'+fileB64;
+                });
+                var r2=ih/iw, dw=pageW-margin*2, dh=dw*r2;
+                if (dh>pageH-14){dh=pageH-14; dw=dh/r2;}
+                doc.addImage(fileB64,'JPEG',(pageW-dw)/2,14,dw,dh,undefined,'FAST');
+            }
+        }
+
+        var safeName = (emp.EFN||emp.ContactName||emp.EmployerName||empCode);
+        safeName = safeName.replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g,'').trim().replace(/\s+/g,'_').substring(0,30);
+        var range = (start+1) + '-' + end;
+        var fname = 'Docs_'+empCode+'_'+safeName+'_'+reportDate+'_pt'+(chunkIdx+1)+'of'+totalParts+'_(files_'+range+').pdf';
+        var uploadPct = 85 + Math.round(((chunkIdx+1)/totalParts)*14);
+        spShow('💾 Uploading to Drive', 'Uploading part '+(chunkIdx+1)+'/'+totalParts, fname, uploadPct);
+        await new Promise(function(r){ setTimeout(r, 30); });
+
+        try {
+            var b64 = doc.output('datauristring').split(',')[1];
+            var d   = await gsr('uploadDocsChunk', [fi.folderId, fi.folderName, fname, b64]);
+            if (d && d.success) uploaded.push(fname);
+            else { failed++; console.warn('Upload failed:', d && d.error); }
+        } catch(e) { failed++; console.warn('Upload error:', e.message); }
+    }
+
+    var elapsed = Math.round((Date.now() - _saveStart) / 1000);
+    var timeStr = elapsed < 60 ? elapsed+'s' : Math.floor(elapsed/60)+'m '+(elapsed%60)+'s';
+
+    if (_saveCancel) {
+        spShow('🚫 Cancelled', 'Stopped by user after '+timeStr, uploaded.length+' part(s) already uploaded', 100);
+        document.getElementById('spTitle').style.color = '#e65100';
+        spHide(4000);
+    } else if (uploaded.length > 0) {
+        spShow('✅ Done!',
+            'Saved '+uploaded.length+' part'+(uploaded.length>1?'s':'')+' in '+timeStr+(failed?' ('+failed+' failed)':''),
+            uploaded.join('\n'), 100);
+        document.getElementById('spTitle').style.color = '#2e7d32';
+        spHide(5000);
+    } else {
+        spShow('❌ Upload Failed', 'All uploads failed — check console', '', 100);
+        document.getElementById('spTitle').style.color = '#c62828';
+        spHide(6000);
+    }
+}
+
+// ── Generate Report (PDF → auto-save to employer Drive folder) ─────
+async function generateReport() {
+    if (!currentEmp) return;
+    var emp     = currentEmp;
+    var empCode = computeEmployerCode(emp);                        // ← computed code
+    var empName = String(emp.EmployerName||emp.EFN||empCode);
+    var ag      = allAgencies.find(function(a){ return a.AgencyCode===emp.AgencyCode; });
+    var agName  = ag ? String(ag.AgencyName||emp.AgencyCode) : String(emp.AgencyCode||'');
+    var fi      = folderInfo(emp);
+    var today   = new Date();
+    var reportDate = today.toISOString().split('T')[0];
+    var todayStr   = today.toLocaleDateString('en-GB')+' '+today.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+
+    document.getElementById('ovSub').textContent = empName+' ('+empCode+')';
+    rpShow('Collecting workers...', 10, 1, '', '📄 Generating Report');
+    await new Promise(function(r){ setTimeout(r,30); });
+
+    // Match workers by computed code OR stored code OR EmployerID
+    var workers = allWorkers.filter(function(w){
+        return (w.Processing===true||w.Processing==='true'||w.Processing==='Yes')
+            && (String(w.EmployerCode)===String(empCode)
+             || String(w.EmployerCode)===String(emp.EmployerCode||'')
+             || String(w.EmployerID)===String(emp.EmployerID));
+    }).sort(function(a,b){ return (a.SelectedDate||'')<(b.SelectedDate||'')?-1:1; });
+
+    rpShow('Fetching folder files...', 40, 3, '');
+    await new Promise(function(r){ setTimeout(r,30); });
+    // currentFiles (no Report_ filter) used for Doc Viewer & Save Docs
+    if (!currentFiles.length) {
+        try { currentFiles = await listFiles(emp); } catch(e) {}
+    }
+    // displayFiles: ALL files in folder including previous reports — for PDF listing
+    var displayFiles = [];
+    try { displayFiles = await listAllFiles(emp); } catch(e) { displayFiles = currentFiles; }
+
+    rpShow('Loading PDF library...', 65, 4, '');
+    await new Promise(function(r){ setTimeout(r,30); });
+    if (!window.jspdf) {
+        await new Promise(function(res,rej){ var s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+    }
+
+    rpShow('Building PDF...', 75, 5, '');
+    await new Promise(function(r){ setTimeout(r,50); });
+
+    var jsPDF = window.jspdf.jsPDF;
+    var doc   = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    var pageW=210, margin=15, rightX=pageW-margin, pageH=297, y=0;
+
+    function chk(n){ if(y+n>pageH-18){ doc.addPage(); y=20; } }
+    function sec(title,r,g,b){ chk(16);doc.setFillColor(r,g,b);doc.rect(margin,y,rightX-margin,9,'F');doc.setTextColor(255,255,255);doc.setFontSize(10);doc.setFont('helvetica','bold');doc.text(title,margin+3,y+6.2);y+=12;doc.setTextColor(50,50,50); }
+    function row(label,val){ chk(8);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text(label,margin+2,y);doc.setFont('helvetica','normal');doc.text(String(val||'-'),margin+42,y);y+=6; }
+    function div(){ chk(8);doc.setDrawColor(220,220,220);doc.line(margin,y,rightX,y);y+=5; }
+
+    // Cover header
+    doc.setFillColor(74,20,140);doc.rect(0,0,pageW,32,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(18);doc.setFont('helvetica','bold');
+    doc.text('EMPLOYER COMPREHENSIVE REPORT',margin,13);
+    doc.setFontSize(9);doc.setFont('helvetica','normal');
+    doc.text('Massroua General Services - Processing Manager',margin,20);
+    doc.text('Generated: '+todayStr,rightX,13,{align:'right'});
+    doc.text('Report Date: '+reportDate,rightX,20,{align:'right'});
+    y=40;
+
+    // Employer info
+    sec('EMPLOYER INFORMATION',74,20,140);
+    var empInfoY = y;
+    // Employer info rows — all phones with flag + country
+    var empPhones = getPhoneNumbers(emp);
+    var empInfoRows = [
+        ['Name:', empName],
+        ['Code:', empCode],
+        ['Agency:', agName]
+    ];
+    empPhones.forEach(function(p) {
+        var pr   = p.parsed;
+        // PDF cannot render emoji flags — use ISO2 text code instead
+        var ccTag = pr.iso2 ? '[' + pr.iso2 + '] ' : '';
+        var disp  = ccTag + pr.formatted;
+        if (!pr.isLebanon && pr.hasCC) disp += '  (' + pr.country + ')';
+        if (!pr.hasCC)                 disp += '  [?] no country code';
+        empInfoRows.push([p.label + ':', disp]);
+    });
+    empInfoRows.push(['City/Country:', (emp.City||'-')+(emp.Country?' / '+emp.Country:'')]);
+
+    empInfoRows.forEach(function(r2){
+        chk(8);
+        doc.setFillColor(248,240,255); doc.rect(margin,y-3,rightX-margin,7,'F');
+        doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(50,50,50);
+        doc.text(r2[0], margin+2, y);
+        // Non-Lebanese international: highlight in blue; missing CC: amber
+        var pr2 = null;
+        empPhones.forEach(function(p){ if((p.label+':')===r2[0]) pr2=p.parsed; });
+        if (pr2 && !pr2.isLebanon && pr2.hasCC)  doc.setTextColor(13,71,161);
+        if (pr2 && !pr2.hasCC)                    doc.setTextColor(230,81,0);
+        doc.setFont('helvetica','normal');
+        doc.text(String(r2[1]||'-'), margin+42, y);
+        doc.setTextColor(50,50,50);
+        y += 6;
+    });
+    y+=4; div();
+
+    // Workers table
+    sec('WORKERS ('+workers.length+')',33,150,243);
+    if (!workers.length) {
+        doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(160,160,160);
+        doc.text('No workers associated.',margin+3,y);y+=8;doc.setTextColor(50,50,50);
+    } else {
+        chk(10);doc.setFillColor(33,150,243);doc.rect(margin,y,rightX-margin,7,'F');
+        doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
+        doc.text('#',margin+2,y+5);doc.text('Name',margin+8,y+5);doc.text('Code',margin+68,y+5);
+        doc.text('Passport',margin+100,y+5);doc.text('Status',margin+132,y+5);doc.text('Date',rightX-3,y+5,{align:'right'});
+        y+=7;
+        workers.forEach(function(w,i){
+            chk(9);var bg=i%2===0?[255,255,255]:[240,248,255];
+            doc.setFillColor(bg[0],bg[1],bg[2]);doc.rect(margin,y,rightX-margin,8,'F');
+            var outs=[];try{outs=JSON.parse(w.WorkerOutcomes||'[]');}catch(e){}
+            var OMAP={arrived:'Arrived',cancelled:'Cancelled',unfit:'Unfit',runaway:'RunAway',senthome:'Sent Home',waitingvisa:'Wtg Visa',preapproval:'Pre-Approval',selected:'Selected'};
+            var st='Processing';
+            Object.keys(OMAP).forEach(function(k){ if(outs.indexOf(k)>=0&&st==='Processing') st=OMAP[k]; });
+            var outD={}; try{outD=JSON.parse(w.WorkerOutcomeDates||'{}');}catch(e){}
+            var ld=w.SelectedDate||''; Object.values(outD).forEach(function(d){ if(d>ld)ld=d; });
+            doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(50,50,50);
+            doc.text(String(i+1),margin+2,y+5.5);
+            doc.text(String(w.WFullName||w.WorkerFirstName||'—').substring(0,28),margin+8,y+5.5);
+            doc.text(String(w.WorkerCode||'—').substring(0,16),margin+68,y+5.5);
+            doc.text(String(w.PassportNumber||'—').substring(0,16),margin+100,y+5.5);
+            doc.text(st.substring(0,14),margin+132,y+5.5);
+            doc.text(ld?new Date(ld).toLocaleDateString('en-GB'):'-',rightX-3,y+5.5,{align:'right'});
+            y+=8;
+        });
+        y+=4;
+    }
+    div();
+
+    // Documents list
+    // ── Document listing table ────────────────────────────────────
+    // Only show non-Report files in index (reports shown separately in preview pages)
+    var indexFiles = displayFiles.filter(function(f){ return !/^Report_/i.test(String(f.name||'')); });
+    var reportFiles= displayFiles.filter(function(f){ return  /^Report_/i.test(String(f.name||'')); });
+    sec('DOCUMENTS IN FOLDER ('+displayFiles.length+' total — '+indexFiles.length+' docs, '+reportFiles.length+' reports)',69,90,100);
+    if (!displayFiles.length) {
+        doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(160,160,160);
+        doc.text('No documents found.',margin+3,y);y+=8;
+    } else {
+        // Table header
+        chk(10);doc.setFillColor(69,90,100);doc.rect(margin,y,rightX-margin,7,'F');
+        doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
+        doc.text('#',margin+2,y+5);doc.text('File Name',margin+8,y+5);
+        doc.text('Type',margin+110,y+5);doc.text('Size',margin+140,y+5);doc.text('Date',rightX-3,y+5,{align:'right'});
+        y+=7;
+        displayFiles.forEach(function(f,i){
+            chk(8);var bg=i%2===0?[255,255,255]:[245,247,248];
+            doc.setFillColor(bg[0],bg[1],bg[2]);doc.rect(margin,y,rightX-margin,7,'F');
+            var fn=String(f.name||'—');var fs=fn.length>54?fn.substring(0,51)+'...':fn;
+            var isRpt=/^Report_/i.test(fn);
+            var mt=String(f.mimeType||'').replace('application/pdf','PDF').replace('image/','img/').replace('application/','').substring(0,14);
+            var sz=f.size>0?(f.size>1048576?(f.size/1048576).toFixed(1)+' MB':(f.size/1024).toFixed(0)+' KB'):'-';
+            var dt=f.date?new Date(f.date).toLocaleDateString('en-GB'):'-';
+            doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+            if (isRpt) doc.setTextColor(130,130,130); else doc.setTextColor(50,50,50);
+            doc.text(String(i+1),margin+2,y+4.8);doc.text(fs,margin+8,y+4.8);
+            doc.text(mt,margin+110,y+4.8);doc.text(sz,margin+140,y+4.8);doc.text(dt,rightX-3,y+4.8,{align:'right'});
+            if (isRpt) { doc.setFontSize(6); doc.setTextColor(160,160,160); doc.text('(report)',rightX-35,y+4.8); }
+            doc.setTextColor(50,50,50);
+            y+=7;
+        });
+        y+=4;
+    }
+    div();
+
+    // ── Summary page footer (pages 1..N of summary) ───────────────
+    var summaryPages = doc.internal.getNumberOfPages();
+    for(var pg=1;pg<=summaryPages;pg++){
+        doc.setPage(pg);doc.setDrawColor(200,200,200);doc.line(margin,pageH-10,rightX,pageH-10);
+        doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(160,160,160);
+        doc.text('Massroua General Services — '+empName+' ('+empCode+')',margin,pageH-5);
+        doc.text('Summary p.'+pg+' of '+summaryPages,rightX,pageH-5,{align:'right'});
+    }
+
+    // ── Document preview pages ─────────────────────────────────────
+    rpShow('Loading documents for preview...', 78, 5, '', '📄 Embedding Documents');
+    await new Promise(function(r){ setTimeout(r,30); });
+
+    var previewFiles = indexFiles.filter(function(f){
+        var mt = String(f.mimeType||'');
+        return mt === 'application/pdf' || mt.indexOf('image/') === 0;
+    });
+
+    if (previewFiles.length) {
+        // Ensure PDF.js loaded
+        if (!window.pdfjsLib) {
+            rpShow('Loading PDF library...', 80, 5, '');
+            await new Promise(function(res,rej){ var s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        // Batch-fetch all preview file contents
+        rpShow('Fetching document contents...', 82, 5, '');
+        await new Promise(function(r){ setTimeout(r,30); });
+        var previewIds = previewFiles.map(function(f){ return f.id||''; }).filter(Boolean);
+        var contentMap = {};
+        try {
+            var ac = await gsr('getAllFileContents', [previewIds]);
+            if (ac && ac.success) contentMap = ac.files || {};
+        } catch(e){ console.warn('Preview fetch failed:', e.message); }
+
+        for (var pi=0; pi<previewFiles.length; pi++) {
+            var pf  = previewFiles[pi];
+            var pct = 83 + Math.round((pi / previewFiles.length) * 7);
+            rpShow('Embedding ' + (pi+1) + ' / ' + previewFiles.length, pct, 5, pf.name.substring(0,55));
+            await new Promise(function(r){ setTimeout(r, 0); });
+
+            var fc    = contentMap[pf.id||''];
+            var b64   = fc ? fc.content   : null;
+            var mime  = fc ? (fc.mimeType||'image/jpeg') : (pf.mimeType||'image/jpeg');
+            var fname = String(pf.name||'');
+
+            if (!b64) continue; // skip if not fetched
+
+            if (mime === 'application/pdf') {
+                try {
+                    var bytes = Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); });
+                    var pdfd  = await window.pdfjsLib.getDocument({data:bytes}).promise;
+                    for (var pgN=1; pgN<=pdfd.numPages; pgN++) {
+                        doc.addPage();
+                        // Purple header bar
+                        doc.setFillColor(74,20,140); doc.rect(0,0,pageW,12,'F');
+                        doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
+                        var hdr = (pi+1)+'. '+fname.substring(0,70)+(pdfd.numPages>1?' (p'+pgN+'/'+pdfd.numPages+')':'');
+                        doc.text(hdr, 5, 8);
+                        // Render page to canvas
+                        var pg2 = await pdfd.getPage(pgN);
+                        var vp  = pg2.getViewport({scale:1.4});
+                        var cv  = document.createElement('canvas');
+                        cv.width=vp.width; cv.height=vp.height;
+                        await pg2.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+                        var img64 = cv.toDataURL('image/jpeg',0.82).split(',')[1];
+                        var r3=vp.height/vp.width, dw=pageW-margin*2, dh=dw*r3;
+                        if(dh>pageH-14){dh=pageH-14; dw=dh/r3;}
+                        doc.addImage(img64,'JPEG',(pageW-dw)/2,14,dw,dh,undefined,'FAST');
+                        // Footer
+                        doc.setDrawColor(200,200,200); doc.line(margin,pageH-10,rightX,pageH-10);
+                        doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(160,160,160);
+                        doc.text(empName+' ('+empCode+') — '+fname.substring(0,50),margin,pageH-5);
+                        doc.text('Doc '+(pi+1)+'/'+previewFiles.length+(pdfd.numPages>1?' p'+pgN+'/'+pdfd.numPages:''),rightX,pageH-5,{align:'right'});
+                    }
+                } catch(pe){ console.warn('PDF preview failed:',fname,pe.message); }
+            } else {
+                // Image file
+                try {
+                    doc.addPage();
+                    doc.setFillColor(74,20,140); doc.rect(0,0,pageW,12,'F');
+                    doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
+                    doc.text((pi+1)+'. '+fname.substring(0,85), 5, 8);
+                    var tmp = new Image();
+                    var iw=800, ih=600;
+                    await new Promise(function(res){
+                        tmp.onload=function(){ iw=tmp.naturalWidth||800; ih=tmp.naturalHeight||600; res(); };
+                        tmp.onerror=res;
+                        tmp.src='data:'+mime+';base64,'+b64;
+                    });
+                    var r2=ih/iw, dw2=pageW-margin*2, dh2=dw2*r2;
+                    if(dh2>pageH-14){dh2=pageH-14; dw2=dh2/r2;}
+                    doc.addImage(b64,'JPEG',(pageW-dw2)/2,14,dw2,dh2,undefined,'FAST');
+                    // Footer
+                    doc.setDrawColor(200,200,200); doc.line(margin,pageH-10,rightX,pageH-10);
+                    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(160,160,160);
+                    doc.text(empName+' ('+empCode+') — '+fname.substring(0,50),margin,pageH-5);
+                    doc.text('Doc '+(pi+1)+'/'+previewFiles.length,rightX,pageH-5,{align:'right'});
+                } catch(ie){ console.warn('Image preview failed:',fname,ie.message); }
+            }
+        }
+    }
+
+    // ── Build filename with computed code ──────────────────────────
+    rpShow('Uploading to Drive...', 92, 6, fileName, '☁️ Uploading Report');
+    var hh=String(today.getHours()).padStart(2,'0');
+    var mm=String(today.getMinutes()).padStart(2,'0');
+    var ss=String(today.getSeconds()).padStart(2,'0');
+    var safeName = (emp.EFN||emp.ContactName||empName)
+        .replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g,'').trim()
+        .replace(/\s+/g,'_').substring(0,30);
+    var fileName = 'Report_'+empCode+'_'+safeName+'_'+reportDate+'_'+hh+'h'+mm+'m'+ss+'s.pdf';
+
+    // ── Download locally ───────────────────────────────────────────
+    var link=document.createElement('a');link.href=doc.output('bloburl');link.download=fileName;link.click();
+    rpHide();
+
+    // ── Upload to employer Drive folder — 3 attempts ───────────────
+    toast('⏳ Uploading report to Drive...','#7b1fa2', 15000);
+    var uploaded = false;
+    for (var attempt=1; attempt<=3; attempt++) {
+        try {
+            rpShow('Uploading to Drive' + (attempt>1?' (attempt '+attempt+'/3)':'') + '...', 93 + attempt, 6, fileName, '☁️ Uploading Report');
+            await new Promise(function(r){ setTimeout(r,30); });
+            var b64r = doc.output('datauristring').split(',')[1];
+            rpShow('Sending to Drive...', 95, 6, fileName);
+            var ur   = await gsr('uploadReport',[fi.folderId, fi.folderName, fileName, b64r]);
+            if (ur && ur.success) {
+                uploaded = true;
+                rpShow('✅ Saved to Drive!', 100, 6, fileName, '✅ Done');
+                await new Promise(function(r){ setTimeout(r, 800); });
+                toast('✅ Report saved to Drive: '+fileName,'#2e7d32', 7000);
+                rpHide(2000);
+                break;
+            } else {
+                rpShow('⚠️ Upload attempt '+attempt+' failed — retrying...', 94, 6, ur&&ur.error||'');
+                console.warn('Upload attempt '+attempt+' failed:', ur&&ur.error);
+                if (attempt < 3) await new Promise(function(r){setTimeout(r,2000);});
+            }
+        } catch(e) {
+            rpShow('⚠️ Error on attempt '+attempt+' — retrying...', 94, 6, e.message||'');
+            console.warn('Upload attempt '+attempt+' error:', e.message);
+            if (attempt < 3) await new Promise(function(r){setTimeout(r,2000);});
+        }
+    }
+    if (!uploaded) {
+        rpShow('❌ Upload failed', 100, 6, 'File downloaded locally only', '❌ Upload Failed');
+        await new Promise(function(r){ setTimeout(r, 1500); });
+        toast('❌ Drive upload failed after 3 attempts — file was downloaded locally','#c62828', 8000);
+        rpHide(2500);
+    }
+
+    // Open doc viewer after report is generated
+    // Use currentFiles (no Report_ files) — viewer is for working documents only
+    var viewerFiles = currentFiles.length ? currentFiles : displayFiles.filter(function(f){ return !/^Report_/i.test(String(f.name||'')); });
+    if (viewerFiles.length) buildDocViewerWindow(viewerFiles, emp);
+}
+
+// ── Boot ───────────────────────────────────────────────────────────
+(function waitForGoogle(tries) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+        loadData();
+    } else if (tries < 30) {
+        setTimeout(function(){ waitForGoogle(tries + 1); }, 200);
+    } else {
+        var btn = document.getElementById('cloudBtn');
+        btn.textContent = '❌ Open via Apps Script URL';
+        btn.className = 'cloud-btn err';
+    }
+})(0);
+</script>
+</body>
+</html>
