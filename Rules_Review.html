@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Rules Review — MGSDB</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+:root {
+  --bg:#0d0f14;--surface:#141720;--surface2:#1c2030;--surface3:#222840;
+  --border:#262c3d;--border2:#323b52;--text:#e2e8f0;--text2:#8892a4;--text3:#4a5568;
+  --green:#25d366;--green-dim:#1a9e4a;--blue:#3b82f6;--orange:#f59e0b;
+  --red:#ef4444;--purple:#a855f7;--cyan:#22d3ee;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100}
+.logo{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--green);letter-spacing:2px}
+.sep{color:var(--border2)}
+.htitle{font-size:15px;font-weight:600}
+.hsub{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.hright{margin-left:auto;display:flex;gap:10px;align-items:center}
+.content{max-width:760px;margin:0 auto;padding:28px 24px}
+.page-title{font-size:20px;font-weight:700;margin-bottom:6px}
+.page-sub{font-size:13px;color:var(--text2);margin-bottom:28px;line-height:1.6}
+.rule-block{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden}
+.rule-block-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:14px}
+.rule-icon{font-size:22px;flex-shrink:0;margin-top:2px}
+.rule-info{flex:1}
+.rule-name{font-size:15px;font-weight:700;margin-bottom:4px}
+.rule-desc{font-size:12px;color:var(--text2);line-height:1.6}
+.rule-current{padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.current-label{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
+.options-grid{display:flex;flex-wrap:wrap;gap:6px}
+.option-pill{padding:5px 12px;border-radius:20px;font-size:12px;border:1px solid var(--border2);color:var(--text2);background:var(--bg);font-family:var(--mono)}
+.rule-comment{padding:14px 20px}
+.comment-label{font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
+textarea{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;padding:11px 14px;resize:vertical;min-height:72px;line-height:1.6;transition:border-color 0.2s}
+textarea:focus{outline:none;border-color:var(--blue)}
+textarea::placeholder{color:var(--text3)}
+.actions{margin-top:28px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.btn{border:none;border-radius:8px;padding:10px 22px;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:7px}
+.btn-primary{background:var(--green);color:#000}
+.btn-primary:hover{background:#20c85a}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+.btn-secondary:hover{border-color:var(--blue);color:var(--blue)}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.saved-note{font-size:12px;color:var(--green);display:none}
+.loading-bar{font-size:12px;color:var(--text3);display:none}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:13px 18px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);display:flex;align-items:center;gap:10px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{border-color:rgba(37,211,102,0.4)}
+.toast.error{border-color:rgba(239,68,68,0.4)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="logo">MGS</span>
+  <span class="sep">›</span>
+  <span class="htitle">⚙️ Rules Review</span>
+  <span class="hsub">Standalone — not linked to templates</span>
+  <div class="hright">
+    <button class="btn btn-secondary" style="padding:7px 16px;font-size:12px" onclick="clearAll()">🗑 Clear All</button>
+    <button class="btn btn-primary" style="padding:7px 16px;font-size:12px" id="btnSave" onclick="saveNotes()">💾 Save Notes</button>
+  </div>
+</div>
+
+<div class="content">
+  <div class="page-title">Rules — Modification Notes</div>
+  <p class="page-sub">Each rule field is described with all available options.<br>Write your modification instructions below each one. Notes are saved permanently to Google Sheets.</p>
+
+  <div id="blocks"></div>
+
+  <div class="actions">
+    <button class="btn btn-primary" id="btnSaveBottom" onclick="saveNotes()">💾 Save All Notes</button>
+    <button class="btn btn-secondary" onclick="clearAll()">🗑 Clear All</button>
+    <span class="saved-note" id="savedNote">✅ Notes saved to sheet</span>
+    <span class="loading-bar" id="loadingBar">⏳ Saving...</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toastIcon">✅</span> <span id="toastMsg"></span></div>
+
+<script>
+var RULES = [
+  {
+    id:'recipient',icon:'🌐',name:'Recipient Type',
+    desc:'Defines who receives the message when the trigger fires.',
+    options:['🌐 All — send to both employers and workers','🏠 Employers — send only to employers','👷 Workers — send only to workers','🏢 Agencies — send only to agencies']
+  },
+  {
+    id:'trigger',icon:'⚡',name:'Trigger Event',
+    desc:'The event that causes the message to be sent automatically.',
+    options:['✍️ Manual — send only when you click send manually','🎂 Birthday — fires every year on the employer birth date','💍 Anniversary — fires every year on the anniversary date','🪪 Ikama Expiry — fires N days before ikama expiry date','🏥 Insurance Expiry — fires N days before insurance expiry','📋 Work Permit Expiry — fires N days before work permit expiry','🛂 Passport Expiry — fires N days before passport expiry','✈️ Arrival Date — fires on or N days before worker arrival','📁 Document Ready — fires when documents are prepared','📅 Scheduled — fires on a fixed recurring date (e.g. New Year)']
+  },
+  {
+    id:'daysbefore',icon:'📅',name:'Days Before',
+    desc:'How many days before the event date the message is sent. Set to 0 to send on the exact event day.',
+    options:['0 — send on the exact event day','7 — one week before','14 — two weeks before','30 — one month before','60 — two months before','Any custom number of days']
+  },
+  {
+    id:'daysafter',icon:'📅',name:'Days After',
+    desc:'How many days after the event date the message is sent. Set to 0 to disable. Useful for follow-up messages.',
+    options:['0 — disabled (default)','Any number — sends N days after the event date']
+  },
+  {
+    id:'sendonce',icon:'🔁',name:'Send Once',
+    desc:'When enabled, the message is sent only once per employer — never repeated even if the trigger fires again.',
+    options:['Yes — send once only, never repeat (e.g. arrival notification, welcome message)','No — send every time the trigger fires (e.g. birthday, expiry reminders)']
+  },
+  {
+    id:'mindays',icon:'🚫',name:'Min Days Between Sends',
+    desc:'Prevents the same message from being sent to the same employer more than once within this number of days.',
+    options:['0 — no restriction','30 — at least 30 days between sends','60 — at least 60 days between sends','330 — at least 330 days (annual)','365 — exactly once per year','Any custom number of days']
+  },
+  {
+    id:'required',icon:'🔒',name:'Required Fields',
+    desc:'The message is only sent if the employer record has all these fields filled. Prevents sending to incomplete records.',
+    options:['None set — send regardless','BirthDate','Anniversary','MobileNumber','PassportExpiry','IkamaExpiry','InsuranceExpiry','WorkPermitExpiry','ArrivalDate','Multiple fields can be required at the same time']
+  }
+];
+
+function buildBlocks() {
+  var html = '';
+  RULES.forEach(function(r) {
+    html += '<div class="rule-block">';
+    html += '<div class="rule-block-header"><div class="rule-icon">'+r.icon+'</div>';
+    html += '<div class="rule-info"><div class="rule-name">'+r.name+'</div><div class="rule-desc">'+r.desc+'</div></div></div>';
+    html += '<div class="rule-current"><div class="current-label">Available options</div><div class="options-grid">';
+    r.options.forEach(function(o){ html += '<div class="option-pill">'+o+'</div>'; });
+    html += '</div></div>';
+    html += '<div class="rule-comment"><div class="comment-label">Your modification instructions</div>';
+    html += '<textarea id="note_'+r.id+'" placeholder="Write your changes here..."></textarea>';
+    html += '</div></div>';
+  });
+  document.getElementById('blocks').innerHTML = html;
+}
+
+function loadNotes() {
+  google.script.run
+    .withSuccessHandler(function(data) {
+      if (!data) return;
+      RULES.forEach(function(r) {
+        if (data[r.id]) {
+          var el = document.getElementById('note_'+r.id);
+          if (el) el.value = data[r.id];
+        }
+      });
+    })
+    .withFailureHandler(function(e) { console.log('Load failed: '+e.message); })
+    .getRulesReviewNotes();
+}
+
+function saveNotes() {
+  var notes = {};
+  RULES.forEach(function(r) {
+    var el = document.getElementById('note_'+r.id);
+    notes[r.id] = el ? el.value.trim() : '';
+  });
+  var btn1 = document.getElementById('btnSave');
+  var btn2 = document.getElementById('btnSaveBottom');
+  var bar  = document.getElementById('loadingBar');
+  var note = document.getElementById('savedNote');
+  if (btn1) btn1.disabled = true;
+  if (btn2) btn2.disabled = true;
+  bar.style.display = 'inline';
+  note.style.display = 'none';
+  google.script.run
+    .withSuccessHandler(function() {
+      if (btn1) btn1.disabled = false;
+      if (btn2) btn2.disabled = false;
+      bar.style.display = 'none';
+      note.style.display = 'inline';
+      setTimeout(function(){ note.style.display='none'; }, 4000);
+      showToast('Notes saved to Google Sheet', 'success');
+    })
+    .withFailureHandler(function(e) {
+      if (btn1) btn1.disabled = false;
+      if (btn2) btn2.disabled = false;
+      bar.style.display = 'none';
+      showToast('Save failed: '+e.message, 'error');
+    })
+    .saveRulesReviewNotes(JSON.stringify(notes));
+}
+
+function clearAll() {
+  RULES.forEach(function(r) {
+    var el = document.getElementById('note_'+r.id);
+    if (el) el.value = '';
+  });
+}
+
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  document.getElementById('toastIcon').textContent = type==='error' ? '❌' : '✅';
+  document.getElementById('toastMsg').textContent  = msg;
+  t.className = 'toast '+(type||'')+' show';
+  setTimeout(function(){ t.classList.remove('show'); }, 3500);
+}
+
+buildBlocks();
+loadNotes();
+</script>
+</body>
+</html>
