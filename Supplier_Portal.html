@@ -1,0 +1,3380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGS - Supplier Portal</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            padding: 20px; min-height: 100vh;
+        }
+
+        /* ── LOGIN ────────────────────────────────────── */
+        .login-overlay {
+            position: fixed; top:0; left:0; right:0; bottom:0;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 99999;
+        }
+        .login-box {
+            background: white; border-radius: 14px; padding: 40px 36px;
+            width: 420px; max-width: 94vw;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+        }
+        .login-logo { text-align: center; margin-bottom: 28px; }
+        .login-logo .ico { font-size: 52px; display: block; margin-bottom: 8px; }
+        .login-logo h1 { font-size: 22px; font-weight: 800; color: #1e293b; }
+        .login-logo p  { font-size: 12px; color: #64748b; margin-top: 3px; }
+        .lf { margin-bottom: 14px; }
+        .lf label { display:block; font-size:11px; font-weight:700; color:#475057;
+                    margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px; }
+        .lf input { width:100%; padding:10px 13px; border:2px solid #e9ecef;
+                    border-radius:7px; font-size:14px; font-family:inherit; transition:border-color .2s; }
+        .lf input:focus { outline:none; border-color:#4facfe; box-shadow:0 0 0 3px rgba(79,172,254,.12); }
+        .login-btn { width:100%; padding:13px; background:linear-gradient(135deg,#4facfe,#00f2fe);
+                     border:none; border-radius:8px; color:white; font-size:15px;
+                     font-weight:700; font-family:inherit; cursor:pointer; margin-top:6px; transition:all .3s; }
+        .login-btn:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(79,172,254,.35); }
+        .login-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+        .login-err { margin-top:12px; padding:9px 13px; background:#f8d7da;
+                     border:1px solid #f5c6cb; border-radius:7px; color:#721c24;
+                     font-size:12px; text-align:center; display:none; }
+        .remember-row { display:flex; align-items:center; gap:7px; margin-top:10px; }
+        .remember-row input { width:15px; height:15px; accent-color:#4facfe; cursor:pointer; }
+        .remember-row label { font-size:12px; color:#6c757d; cursor:pointer; }
+        .login-spinner { display:none; text-align:center; margin-top:10px; color:#6c757d; font-size:12px; }
+        .login-spinner .dot { display:inline-block; width:7px; height:7px; border-radius:50%;
+            background:#4facfe; margin:0 3px; animation:ldot 1.4s infinite ease-in-out both; }
+        .login-spinner .dot:nth-child(1){animation-delay:-.32s}
+        .login-spinner .dot:nth-child(2){animation-delay:-.16s}
+        @keyframes ldot{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+
+        /* ── MAIN LAYOUT ─────────────────────────────── */
+        .container {
+            max-width: 1400px; margin: 0 auto;
+            display: grid; grid-template-columns: 320px 1fr;
+            gap: 20px; height: calc(100vh - 40px);
+        }
+        .nav-panel {
+            background: white; border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.1);
+            padding: 20px; overflow-y: auto;
+            display: flex; flex-direction: column;
+        }
+        .nav-header {
+            padding: 15px; background: linear-gradient(135deg,#4facfe,#00f2fe);
+            color: white; border-radius: 8px; margin-bottom: 12px;
+        }
+        .nav-header h2 { font-size: 16px; margin-bottom: 3px; }
+        .nav-header p  { font-size: 11px; opacity: .9; }
+
+
+
+        .search-box {
+            padding: 8px 12px; border: 1px solid #ced4da;
+            border-radius: 5px; font-size: 14px;
+            width: 100%; margin-bottom: 12px;
+        }
+        .record-list { list-style:none; flex:1; overflow-y:auto; }
+        .record-item {
+            padding: 10px 13px; margin-bottom: 6px;
+            background: #f8f9fa; border-radius: 6px;
+            cursor: pointer; transition: all .3s;
+            border-left: 3px solid transparent;
+        }
+        .record-item:hover { background:#e9ecef; border-left-color:#4facfe; }
+        .record-item.active {
+            background: linear-gradient(135deg,#667eea,#764ba2);
+            border-left-color: #ffd700; border-left-width: 5px;
+            font-weight: 600; color: white;
+            box-shadow: 0 3px 10px rgba(102,126,234,.4);
+        }
+        .record-item.active .id   { color:#ffd700; font-weight:700; }
+        .record-item.active .name { color:white; font-weight:700; }
+        .record-item.active .status { color:#e0e0ff; }
+        .record-item .id     { color:#4facfe; font-weight:600; font-size:12px; }
+        .record-item .name   { color:#212529; font-size:13px; margin-top:2px; }
+        .record-item .status { font-size:11px; color:#666; margin-top:2px; }
+
+        .nav-buttons { margin-top: 15px; display:flex; flex-direction:column; gap:8px; }
+
+        /* ── FORM PANEL ──────────────────────────────── */
+        .form-panel {
+            background: white; border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.1);
+            display: flex; flex-direction: column;
+        }
+        .form-header {
+            padding: 16px 24px;
+            background: linear-gradient(135deg,#4facfe,#00f2fe);
+            color: white; border-radius: 10px 10px 0 0;
+            display: flex; justify-content:space-between; align-items:center;
+        }
+        .form-header h1 { font-size:20px; margin-bottom:3px; }
+        .form-header p  { opacity:.9; font-size:12px; }
+        .logout-btn {
+            background:rgba(220,53,69,.25); border:1px solid rgba(220,53,69,.5);
+            color:#fca5a5; padding:7px 16px; border-radius:7px;
+            font-size:12px; font-weight:700; cursor:pointer; font-family:inherit;
+        }
+        .logout-btn:hover { background:rgba(220,53,69,.4); }
+        .form-toolbar {
+            padding: 12px 24px; background:#f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+        }
+        .form-content { flex:1; overflow-y:auto; padding:0; }
+
+        /* ── TABS ────────────────────────────────────── */
+        .tabs {
+            display:flex; background:#f8f9fa;
+            border-bottom:2px solid #e9ecef; padding:0 20px;
+            gap:3px;
+        }
+        .tab {
+            padding: 10px 16px; cursor:pointer;
+            border-bottom:3px solid transparent;
+            font-weight:600; font-size:12px; color:#6c757d;
+            transition:all .3s; background:transparent;
+            border-top:none; border-left:none; border-right:none;
+            font-family:inherit;
+        }
+        .tab:hover { color:#4facfe; }
+        .tab.active { color:#4facfe; border-bottom-color:#4facfe; background:white; }
+        .tab-content { display:none; padding:24px; }
+        .tab-content.active { display:block; }
+
+        /* ── FORM ELEMENTS (same as WM) ──────────────── */
+        .form-grid   { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+        .form-group  { display:flex; flex-direction:column; }
+        .form-group.full-width { grid-column:1/-1; }
+        label { font-weight:600; color:#495057; margin-bottom:6px; font-size:13px; }
+        input[type="text"], input[type="number"], input[type="tel"],
+        input[type="date"], select, textarea {
+            padding:9px 11px; border:1px solid #ced4da;
+            border-radius:6px; font-size:13px; font-family:inherit; transition:all .3s;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline:none; border-color:#4facfe;
+            box-shadow:0 0 0 3px rgba(79,172,254,.1);
+        }
+        input:disabled, input[readonly] { background:#e9ecef; cursor:not-allowed; }
+        textarea { resize:vertical; min-height:50px; }
+        .section-title {
+            font-size:14px; font-weight:700; color:#4facfe;
+            margin:20px 0 14px; padding-bottom:8px;
+            border-bottom:2px solid #e9ecef; grid-column:1/-1;
+        }
+        .section-title:first-child { margin-top:0; }
+        .arabic-field { direction:rtl; font-family:'Arial','Tahoma',sans-serif; }
+
+        /* ── BUTTONS ─────────────────────────────────── */
+        .btn {
+            padding:9px 18px; border:none; border-radius:6px;
+            cursor:pointer; font-size:13px; font-weight:600;
+            transition:all .3s; display:inline-flex; align-items:center; gap:6px;
+            font-family:inherit;
+        }
+        .btn:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,.15); }
+        .btn:disabled { opacity:.5; cursor:not-allowed; }
+        .btn-success  { background:#28a745; color:white; }
+        .btn-primary  { background:#4facfe; color:white; }
+        .btn-light    { background:white; color:#495057; border:1px solid #ced4da; }
+
+        /* ── STATUS BAR ──────────────────────────────── */
+        .status-bar {
+            padding:12px 24px; background:#f8f9fa;
+            border-top:1px solid #e9ecef;
+            display:flex; justify-content:space-between; align-items:center;
+        }
+        .status-text { color:#6c757d; font-size:12px; }
+        .status-text.success { color:#28a745; font-weight:600; }
+        .status-text.error   { color:#dc3545; font-weight:600; }
+        .record-counter {
+            background:#4facfe; color:white;
+            padding:3px 10px; border-radius:10px; font-size:11px; font-weight:600;
+        }
+
+        /* ── WORKER PHOTO ────────────────────────────── */
+        #workerPhotoFrame {
+            width:200px; height:260px; border:3px dashed #c7d2fe;
+            border-radius:10px; display:flex; align-items:center;
+            justify-content:center; overflow:hidden;
+            background:#f8f9ff; position:relative; cursor:pointer;
+        }
+
+        /* ── STATUS READ-ONLY ────────────────────────── */
+        .status-badges { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+        .badge { padding:4px 12px; border-radius:16px; font-size:11px; font-weight:700; }
+        .badge-pending   { background:#fff3cd; color:#856404; }
+        .badge-accepted  { background:#d4edda; color:#155724; }
+        .badge-refused   { background:#f8d7da; color:#721c24; }
+        .badge-selected  { background:#cce5ff; color:#004085; }
+        .badge-arrived   { background:#ede9fe; color:#5b21b6; }
+        .badge-cancelled { background:#f8d7da; color:#721c24; }
+
+        /* ── MODALS (same as WM) ─────────────────────── */
+        .modal-overlay {
+            display:none; position:fixed; top:0; left:0;
+            width:100%; height:100%;
+            background:rgba(0,0,0,.7); z-index:10000;
+            justify-content:center; align-items:center;
+        }
+        .modal-overlay.show { display:flex; }
+        .modal-box {
+            background:white; border-radius:15px; padding:30px;
+            max-width:500px; width:90%;
+            box-shadow:0 10px 40px rgba(0,0,0,.3);
+            animation:modalSlideIn .3s ease;
+        }
+        @keyframes modalSlideIn{from{transform:translateY(-30px);opacity:0}to{transform:translateY(0);opacity:1}}
+        .modal-header  { font-size:22px; font-weight:700; color:#333; margin-bottom:8px; text-align:center; }
+        .modal-subtitle{ font-size:13px; color:#666; margin-bottom:20px; text-align:center; }
+        .modal-buttons { display:flex; gap:12px; margin-top:20px; }
+        .modal-btn     { flex:1; padding:14px; border:none; border-radius:10px; font-size:15px;
+                         font-weight:600; cursor:pointer; transition:all .3s;
+                         display:flex; align-items:center; justify-content:center; gap:8px; }
+        .modal-btn-primary   { background:linear-gradient(135deg,#4facfe,#00f2fe); color:white; }
+        .modal-btn-primary:hover { transform:scale(1.03); box-shadow:0 5px 15px rgba(79,172,254,.4); }
+        .modal-btn-secondary { background:#f8f9fa; color:#495057; border:2px solid #dee2e6; }
+        .modal-btn-secondary:hover { background:#e9ecef; }
+        .modal-input-group { margin:15px 0; }
+        .modal-input-group label { display:block; font-size:13px; font-weight:600; color:#495057; margin-bottom:6px; }
+        .modal-input-group input, .modal-input-group select {
+            width:100%; padding:11px 14px; border:2px solid #dee2e6;
+            border-radius:8px; font-size:14px; transition:border-color .3s; font-family:inherit;
+        }
+        .modal-input-group input:focus, .modal-input-group select:focus
+            { outline:none; border-color:#4facfe; }
+        .duplicate-info         { background:#fff3cd; border-left:4px solid #ffc107; padding:14px; border-radius:8px; margin:12px 0; }
+        .duplicate-info-error   { background:#f8d7da; border-left-color:#dc3545; }
+        .duplicate-info-success { background:#d4edda; border-left-color:#28a745; }
+        .info-row   { display:flex; justify-content:space-between; padding:4px 0; font-size:13px; }
+        .info-label { font-weight:600; color:#495057; }
+        .info-value { color:#212529; }
+        .nat-lock-badge {
+            margin-top:5px; padding:5px 10px; background:#dbeafe;
+            border:1px solid #93c5fd; border-radius:6px; font-size:11px;
+            color:#1d4ed8; font-weight:700; display:none;
+        }
+
+        /* ── PASSPORT / UPLOAD (same as WM) ──────────── */
+        #passportDropZone, #idDropZone {
+            border:3px dashed #7c3aed; border-radius:10px; padding:16px 14px;
+            text-align:center; cursor:pointer; transition:all .3s;
+            background:linear-gradient(135deg,#faf5ff,#ede9fe);
+        }
+        #idDropZone { border-color:#10b981; background:linear-gradient(135deg,#ecfdf5,#d1fae5); }
+        #passportDropZone:hover { background:linear-gradient(135deg,#667eea,#764ba2); }
+        #idDropZone:hover { background:linear-gradient(135deg,#10b981,#059669); }
+
+        /* ── MSG MODAL ───────────────────────────────── */
+        #msgModal { display:none; position:fixed; z-index:99999; left:0; top:0;
+                    width:100%; height:100%; background:rgba(0,0,0,.5);
+                    align-items:center; justify-content:center; }
+        @keyframes msgSlideIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+        #msgModal button:hover { filter:brightness(1.1); }
+
+        /* ── UPLOAD OVERLAY ──────────────────────────── */
+        #uploadOverlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+                         background:rgba(0,0,0,.7); z-index:99999;
+                         align-items:center; justify-content:center; }
+        @keyframes uploadSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+        /* ── AGE / VALIDITY WARNINGS ─────────────────── */
+        #ageWarning, #passportValidityWarning {
+            display:none; grid-column:1/-1;
+            background:#f8d7da; border:2px solid #dc3545;
+            border-radius:8px; padding:10px;
+        }
+
+        /* ── SUBMISSION BANNER ───────────────────────── */
+        .submitted-banner {
+            background:linear-gradient(135deg,#d1fae5,#a7f3d0);
+            border:2px solid #6ee7b7; border-radius:8px;
+            padding:8px 14px; margin-bottom:12px;
+            font-size:12px; font-weight:700; color:#065f46;
+            display:none;
+        }
+    
+/* ── WORKFLOW FILTER BAR ─────────── */
+.wf-btn { transition:all 0.2s; white-space:nowrap; font-family:inherit; }
+.wf-btn:hover { transform:scale(1.03); }
+
+
+/* ── WORKER LIST TABS ────────────── */
+.list-tabs { display:flex; border-bottom:2px solid #e9ecef; margin-bottom:8px; }
+.list-tabs { display:flex; border-bottom:2px solid #e9ecef; margin-bottom:6px; }
+.list-tab {
+    flex:1; padding:8px 4px; text-align:center; cursor:pointer;
+    font-size:11px; font-weight:700; color:#94a3b8;
+    border:none; border-bottom:3px solid transparent;
+    background:transparent; font-family:inherit; transition:all 0.18s;
+    outline:none;
+}
+.list-tab:hover { color:#4facfe; background:rgba(79,172,254,0.06); }
+/* ALL tab active */
+.list-tab#listTabAll.active    { color:#4facfe; border-bottom-color:#4facfe; background:rgba(79,172,254,0.08); }
+.list-tab#listTabAll.active .lt-count { background:#4facfe; color:white; }
+/* PENDING tab active */
+.list-tab#listTabPending.active { color:#d97706; border-bottom-color:#d97706; background:rgba(217,119,6,0.08); }
+.list-tab#listTabPending.active .lt-count { background:#d97706; color:white; }
+/* REFUSED tab active */
+.list-tab#listTabRefused.active { color:#dc2626; border-bottom-color:#dc2626; background:rgba(220,38,38,0.08); }
+.list-tab#listTabRefused.active .lt-count { background:#dc2626; color:white; }
+.list-tab .lt-count {
+    display:inline-block; padding:1px 7px; border-radius:10px;
+    font-size:10px; font-weight:700; margin-left:4px;
+    background:#e9ecef; color:#6c757d; transition:all 0.18s;
+}
+
+
+/* ── Refusal Reason (Portal) ─────────── */
+.refusal-reason-display {
+    margin-top:8px; padding:8px 12px;
+    background:#fff5f5; border:1.5px solid #f5c6cb;
+    border-radius:7px; font-size:11px; color:#721c24;
+}
+.refusal-reason-display .rf-title {
+    font-weight:700; color:#dc3545; margin-bottom:4px;
+    font-size:11px;
+}
+.refusal-reason-display .rf-text {
+    background:white; padding:6px 8px; border-radius:5px;
+    border:1px solid #f5c6cb; color:#495057;
+    font-style:italic; line-height:1.5;
+    cursor:default; user-select:text;
+}
+.refusal-actions {
+    margin-top:8px; background:#fff3cd;
+    border:1.5px solid #ffc107; border-radius:7px;
+    overflow:hidden;
+}
+.refusal-actions-hdr {
+    background:#ffc107; color:#333;
+    padding:5px 12px; font-size:11px; font-weight:700;
+}
+.refusal-actions-body { padding:10px 12px; }
+.refusal-actions-body p {
+    font-size:11px; color:#495057; margin-bottom:8px; line-height:1.5;
+}
+.solved-btn-row { display:flex; gap:8px; }
+.solved-btn-row button {
+    flex:1; padding:8px; border:none; border-radius:6px;
+    font-weight:700; font-size:12px; cursor:pointer; font-family:inherit;
+}
+.btn-portal-solved  { background:#28a745; color:white; }
+.btn-portal-solved:hover { background:#218838; }
+.btn-portal-cancel  { background:#6c757d; color:white; }
+.btn-portal-cancel:hover { background:#5a6268; }
+.worker-locked-notice {
+    padding:8px 12px; background:#d4edda;
+    border:1.5px solid #28a745; border-radius:7px;
+    font-size:11px; font-weight:700; color:#155724;
+    margin-bottom:8px; display:flex; align-items:center; gap:6px;
+}
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════════════════ -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="ico">🏢</span>
+      <h1>Supplier Portal</h1>
+      <p>MGS — Massroua General Services</p>
+    </div>
+    <div class="lf">
+      <label>Supplier Code</label>
+      <input type="text" id="loginCode" placeholder="e.g. ETTR" maxlength="10"
+        style="text-transform:uppercase;letter-spacing:2px;font-weight:700;" autofocus
+        onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+    </div>
+    <div class="lf">
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="Enter your password"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="remember-row">
+      <input type="checkbox" id="rememberMe" checked>
+      <label for="rememberMe">Keep me logged in for 30 days</label>
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">🔐 Login</button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-spinner" id="loginSpinner">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span> Verifying...
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     DOCUMENT TYPE MODAL (same as WM)
+═══════════════════════════════════════════════════ -->
+<div id="documentTypeModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">📋 Add New Worker</div>
+    <div class="modal-input-group" style="margin:15px 20px 5px;">
+      <label>Worker Source <span style="color:#dc3545;">*</span></label>
+      <select id="workerSourceSelect" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:15px;background:white;cursor:pointer;">
+        <option value="">-- Select Worker Source --</option>
+        <option value="local">🏠 Local</option>
+        <option value="abroad">✈️ From Abroad</option>
+      </select>
+    </div>
+    <div class="modal-subtitle" style="margin-top:10px;">Which document type do you have?</div>
+    <div class="modal-buttons">
+      <button class="modal-btn modal-btn-primary" onclick="selectDocumentType('passport')">
+        <span style="font-size:22px;">📘</span><span>Passport</span>
+      </button>
+      <button class="modal-btn modal-btn-primary" onclick="selectDocumentType('id')">
+        <span style="font-size:22px;">🆔</span><span>National ID</span>
+      </button>
+    </div>
+    <div style="margin-top:15px;text-align:center;">
+      <button class="modal-btn modal-btn-secondary" onclick="closeDocumentTypeModal()"
+        style="display:inline-block;width:auto;padding:9px 28px;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     PASSPORT CHECK MODAL (same as WM)
+═══════════════════════════════════════════════════ -->
+<div id="passportCheckModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">🔍 Passport Number Check</div>
+    <div class="modal-subtitle">Enter passport number to check for duplicates</div>
+    <div class="modal-input-group">
+      <label>Passport Number *</label>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="passportCheckInput" placeholder="e.g., A12345678"
+          style="text-transform:uppercase;flex:1;"
+          onkeydown="if(event.key==='Enter')checkPassportNumber()">
+        <button type="button" onclick="copyField('passportCheckInput')"
+          style="padding:8px 12px;background:#667eea;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">📋</button>
+      </div>
+    </div>
+    <div class="modal-input-group">
+      <label>Nationality *</label>
+      <select id="passportCheckNationality" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+        <option value="">-- Select Nationality --</option>
+      </select>
+      <div class="nat-lock-badge" id="passportNatLockBadge"></div>
+    </div>
+    <div class="modal-input-group">
+      <label>Gender *</label>
+      <select id="passportCheckGender" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+        <option value="">-- Select Gender --</option>
+        <option>Male</option><option>Female</option>
+      </select>
+    </div>
+    <div id="duplicateResult" style="display:none;"></div>
+    <div class="modal-buttons">
+      <button class="modal-btn modal-btn-primary" onclick="checkPassportNumber()">🔍 Check &amp; Continue</button>
+      <button class="modal-btn modal-btn-secondary" onclick="closePassportCheckModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     ID CHECK MODAL (same as WM)
+═══════════════════════════════════════════════════ -->
+<div id="idCheckModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">🔍 National ID Check</div>
+    <div class="modal-subtitle">Enter national ID number to check for duplicates</div>
+    <div class="modal-input-group">
+      <label>National ID Number *</label>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="idCheckInput" placeholder="e.g., 123456789"
+          onkeydown="if(event.key==='Enter')checkIDNumber()" style="flex:1;">
+        <button type="button" onclick="copyField('idCheckInput')"
+          style="padding:8px 12px;background:#667eea;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">📋</button>
+      </div>
+    </div>
+    <div class="modal-input-group">
+      <label>Nationality *</label>
+      <select id="idCheckNationality" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+        <option value="">-- Select Nationality --</option>
+      </select>
+    </div>
+    <div class="modal-input-group">
+      <label>Gender *</label>
+      <select id="idCheckGender" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+        <option value="">-- Select Gender --</option>
+        <option>Male</option><option>Female</option>
+      </select>
+    </div>
+    <div id="idDuplicateResult" style="display:none;"></div>
+    <div class="modal-buttons">
+      <button class="modal-btn modal-btn-primary" onclick="checkIDNumber()">🔍 Check &amp; Continue</button>
+      <button class="modal-btn modal-btn-secondary" onclick="closeIDCheckModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     WORKER NAMES MODAL (same as WM)
+═══════════════════════════════════════════════════ -->
+<div id="workerNamesModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:540px;">
+    <div class="modal-header">📝 Worker Name Details</div>
+    <div class="modal-subtitle">Fill in the worker's name before uploading documents</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="modal-input-group" style="margin-bottom:6px;">
+        <label>First Name * <span style="color:#999;font-size:10px;">(English)</span></label>
+        <input type="text" id="nameFirstEN" placeholder="First Name" style="text-transform:uppercase;">
+      </div>
+      <div class="modal-input-group" style="margin-bottom:6px;">
+        <label>الاسم الأول * <span style="color:#999;font-size:10px;">(Arabic)</span></label>
+        <input type="text" id="nameFirstAR" placeholder="الاسم الأول" dir="rtl" style="text-align:right;">
+      </div>
+      <div class="modal-input-group" style="margin-bottom:6px;">
+        <label>Middle Name <span style="color:#999;font-size:10px;">(English)</span></label>
+        <input type="text" id="nameMiddleEN" placeholder="Middle Name" style="text-transform:uppercase;">
+      </div>
+      <div class="modal-input-group" style="margin-bottom:6px;">
+        <label>اسم الأب <span style="color:#999;font-size:10px;">(Father)</span></label>
+        <input type="text" id="nameFatherAR" placeholder="اسم الأب" dir="rtl" style="text-align:right;">
+      </div>
+      <div class="modal-input-group" style="margin-bottom:6px;">
+        <label>Last Name * <span style="color:#999;font-size:10px;">(English)</span></label>
+        <input type="text" id="nameLastEN" placeholder="Last Name" style="text-transform:uppercase;">
+      </div>
+      <div class="modal-input-group" style="margin-bottom:6px;">
+        <label>اسم العائلة <span style="color:#999;font-size:10px;">(Family)</span></label>
+        <input type="text" id="nameFamilyAR" placeholder="اسم العائلة" dir="rtl" style="text-align:right;">
+      </div>
+    </div>
+    <div class="modal-buttons" style="margin-top:12px;">
+      <button class="modal-btn modal-btn-primary" onclick="submitWorkerNames()">✅ Continue to Upload</button>
+      <button class="modal-btn modal-btn-secondary" onclick="closeWorkerNamesModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════════════════ -->
+<div class="container" id="mainApp" style="display:none;">
+
+  <!-- LEFT PANEL -->
+  <div class="nav-panel">
+    <div class="nav-header">
+      <h2 id="supplierTitle">🏢 Supplier Portal</h2>
+      <p id="supplierSubtitle">Loading...</p>
+    </div>
+
+
+
+    <!-- List tabs: All / Pending / Refused -->
+    <div class="list-tabs">
+      <button class="list-tab active" id="listTabAll" onclick="setListTab('all')">
+        📋 All <span class="lt-count" id="ltCountAll">0</span>
+      </button>
+      <button class="list-tab tab-pending" id="listTabPending" onclick="setListTab('pending')">
+        ⏳ Pending <span class="lt-count" id="ltCountPending">0</span>
+      </button>
+      <button class="list-tab tab-refused" id="listTabRefused" onclick="setListTab('refused')">
+        ✖️ Refused <span class="lt-count" id="ltCountRefused">0</span>
+      </button>
+    </div>
+    <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search workers...">
+    <ul class="record-list" id="recordList"></ul>
+
+    <div style="margin-top:10px;border-top:1px solid #e9ecef;">
+      <div onclick="toggleNavButtons()" style="display:flex;align-items:center;justify-content:space-between;padding:10px 5px;cursor:pointer;user-select:none;" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''">
+        <span style="font-weight:700;font-size:12px;color:#4facfe;text-transform:uppercase;letter-spacing:.5px;">⚡ Actions</span>
+        <span id="navBtnToggleIcon" style="font-size:12px;color:#4facfe;transition:transform .3s;">▼</span>
+      </div>
+      <div id="navButtonsPanel" class="nav-buttons" style="display:none;">
+        <button class="btn btn-success" onclick="newWorkerForSelectedSupplier()">➕ Add New Worker</button>
+        <button class="btn btn-light"   onclick="refreshPortalData()">🔄 Refresh</button>
+        <button class="btn btn-light"   onclick="doLogout()" style="border-color:#dc3545;color:#dc3545;">🚪 Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="form-panel">
+    <div class="form-header">
+      <div>
+        <h1>👤 Worker Management</h1>
+        <p>Submit and track your workers with MGS</p>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">🚪 Logout</button>
+    </div>
+
+    <div class="form-toolbar">
+      <button class="btn btn-success" onclick="saveWorker()">💾 Save Worker</button>
+      <button class="btn btn-primary" onclick="newWorkerForSelectedSupplier()">➕ Add New Worker</button>
+      <span id="cloudStatus" style="margin-left:auto;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;background:#fff3cd;color:#856404;">⏳ Loading...</span>
+    </div>
+
+    <!-- ═══ WORKFLOW FILTER BAR ═══ -->
+    <div id="wfFilterBar" style="display:none;padding:8px 14px;background:linear-gradient(135deg,#f8f9fa,#e9ecef);border-bottom:2px solid #dee2e6;flex-wrap:wrap;gap:5px;align-items:center;">
+      <span style="font-size:10px;color:#495057;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;">Filter:</span>
+    </div>
+
+    <div class="form-content">
+      <form id="workerForm" onsubmit="return false;" style="padding:20px;">
+
+        <!-- TABS -->
+        <div class="tabs">
+          <button type="button" class="tab active" id="tabBtn-basic"     onclick="openTab('basic')">📋 Basic Info</button>
+          <button type="button" class="tab"         id="tabBtn-names"     onclick="openTab('names')">👤 Worker ID</button>
+          <button type="button" class="tab"         id="tabBtn-documents" onclick="openTab('documents')">📄 Passport</button>
+          <button type="button" class="tab"         id="tabBtn-uploaddocs" onclick="openTab('uploaddocs')">📤 Upload Files</button>
+          <button type="button" class="tab"         id="tabBtn-allfiles"   onclick="openTab('allfiles')">📂 All Files</button>
+        </div>
+        <input type="hidden" id="DocumentType" value="">
+
+        <!-- ═══ TAB: BASIC INFO ═════════════════════ -->
+        <div id="tab-basic" class="tab-content active">
+          <!-- Submission banner -->
+          <div class="submitted-banner" id="submittedBanner">
+            ✅ This worker was submitted via Supplier Portal on <span id="submittedDate"></span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <!-- Left fields -->
+            <div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label>Worker ID</label>
+                <input type="number" id="WorkerID" readonly>
+              </div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label style="font-weight:700;font-size:14px;">Worker Code</label>
+                <input type="text" id="WorkerCode" readonly onclick="copyWorkerCode()" title="Click to copy"
+                  style="background:#ffe6e6;cursor:pointer;font-weight:700;font-size:15px;color:#dc3545;border:2px solid #dc3545;letter-spacing:1px;">
+                <div id="copyFeedback" style="font-size:11px;color:#28a745;margin-top:2px;display:none;font-weight:600;">✓ Copied!</div>
+              </div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label>Supplier</label>
+                <input type="text" id="SupplierDisplay" readonly style="background:#e9ecef;font-weight:600;">
+                <input type="hidden" id="SupplierID">
+              </div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label>Supplier Code</label>
+                <input type="text" id="SupplierCode" readonly>
+              </div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label>Contact Number</label>
+                <input type="tel" id="ContactNumber">
+              </div>
+              <!-- Status (read-only for supplier) -->
+              <div class="form-group" style="margin-bottom:10px;">
+                <label>Status</label>
+                <div class="status-badges" id="statusBadgesDisplay">
+                  <span class="badge badge-pending">⏳ Pending</span>
+                </div>
+              </div>
+            </div>
+            <!-- Right: Photo -->
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div id="workerPhotoFrame"
+                style="width:200px;height:260px;border:3px dashed #c7d2fe;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f8f9ff;position:relative;cursor:pointer;"
+                onclick="document.getElementById('photoFileInput').click()"
+                ondragover="event.preventDefault();this.style.borderColor='#667eea';this.style.background='#eef2ff';"
+                ondragleave="this.style.borderColor='#c7d2fe';this.style.background='#f8f9ff';"
+                ondrop="handlePhotoDrop(event)">
+                <img id="workerPhotoPreview" src="" alt="" style="max-width:100%;max-height:100%;object-fit:contain;display:none;">
+                <div id="workerPhotoPlaceholder" style="text-align:center;color:#a0aec0;pointer-events:none;">
+                  <div style="font-size:44px;margin-bottom:6px;">📷</div>
+                  <div style="font-size:12px;font-weight:600;">Worker Photo</div>
+                  <div style="font-size:10px;margin-top:3px;color:#667eea;font-weight:600;">Click or drag & drop</div>
+                </div>
+              </div>
+              <input type="file" id="photoFileInput" accept="image/*" style="display:none;" onchange="handlePhotoSelect(event)">
+              <input type="hidden" id="WorkerImage" value="">
+              <p style="font-size:10px;color:#94a3b8;margin-top:6px;text-align:center;">Click or drag photo here</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ TAB: WORKER ID ═════════════════════ -->
+        <div id="tab-names" class="tab-content">
+          <div class="form-grid">
+            <!-- English Name Card -->
+            <div style="grid-column:1/-1;">
+              <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:10px;padding:14px;margin-bottom:12px;">
+                <div style="font-weight:700;font-size:12px;color:#667eea;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">🔤 Worker Name (English)</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+                  <div>
+                    <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">First Name *</label>
+                    <input type="text" id="WorkerFirstName" style="text-align:center;padding:7px;width:100%;border:2px solid #667eea;" required>
+                  </div>
+                  <div>
+                    <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Middle Name</label>
+                    <input type="text" id="WorkerMiddleName" style="text-align:center;padding:7px;width:100%;">
+                  </div>
+                  <div>
+                    <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Last Name</label>
+                    <input type="text" id="WorkerLastName" style="text-align:center;padding:7px;width:100%;">
+                  </div>
+                  <div>
+                    <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Full Name (Auto)</label>
+                    <input type="text" id="WFullName" readonly style="text-align:center;padding:7px;width:100%;background:#e9ecef;font-weight:600;">
+                  </div>
+                </div>
+              </div>
+              <!-- Arabic Name Card -->
+              <div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:14px;">
+                <div style="font-weight:700;font-size:13px;color:#b45309;margin-bottom:10px;text-align:center;">الاسم بالعربي 🔡</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+                  <div>
+                    <label style="font-size:11px;color:#92400e;display:block;margin-bottom:3px;text-align:center;font-weight:700;">اسم العائلة</label>
+                    <input type="text" id="FamilyName" class="arabic-field" style="text-align:right;direction:rtl;padding:7px;width:100%;">
+                  </div>
+                  <div>
+                    <label style="font-size:11px;color:#92400e;display:block;margin-bottom:3px;text-align:center;font-weight:700;">اسم الأب</label>
+                    <input type="text" id="FatherName" class="arabic-field" style="text-align:right;direction:rtl;padding:7px;width:100%;">
+                  </div>
+                  <div>
+                    <label style="font-size:11px;color:#92400e;display:block;margin-bottom:3px;text-align:center;font-weight:700;">الاسم الأول</label>
+                    <input type="text" id="ArabicName" class="arabic-field" style="text-align:right;direction:rtl;padding:7px;width:100%;">
+                  </div>
+                  <div>
+                    <label style="font-size:11px;color:#92400e;display:block;margin-bottom:3px;text-align:center;font-weight:700;">الاسم الكامل</label>
+                    <input type="text" id="ArabicFullName" readonly class="arabic-field" style="text-align:right;direction:rtl;padding:7px;width:100%;background:#e9ecef;font-weight:600;">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Nationality & Gender (read-only — set from passport check) -->
+            <div style="grid-column:1/-1;margin-top:8px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:14px;">
+              <div style="font-weight:700;font-size:12px;color:#059669;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">🌍 Nationality & Gender</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+                <div>
+                  <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Nationality</label>
+                  <input type="text" id="IDNationality" readonly disabled style="text-align:center;padding:7px;width:100%;background:#e9ecef;cursor:not-allowed;">
+                </div>
+                <div>
+                  <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Gender</label>
+                  <input type="text" id="IDGender" readonly disabled style="text-align:center;padding:7px;width:100%;background:#e9ecef;cursor:not-allowed;">
+                </div>
+                <div></div><div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ TAB: PASSPORT ══════════════════════ -->
+        <div id="tab-documents" class="tab-content">
+          <div class="form-grid">
+            <!-- English Name on passport -->
+            <div style="grid-column:1/-1;">
+              <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:10px;padding:14px;margin-bottom:12px;">
+                <div style="font-weight:700;font-size:12px;color:#667eea;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">🔤 Passport Holder (English)</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+                  <div><label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">First Name</label><input type="text" id="DocFirstName" style="text-align:center;padding:7px;width:100%;" oninput="updatePassportFullName()"></div>
+                  <div><label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Middle Name</label><input type="text" id="DocMiddleName" style="text-align:center;padding:7px;width:100%;" oninput="updatePassportFullName()"></div>
+                  <div><label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Last Name</label><input type="text" id="DocLastName" style="text-align:center;padding:7px;width:100%;" oninput="updatePassportFullName()"></div>
+                  <div><label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Full Name (Auto)</label><input type="text" id="DocFullName" readonly style="text-align:center;padding:7px;width:100%;background:#e9ecef;font-weight:600;"></div>
+                </div>
+              </div>
+              <div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:14px;">
+                <div style="font-weight:700;font-size:13px;color:#b45309;margin-bottom:10px;text-align:center;">صاحب جواز السفر (عربي) 🔡</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+                  <div><label style="font-size:11px;color:#92400e;display:block;margin-bottom:3px;text-align:center;font-weight:700;">اسم العائلة</label><input type="text" id="DocFamilyName" class="arabic-field" style="text-align:right;direction:rtl;padding:7px;width:100%;" oninput="updatePassportFullName()"></div>
+                  <div><label style="font-size:11px;color:#92400e;display:block;margin-bottom:3px;text-align:center;font-weight:700;">اسم الأب</label><input type="text" id="DocFatherName" class="arabic-field" style="text-align:right;direction:rtl;padding:7px;width:100%;" oninput="updatePassportFullName()"></div>
+                  <div><label style="font-size:11px;color:#92400e;display:block;margin-bottom:3px;text-align:center;font-weight:700;">الاسم الأول</label><input type="text" id="DocArabicName" class="arabic-field" style="text-align:right;direction:rtl;padding:7px;width:100%;" oninput="updatePassportFullName()"></div>
+                  <div><label style="font-size:11px;color:#92400e;display:block;margin-bottom:3px;text-align:center;font-weight:700;">الاسم الكامل</label><input type="text" id="DocArabicFullName" readonly class="arabic-field" style="text-align:right;direction:rtl;padding:7px;width:100%;background:#e9ecef;font-weight:600;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Passport Info -->
+            <div style="grid-column:1/-1;margin-top:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;">
+              <div style="font-weight:700;font-size:12px;color:#1d4ed8;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">🛂 Passport Information</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:10px;">
+                <div>
+                  <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Passport Number *</label>
+                  <input type="text" id="PassportNumber" placeholder="e.g., A12345678" required style="text-align:center;padding:7px;width:100%;border:2px solid #667eea;" onblur="checkPassportDuplicate()">
+                </div>
+                <div>
+                  <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Date of Birth</label>
+                  <input type="date" id="DateOfBirth" style="text-align:center;padding:7px;width:100%;" onchange="validateAge()">
+                </div>
+                <div>
+                  <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Issue Date</label>
+                  <input type="date" id="PassportIssueDate" style="text-align:center;padding:7px;width:100%;">
+                </div>
+                <div>
+                  <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Expiry Date</label>
+                  <input type="date" id="PassportExpiryDate" style="text-align:center;padding:7px;width:100%;" onchange="checkPassportValidity()">
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+                <div>
+                  <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Issue Place</label>
+                  <input type="text" id="PassportIssuePlace" placeholder="e.g., Addis Ababa" style="text-align:center;padding:7px;width:100%;">
+                </div>
+                <div>
+                  <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Nationality</label>
+                  <select id="Nationality" disabled style="text-align:center;padding:7px;width:100%;background:#e9ecef;cursor:not-allowed;">
+                    <option value=""></option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;display:block;margin-bottom:3px;text-align:center;">Gender</label>
+                  <select id="Gender" disabled style="text-align:center;padding:7px;width:100%;background:#e9ecef;cursor:not-allowed;">
+                    <option value=""></option>
+                    <option>Male</option><option>Female</option>
+                  </select>
+                </div>
+                <div></div>
+              </div>
+              <div style="margin-top:6px;padding:5px 8px;background:#fff3cd;border-left:3px solid #ffc107;border-radius:4px;font-size:11px;">
+                ⚠️ Passport must have <strong>at least 18 months validity</strong> remaining.
+              </div>
+            </div>
+
+            <!-- Age warning -->
+            <div id="ageWarning" style="display:none;grid-column:1/-1;background:#f8d7da;border:2px solid #dc3545;border-radius:8px;padding:10px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div style="font-size:24px;">🚫</div>
+                <div><div style="font-weight:700;font-size:13px;color:#721c24;">AGE RESTRICTION</div>
+                <div id="ageWarningText" style="font-size:12px;color:#721c24;"></div></div>
+              </div>
+            </div>
+            <div id="passportValidityWarning" style="display:none;grid-column:1/-1;background:#f8d7da;border:2px solid #dc3545;border-radius:8px;padding:10px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div style="font-size:24px;">🚫</div>
+                <div><div style="font-weight:700;font-size:13px;color:#721c24;">PASSPORT VALIDITY</div>
+                <div id="validityWarningText" style="font-size:12px;color:#721c24;"></div></div>
+              </div>
+            </div>
+
+            <!-- Passport Scan Upload -->
+            <div style="grid-column:1/-1;margin-top:8px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:14px;">
+              <div style="font-weight:700;font-size:12px;color:#7c3aed;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">📸 Passport Scan / Copy</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;">
+                <div id="passportDropZone" style="border:3px dashed #7c3aed;border-radius:10px;padding:16px;text-align:center;background:linear-gradient(135deg,#faf5ff,#ede9fe);cursor:pointer;">
+                  <div style="font-size:32px;margin-bottom:4px;">📄</div>
+                  <div style="font-size:12px;font-weight:600;color:#7c3aed;">Drag &amp; Drop Here</div>
+                  <div style="font-size:10px;color:#6c757d;">or click to browse</div>
+                  <div style="font-size:9px;color:#999;margin-top:2px;">JPG, PNG, PDF (Max 5MB)</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;justify-content:center;">
+                  <input type="file" id="PassportScanFile" accept="image/*,.pdf" style="display:none;" onchange="handlePassportUpload(event)">
+                  <button type="button" class="btn btn-primary" onclick="document.getElementById('PassportScanFile').click()" style="width:100%;background:#7c3aed;">📤 Upload Passport Scan</button>
+                  <button type="button" class="btn btn-light" onclick="openPassportFolder()" id="openFolderBtn" style="display:none;width:100%;">📁 Open Folder</button>
+                </div>
+              </div>
+              <div style="text-align:center;margin-bottom:6px;">
+                <span id="passportFileInfo" style="color:#28a745;font-size:12px;font-weight:600;"></span>
+              </div>
+              <input type="text" id="PassportScanPath" readonly placeholder="Passport scan path..." style="background:#f8f9fa;padding:6px;font-size:11px;width:100%;">
+            </div>
+
+            <!-- ID fields (for ID workers) -->
+            <div id="idScanSection" style="grid-column:1/-1;margin-top:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px;" id="idScanSection">
+              <div style="font-weight:700;font-size:12px;color:#16a34a;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">🪪 ID Scan / Copy</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;">
+                <div id="idDropZone" style="border:3px dashed #10b981;border-radius:10px;padding:16px;text-align:center;cursor:pointer;">
+                  <div style="font-size:32px;margin-bottom:4px;">🪪</div>
+                  <div style="font-size:12px;font-weight:600;color:#10b981;">Drag &amp; Drop ID Here</div>
+                  <div style="font-size:10px;color:#6c757d;">or click to browse</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;justify-content:center;">
+                  <input type="file" id="IDScanFile" accept="image/*,.pdf" style="display:none;" onchange="handleIDUpload(event)">
+                  <button type="button" class="btn btn-success" onclick="document.getElementById('IDScanFile').click()" style="width:100%;background:#10b981;">📤 Upload ID Scan</button>
+                  <button type="button" class="btn btn-light" onclick="openIDFolder()" id="openIDFolderBtn" style="display:none;width:100%;">📁 Open ID Folder</button>
+                </div>
+              </div>
+              <div style="text-align:center;margin-bottom:6px;">
+                <span id="idFileInfo" style="color:#28a745;font-size:12px;font-weight:600;"></span>
+              </div>
+              <input type="text" id="IDScanPath" readonly placeholder="ID scan path..." style="background:#f8f9fa;padding:6px;font-size:11px;width:100%;">
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ TAB: UPLOAD FILES (same as Workers Manager) ══════ -->
+        <div id="tab-uploaddocs" class="tab-content" style="padding:20px;">
+          <div style="margin-bottom:12px;">
+            <h3 style="color:#4facfe;margin-bottom:4px;">📤 Upload Document Files</h3>
+            <p style="color:#999;font-size:12px;">Upload files for each required document. Files are saved to Google Drive.</p>
+          </div>
+          <div id="workerUploadList">
+            <p style="padding:20px;text-align:center;color:#999;">⚠️ Please select a worker first!</p>
+          </div>
+          <!-- Upload progress overlay (same as WM) -->
+          <div id="uploadStatusArea" style="margin-top:10px;display:none;"></div>
+        </div>
+
+        <!-- ═══ TAB: ALL FILES (same as Workers Manager) ═════════ -->
+        <div id="tab-allfiles" class="tab-content" style="padding:20px;">
+          <div id="allFilesContent">
+            <p style="padding:20px;text-align:center;color:#999;">⚠️ Please select a worker first!</p>
+          </div>
+        </div>
+
+      </form>
+    </div>
+
+    <div class="status-bar">
+      <span class="status-text" id="statusText">Ready</span>
+      <span class="record-counter" id="recordCounter">0 Workers</span>
+      <span style="font-size:10px;color:#94a3b8;margin-left:10px;" id="versionTag">Portal v1.0</span>
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<!-- MSG MODAL (identical to WM) -->
+<div id="msgModal" style="display:none;position:fixed;z-index:99999;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.5);align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:12px;padding:0;max-width:500px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;animation:msgSlideIn .2s ease-out;">
+    <div id="msgHeader" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:13px 18px;font-weight:700;font-size:14px;display:flex;align-items:center;gap:7px;">
+      <span id="msgIcon">ℹ️</span><span id="msgTitle">Message</span>
+    </div>
+    <div style="padding:18px;">
+      <pre id="msgText" style="white-space:pre-wrap;word-wrap:break-word;font-family:'Segoe UI',sans-serif;font-size:12px;line-height:1.6;color:#333;max-height:360px;overflow-y:auto;margin:0;user-select:text;"></pre>
+      <input id="msgInput" type="text" style="display:none;width:100%;padding:9px;border:2px solid #667eea;border-radius:6px;font-size:13px;margin-top:10px;font-family:inherit;">
+    </div>
+    <div id="msgButtons" style="padding:10px 18px;border-top:1px solid #e9ecef;display:flex;justify-content:flex-end;gap:7px;background:#f8f9fa;"></div>
+  </div>
+</div>
+
+<!-- UPLOAD OVERLAY (identical to WM) -->
+<div id="uploadOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:14px;padding:30px 40px;text-align:center;max-width:380px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.3);">
+    <div id="uploadSpinner" style="width:55px;height:55px;border:5px solid #e0e0e0;border-top:5px solid #667eea;border-radius:50%;animation:uploadSpin 1s linear infinite;margin:0 auto 16px;"></div>
+    <h3 id="uploadTitle" style="color:#333;margin-bottom:6px;font-size:17px;">📤 Uploading...</h3>
+    <p id="uploadDetail" style="color:#888;font-size:12px;margin-bottom:12px;">Preparing file...</p>
+    <div style="width:100%;height:7px;background:#eee;border-radius:4px;overflow:hidden;margin-bottom:8px;">
+      <div id="uploadProgressBar" style="height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:4px;width:0%;transition:width .4s ease;"></div>
+    </div>
+    <p id="uploadPercent" style="color:#667eea;font-weight:700;font-size:13px;">0%</p>
+  </div>
+</div>
+<style>@keyframes uploadSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// MGS SUPPLIER PORTAL — JavaScript
+// Same architecture as Workers Manager, locked to supplier
+// ═══════════════════════════════════════════════════════
+
+const PORTAL_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEbNo287tvEezLwy8vYHrNWxPXELlzzsGVg9yeA6XXDIkXdR0ILEKOTWbG88PxHiIf/exec';
+const SESSION_KEY = 'mgs_portal_session';
+
+// ── SESSION via both localStorage AND ScriptProperties (GAS-safe) ──
+// localStorage may not persist in GAS sandboxed iframes
+// We use a dual approach: try ScriptProperties first, fallback to localStorage
+
+// ── DATA ──────────────────────────────────────────────
+let workers = [];
+let nationalities = [];
+let currentWorker = null;
+let currentSupplier = null;  // logged-in supplier object
+let filteredWorkers = [];
+let _listTab = 'refused'; // default tab on open
+let _pendingWorkerFolder = '';
+let _isNewWorker = false;
+
+// ── MSG SYSTEM (identical to WM) ─────────────────────
+let _msgResolve = null;
+window.alert = function(msg) { showMsg(String(msg||'')); };
+
+function showMsg(text, title) {
+    const modal = document.getElementById('msgModal');
+    const msgText = document.getElementById('msgText');
+    const msgBtns = document.getElementById('msgButtons');
+    msgText.textContent = text;
+    const icon = document.getElementById('msgIcon');
+    const titleEl = document.getElementById('msgTitle');
+    const header = document.getElementById('msgHeader');
+    if (text.startsWith('✅')||text.includes('SUCCESS')) { icon.textContent='✅'; titleEl.textContent=title||'Success'; header.style.background='linear-gradient(135deg,#10b981,#059669)'; }
+    else if (text.startsWith('❌')||text.includes('failed')) { icon.textContent='❌'; titleEl.textContent=title||'Error'; header.style.background='linear-gradient(135deg,#ef4444,#dc2626)'; }
+    else if (text.startsWith('⚠️')||text.includes('WARNING')) { icon.textContent='⚠️'; titleEl.textContent=title||'Warning'; header.style.background='linear-gradient(135deg,#f59e0b,#d97706)'; }
+    else { icon.textContent='ℹ️'; titleEl.textContent=title||'Message'; header.style.background='linear-gradient(135deg,#667eea,#764ba2)'; }
+    msgBtns.innerHTML = '<button onclick="copyMsg()" style="padding:7px 14px;background:#667eea;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:11px;">📋 Copy</button><button onclick="closeMsg(true)" style="padding:7px 18px;background:#4facfe;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;">OK</button>';
+    document.getElementById('msgInput').style.display='none';
+    modal.style.display='flex';
+}
+function showConfirm(text) {
+    return new Promise(resolve => {
+        _msgResolve = resolve;
+        document.getElementById('msgText').textContent = text;
+        document.getElementById('msgIcon').textContent='❓';
+        document.getElementById('msgTitle').textContent='Confirm';
+        document.getElementById('msgHeader').style.background='linear-gradient(135deg,#f59e0b,#d97706)';
+        document.getElementById('msgInput').style.display='none';
+        document.getElementById('msgButtons').innerHTML='<button onclick="copyMsg()" style="padding:7px 14px;background:#667eea;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:11px;">📋 Copy</button><button onclick="closeMsg(false)" style="padding:7px 18px;background:#94a3b8;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;">Cancel</button><button onclick="closeMsg(true)" style="padding:7px 18px;background:#ef4444;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;">Yes, Confirm</button>';
+        document.getElementById('msgModal').style.display='flex';
+    });
+}
+function copyMsg() { const t=document.getElementById('msgText').textContent; navigator.clipboard.writeText(t).catch(()=>{}); const b=document.querySelector('#msgButtons button'); if(b){b.textContent='✅ Copied!';setTimeout(()=>{b.textContent='📋 Copy';},1500);} }
+function closeMsg(val) { document.getElementById('msgModal').style.display='none'; if(_msgResolve){const r=_msgResolve;_msgResolve=null;r(val);} }
+document.addEventListener('keydown', e => {
+    if(document.getElementById('msgModal').style.display==='flex') {
+        if(e.key==='Escape'){closeMsg(_msgResolve?null:true);e.preventDefault();}
+        else if(e.key==='Enter'&&document.getElementById('msgInput').style.display!=='block'){closeMsg(true);e.preventDefault();}
+    }
+});
+
+// ── CLOUD via google.script.run (same pattern as Workers Manager) ─
+function gsrCall(data) {
+    return new Promise(resolve => {
+        google.script.run
+            .withSuccessHandler(r => resolve(r))
+            .withFailureHandler(err => { console.warn('gsrCall failed:', err); resolve(null); })
+            .gsrPost(typeof data === 'string' ? data : JSON.stringify(data));
+    });
+}
+
+// Direct sheet load — uses gsrGetAll like Workers Manager does
+function cloudLoad(sheet) {
+    return new Promise(resolve => {
+        google.script.run
+            .withSuccessHandler(function(d) {
+                var arr = (d && d.data) ? d.data : (Array.isArray(d) ? d : []);
+                resolve(arr);
+            })
+            .withFailureHandler(function(err) {
+                console.warn('cloudLoad failed for', sheet, ':', err);
+                resolve([]);
+            })
+            .gsrGetAll(sheet);
+    });
+}
+
+async function cloudSave(sheet, row) {
+    return new Promise(resolve => {
+        google.script.run
+            .withSuccessHandler(r => resolve(r))
+            .withFailureHandler(err => { console.warn('cloudSave failed:', err); resolve(null); })
+            .gsrSaveRow(sheet, row);
+    });
+}
+
+async function cloudNextID(sheet) {
+    const r = await gsrCall({action:'getNextID', sheet});
+    return (r && r.success) ? r.nextID : null;
+}
+
+// ── SESSION ───────────────────────────────────────────
+function saveSession(sup) {
+    const data = JSON.stringify({
+        SupplierID: sup.SupplierID,
+        SupplierCODE: sup.SupplierCODE,
+        SupplierPassword: sup.SupplierPassword,
+        savedAt: new Date().toISOString()
+    });
+    // 1. localStorage (works in most browsers even in iframes)
+    try { localStorage.setItem(SESSION_KEY, data); } catch(e){}
+    // 2. sessionStorage as backup
+    try { sessionStorage.setItem(SESSION_KEY, data); } catch(e){}
+    // 3. Cookie as additional fallback (30 days)
+    try {
+        var exp = new Date();
+        exp.setDate(exp.getDate() + 30);
+        document.cookie = SESSION_KEY + '=' + encodeURIComponent(data)
+            + '; expires=' + exp.toUTCString() + '; path=/; SameSite=None; Secure';
+    } catch(e){}
+    console.log('✅ Session saved for:', sup.SupplierCODE);
+}
+function clearSession() {
+    try { localStorage.removeItem(SESSION_KEY); } catch(e){}
+    try { sessionStorage.removeItem(SESSION_KEY); } catch(e){}
+    try { document.cookie = SESSION_KEY + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'; } catch(e){}
+}
+function getSavedSession() {
+    let data = null;
+    // Try localStorage first
+    try { data = localStorage.getItem(SESSION_KEY); } catch(e){}
+    // Try sessionStorage
+    if(!data) { try { data = sessionStorage.getItem(SESSION_KEY); } catch(e){} }
+    // Try cookie
+    if(!data) {
+        try {
+            const match = document.cookie.match('(^|;)\s*'+SESSION_KEY+'\s*=\s*([^;]+)');
+            if(match) data = decodeURIComponent(match[2]);
+        } catch(e){}
+    }
+    if(!data) return null;
+    try {
+        const s = JSON.parse(data);
+        if((new Date()-new Date(s.savedAt))/86400000 > 30) { clearSession(); return null; }
+        return s;
+    } catch(e) { return null; }
+}
+
+// ── INIT ──────────────────────────────────────────────
+async function init() {
+    // NEVER disable the login button here — just pre-fill if session exists
+    const sess = getSavedSession();
+    if(!sess) return;
+
+    // Pre-fill the code field
+    document.getElementById('loginCode').value = sess.SupplierCODE || '';
+
+    // Try silent auto-login in the background without disabling anything
+    try {
+        const sups = await cloudLoad('Suppliers');
+        if(!sups || sups.length === 0) return;
+
+        const found = sups.find(s =>
+            String(s.SupplierID) === String(sess.SupplierID) &&
+            (s.SupplierCODE||'').toUpperCase() === (sess.SupplierCODE||'').toUpperCase()
+        );
+        if(!found || found.PortalAccess === 'false' || found.PortalAccess === false) {
+            clearSession();
+            return;
+        }
+        // Session valid — show brief loading then go to portal
+        document.getElementById('loginBtn').textContent = '⏳ Loading...';
+        currentSupplier = found;
+        saveSession(found);
+        await loadPortalData();
+    } catch(e) {
+        // Silent fail — button is never disabled so user can just click login
+        console.warn('Auto-login failed silently:', e);
+        document.getElementById('loginBtn').textContent = '🔐 Login';
+    }
+}
+
+// ── LOGIN ─────────────────────────────────────────────
+async function doLogin() {
+    const code = (document.getElementById('loginCode').value||'').trim().toUpperCase();
+    const pass = (document.getElementById('loginPass').value||'').trim();
+    const remember = document.getElementById('rememberMe').checked;
+    const errEl = document.getElementById('loginErr');
+    if(!code||!pass) { errEl.textContent='⚠️ Enter supplier code and password'; errEl.style.display='block'; return; }
+    document.getElementById('loginBtn').disabled = true;
+    document.getElementById('loginSpinner').style.display = 'block';
+    errEl.style.display = 'none';
+    try {
+        const sups = await cloudLoad('Suppliers');
+        if(!sups || sups.length === 0) {
+            showLoginErr('❌ Cannot connect to server. Please try again.');
+            return;
+        }
+        const found = sups.find(s => (s.SupplierCODE||'').toUpperCase()===code);
+        if(!found) { showLoginErr('❌ Supplier code "'+code+'" not found'); return; }
+        if(found.PortalAccess==='false'||found.PortalAccess===false) {
+            showLoginErr('❌ Portal access is not enabled for this account. Contact MGS.');
+            return;
+        }
+        if(String(found.SupplierPassword||'').trim() !== pass) {
+            showLoginErr('❌ Incorrect password');
+            return;
+        }
+        currentSupplier = found;
+        if(remember) {
+            saveSession(found);
+            console.log('💾 Session saved — auto-login will work next visit');
+        }
+        await loadPortalData();
+    } catch(e) {
+        console.error('Login error:', e);
+        showLoginErr('❌ Connection error: '+e.message);
+    } finally {
+        // ALWAYS re-enable button regardless of what happened
+        document.getElementById('loginBtn').disabled = false;
+        document.getElementById('loginBtn').textContent = '🔐 Login';
+        document.getElementById('loginSpinner').style.display = 'none';
+    }
+}
+function showLoginErr(msg) {
+    document.getElementById('loginErr').textContent = msg;
+    document.getElementById('loginErr').style.display = 'block';
+    document.getElementById('loginBtn').disabled = false;
+    document.getElementById('loginBtn').textContent = '🔐 Login';
+    document.getElementById('loginSpinner').style.display = 'none';
+}
+
+// ── LOGOUT ────────────────────────────────────────────
+function doLogout() {
+    if(!confirm('Logout from Supplier Portal?')) return;
+    clearSession();
+    currentSupplier=null; workers=[]; currentWorker=null; nationalities=[];
+    document.getElementById('mainApp').style.display='none';
+    document.getElementById('loginOverlay').style.display='flex';
+    document.getElementById('loginCode').value='';
+    document.getElementById('loginPass').value='';
+    document.getElementById('loginErr').style.display='none';
+    document.getElementById('loginBtn').disabled=false;
+}
+
+// ── LOAD PORTAL DATA ──────────────────────────────────
+async function loadPortalData() {
+    try {
+        setStatus('Loading data...');
+        document.getElementById('cloudStatus').textContent='⏳ Loading...';
+        document.getElementById('cloudStatus').style.background='#fff3cd';
+        document.getElementById('cloudStatus').style.color='#856404';
+
+        const [allWorkers, allNat, allDocs] = await Promise.all([
+            cloudLoad('Workers'),
+            cloudLoad('Nationalities'),
+            cloudLoad('Worker_Documents')
+        ]);
+        // Cache worker documents for upload tab
+        if(allDocs && allDocs.length > 0) {
+            localStorage.setItem('mgsdb_worker_documents', JSON.stringify(allDocs));
+            console.log('📋 Worker_Documents loaded:', allDocs.length);
+        }
+
+        // Filter workers to this supplier only
+        const sc = String(currentSupplier.SupplierCODE||'').toUpperCase();
+        const sid = String(currentSupplier.SupplierID||'');
+        workers = (allWorkers||[]).filter(w =>
+            String(w.SupplierCode||'').toUpperCase()===sc ||
+            String(w.SupplierID||'')===sid
+        );
+
+        nationalities = (allNat||[]).map(n => ({
+            Nationality: n.Nationality||n.NationalityEN||n.Country||'',
+            Active: n.Active===true||n.Active==='true'||n.Active==='TRUE'
+        }));
+
+        // Setup UI
+        const sName = currentSupplier.SupplierBusinessName||currentSupplier.SupplierOwnerName||sc;
+        // Store allow flags
+        window._allowNationalID = currentSupplier.AllowNationalID===true||currentSupplier.AllowNationalID==='true';
+        window._allowLocal = currentSupplier.AllowLocal===true||currentSupplier.AllowLocal==='true';
+        document.getElementById('supplierTitle').textContent = '🏢 '+sName;
+        document.getElementById('supplierSubtitle').textContent = 'Code: '+sc+' | Portal';
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'grid';
+
+        // Hide ID scan section immediately if not allowed
+        var idSec = document.getElementById('idScanSection');
+        if(idSec){
+            var idOk = currentSupplier &&
+                (currentSupplier.AllowNationalID===true||currentSupplier.AllowNationalID==='true'||currentSupplier.AllowNationalID==='TRUE');
+            idSec.style.display = idOk ? '' : 'none';
+        }
+
+        updateStats();
+        populateNationalityDropdown();
+        updateCounter();
+        // Default to Refused tab; fall back to Pending then All
+        var defaultTab = getTabWorkers('refused').length > 0 ? 'refused'
+                       : getTabWorkers('pending').length > 0 ? 'pending' : 'all';
+        setListTab(defaultTab);
+        setupPassportDropZone();
+        setupIDDropZone();
+
+        document.getElementById('cloudStatus').textContent='☁️ Cloud';
+        document.getElementById('cloudStatus').style.background='#d4edda';
+        document.getElementById('cloudStatus').style.color='#155724';
+        setStatus('Welcome, '+sName, true);
+    } catch(e) {
+        console.error('loadPortalData failed:', e);
+        // Re-enable login so user can try again
+        document.getElementById('loginBtn').disabled = false;
+        document.getElementById('loginSpinner').style.display = 'none';
+        document.getElementById('loginOverlay').style.display = 'flex';
+        document.getElementById('mainApp').style.display = 'none';
+        document.getElementById('loginErr').textContent = '❌ Failed to load portal data: '+e.message;
+        document.getElementById('loginErr').style.display = 'block';
+    }
+}
+
+// ── REFRESH ───────────────────────────────────────────
+async function refreshPortalData() {
+    if(!currentSupplier) return;
+    setStatus('Refreshing...');
+    const allWorkers = await cloudLoad('Workers');
+    const sc = String(currentSupplier.SupplierCODE||'').toUpperCase();
+    const sid = String(currentSupplier.SupplierID||'');
+    workers = (allWorkers||[]).filter(w =>
+        String(w.SupplierCode||'').toUpperCase()===sc ||
+        String(w.SupplierID||'')===sid
+    );
+    updateStats(); renderWorkerList(); updateCounter();
+    setStatus('Refreshed — '+workers.length+' workers', true);
+}
+
+// ── STATS ─────────────────────────────────────────────
+function updateStats() {
+    if(typeof updateCounter === 'function') updateCounter();
+    updateListTabCounts();
+}
+function isT(v) { return v===true||v==='true'||v==='TRUE'||v===1; }
+
+// ── WORKER LIST ───────────────────────────────────────
+function setListTab(tab) {
+    _listTab = tab;
+    _wfFilter = 'all'; // always reset workflow filter when switching panel 1 tabs
+
+    // Update active class
+    ['listTabAll','listTabPending','listTabRefused'].forEach(function(id){
+        var el = document.getElementById(id);
+        if(!el) return;
+        el.classList.remove('active');
+        if((id==='listTabAll'&&tab==='all')||(id==='listTabPending'&&tab==='pending')||(id==='listTabRefused'&&tab==='refused'))
+            el.classList.add('active');
+    });
+
+    // Reset workflow filter buttons to 'all' active
+    if(typeof window.buildWFBar === 'function') window.buildWFBar();
+
+    var tabWorkers = getTabWorkers(tab);
+    updateListTabCounts();
+    renderWorkerList();
+
+    if(tabWorkers.length > 0) {
+        selectWorker(tabWorkers[0]);
+    } else {
+        currentWorker = null;
+        document.querySelectorAll('#workerForm input:not([type=hidden]), #workerForm select, #workerForm textarea').forEach(function(el){ el.value=''; });
+        var banner = document.getElementById('workerStatusBanner');
+        if(banner){ banner.innerHTML=''; banner.style.padding='0'; }
+        setStatus('No workers in this tab');
+    }
+}
+
+// Single function to get workers for a given tab — used by setListTab + renderWorkerList
+function getTabWorkers(tab) {
+    return workers.filter(function(w) {
+        if(tab === 'all') return true;
+        if(tab === 'refused') return isT(w.RefusedByAdmin);
+        // pending
+        return !isT(w.AcceptedByAdmin) && !isT(w.RefusedByAdmin) &&
+               !isT(w.Arrived) && !isT(w.Cancelled) && !isT(w.Selected);
+    });
+}
+
+function updateListTabCounts() {
+    if(typeof getTabWorkers !== 'function') return;
+    var allEl     = document.getElementById('ltCountAll');
+    var pendingEl = document.getElementById('ltCountPending');
+    var refusedEl = document.getElementById('ltCountRefused');
+    if(allEl)     allEl.textContent     = getTabWorkers('all').length;
+    if(pendingEl) pendingEl.textContent = getTabWorkers('pending').length;
+    if(refusedEl) refusedEl.textContent = getTabWorkers('refused').length;
+}
+
+function renderWorkerList() {
+    const search = (document.getElementById('searchBox').value||'').toLowerCase();
+    const sc = currentSupplier ? String(currentSupplier.SupplierCODE||'').toUpperCase() : '';
+
+    filteredWorkers = workers.filter(w => {
+        if(!search) return true;
+        return [w.WorkerID,w.WorkerFirstName,w.WorkerMiddleName,w.WorkerLastName,
+                w.WFullName,w.Nationality,w.PassportNumber,w.ContactNumber].join(' ').toLowerCase().includes(search);
+    });
+
+    const list = document.getElementById('recordList');
+    list.innerHTML = '';
+    if(filteredWorkers.length===0) {
+        list.innerHTML = '<li style="padding:14px;text-align:center;color:#94a3b8;font-size:12px;">'+(search?'🔍 No matches':'📭 No workers yet')+'</li>';
+        return;
+    }
+    filteredWorkers.forEach(w => {
+        const code = sc+'-'+String(w.WorkerID).padStart(4,'0');
+        const name = w.WFullName||((w.WorkerFirstName||'')+' '+(w.WorkerLastName||'')).trim()||'Unknown';
+        const isActive = currentWorker && parseInt(currentWorker.WorkerID)===parseInt(w.WorkerID);
+        const statusIcons = [];
+        if(isT(w.Arrived))statusIcons.push('✈️');
+        if(isT(w.AcceptedByAdmin)||isT(w.Selected))statusIcons.push('✅');
+        if(isT(w.Cancelled))statusIcons.push('❌');
+        if(!statusIcons.length)statusIcons.push('⏳');
+        const li = document.createElement('li');
+        li.className = 'record-item'+(isActive?' active':'');
+        li.innerHTML = '<div class="id">'+code+'</div><div class="name">'+name+'</div><div class="status">'+statusIcons.join(' ')+(w.Nationality?' · '+w.Nationality:'')+'</div>';
+        li.onclick = () => selectWorker(w);
+        list.appendChild(li);
+    });
+}
+
+// ── SELECT WORKER ─────────────────────────────────────
+function selectWorker(worker) {
+    _pendingWorkerFolder = '';
+    _isNewWorker = false;
+    // Hide warnings
+    ['ageWarning','passportValidityWarning'].forEach(id=>{var e=document.getElementById(id);if(e)e.style.display='none';});
+    ['PassportScanFile','IDScanFile'].forEach(id=>{var e=document.getElementById(id);if(e)e.value='';});
+    switchToTab('basic');
+    currentWorker = worker;
+
+    const sc = currentSupplier ? String(currentSupplier.SupplierCODE||'').toUpperCase() : '';
+    document.getElementById('WorkerID').value = worker.WorkerID||'';
+    document.getElementById('SupplierID').value = worker.SupplierID||'';
+    document.getElementById('SupplierCode').value = worker.SupplierCode||sc;
+    document.getElementById('SupplierDisplay').value = (worker.SupplierCode||sc)+' - '+(currentSupplier?currentSupplier.SupplierBusinessName||'':'');
+    document.getElementById('WorkerCode').value = (worker.SupplierCode||sc)+'-'+String(worker.WorkerID).padStart(4,'0');
+    document.getElementById('ContactNumber').value = worker.ContactNumber||'';
+    document.getElementById('WorkerFirstName').value = worker.WorkerFirstName||'';
+    document.getElementById('WorkerMiddleName').value = worker.WorkerMiddleName||'';
+    document.getElementById('WorkerLastName').value = worker.WorkerLastName||'';
+    document.getElementById('ArabicName').value = worker.ArabicName||'';
+    document.getElementById('FatherName').value = worker.FatherName||'';
+    document.getElementById('FamilyName').value = worker.FamilyName||'';
+    document.getElementById('WFullName').value = worker.WFullName||'';
+    document.getElementById('ArabicFullName').value = worker.ArabicFullName||'';
+    document.getElementById('IDNationality').value = worker.Nationality||'';
+    document.getElementById('IDGender').value = worker.Gender||'';
+    document.getElementById('Nationality').value = worker.Nationality||'';
+    document.getElementById('Gender').value = worker.Gender||'';
+    document.getElementById('PassportNumber').value = worker.PassportNumber||'';
+    document.getElementById('DateOfBirth').value = worker.DateOfBirth||'';
+    document.getElementById('PassportIssueDate').value = worker.PassportIssueDate||'';
+    document.getElementById('PassportExpiryDate').value = worker.PassportExpiryDate||'';
+    document.getElementById('PassportIssuePlace').value = worker.PassportIssuePlace||'';
+    document.getElementById('PassportScanPath').value = worker.PassportScanPath||'';
+    document.getElementById('IDScanPath').value = worker.IDScanPath||'';
+    document.getElementById('DocFirstName').value = worker.DocFirstName||'';
+    document.getElementById('DocMiddleName').value = worker.DocMiddleName||'';
+    document.getElementById('DocLastName').value = worker.DocLastName||'';
+    document.getElementById('DocFullName').value = worker.DocFullName||'';
+    document.getElementById('DocFamilyName').value = worker.DocFamilyName||'';
+    document.getElementById('DocFatherName').value = worker.DocFatherName||'';
+    document.getElementById('DocArabicName').value = worker.DocArabicName||'';
+    document.getElementById('DocArabicFullName').value = worker.DocArabicFullName||'';
+    document.getElementById('WorkerImage').value = worker.WorkerImage||'';
+
+    // Show/hide folder buttons
+    document.getElementById('openFolderBtn').style.display = worker.PassportScanPath?'inline-flex':'none';
+    document.getElementById('openIDFolderBtn').style.display = worker.IDScanPath?'inline-flex':'none';
+    if(worker.PassportScanPath){document.getElementById('passportFileInfo').textContent='✅ Passport scan uploaded';document.getElementById('passportFileInfo').style.color='#28a745';}
+    else{document.getElementById('passportFileInfo').textContent='';}
+    if(worker.IDScanPath){document.getElementById('idFileInfo').textContent='✅ ID scan uploaded';document.getElementById('idFileInfo').style.color='#28a745';}
+    else{document.getElementById('idFileInfo').textContent='';}
+
+    // Photo
+    loadWorkerPhoto(worker);
+
+    // Status badges
+    updateStatusBadges(worker);
+
+    // Submission banner
+    if(isT(worker.PortalSubmitted)){
+        document.getElementById('submittedBanner').style.display='block';
+        document.getElementById('submittedDate').textContent = worker.PortalSubmittedDate ? new Date(worker.PortalSubmittedDate).toLocaleDateString() : 'Portal';
+    } else { document.getElementById('submittedBanner').style.display='none'; }
+
+    // Tab access
+    const docType = worker.DocumentType||'';
+    updateTabAccess(docType);
+
+    // Expiry check
+    if(worker.PassportExpiryDate) setTimeout(()=>checkPassportValidity(),100);
+
+    renderWorkerList();
+    // Refresh All Files tab if it's open
+    if(document.getElementById('tab-allfiles')&&document.getElementById('tab-allfiles').classList.contains('active')) loadAllFilesTab();
+    // Remove stale banner before showing new one
+    var _oldBanner = document.getElementById('workerStatusBanner');
+    if(_oldBanner) _oldBanner.remove();
+    showWorkerStatusBanner();
+    setStatus('Viewing: '+(worker.WFullName||worker.WorkerFirstName));
+}
+
+function updateStatusBadges(worker) {
+    const container = document.getElementById('statusBadgesDisplay');
+    let h = '';
+    if(isT(worker.Arrived)) h+='<span class="badge badge-arrived">✈️ Arrived</span>';
+    if(isT(worker.AcceptedByAdmin)) h+='<span class="badge badge-accepted">✅ Accepted</span>';
+    if(isT(worker.Selected)&&!isT(worker.AcceptedByAdmin)) h+='<span class="badge badge-selected">✅ Selected</span>';
+    if(isT(worker.RefusedByAdmin)) h+='<span class="badge badge-refused">✖️ Refused</span>';
+    if(isT(worker.Cancelled)) h+='<span class="badge badge-cancelled">❌ Cancelled</span>';
+    if(!h) h='<span class="badge badge-pending">⏳ Pending</span>';
+    container.innerHTML = h;
+}
+
+// ── ADD NEW WORKER ─────────────────────────────────────
+function newWorkerForSelectedSupplier() {
+    if(!currentSupplier) return;
+    window.pendingSupplier = String(currentSupplier.SupplierID);
+
+    // Update source dropdown — show Local only if AllowLocal enabled
+    var srcSel = document.getElementById('workerSourceSelect');
+    if(srcSel) {
+        var localOk = currentSupplier.AllowLocal===true||currentSupplier.AllowLocal==='true'||currentSupplier.AllowLocal==='TRUE';
+        srcSel.innerHTML = '<option value="">-- Select Worker Source --</option><option value="abroad">✈️ From Abroad</option>';
+        if(localOk) {
+            var lo = document.createElement('option'); lo.value='local'; lo.textContent='🏠 Local';
+            srcSel.appendChild(lo);
+        }
+    }
+    srcSel.style.borderColor='#e2e8f0';
+
+    // Show/hide National ID button based on AllowNationalID
+    var idAllowed = currentSupplier.AllowNationalID===true||currentSupplier.AllowNationalID==='true'||currentSupplier.AllowNationalID==='TRUE';
+    document.querySelectorAll('#documentTypeModal .modal-btn-primary').forEach(function(btn){
+        if(btn.innerHTML.indexOf('National ID') > -1 || btn.innerHTML.indexOf('🆔') > -1) {
+            btn.style.display = idAllowed ? 'flex' : 'none';
+            if(!idAllowed) {
+                var notice = document.getElementById('_idNotEnabled');
+                if(!notice) {
+                    notice = document.createElement('div');
+                    notice.id = '_idNotEnabled';
+                    notice.style.cssText = 'font-size:11px;color:#dc3545;text-align:center;margin-top:6px;';
+                    notice.textContent = '🪪 National ID workers not enabled for this account';
+                    btn.parentElement.appendChild(notice);
+                }
+                notice.style.display = 'block';
+            } else {
+                var notice = document.getElementById('_idNotEnabled');
+                if(notice) notice.style.display = 'none';
+            }
+        }
+    });
+
+    document.getElementById('documentTypeModal').classList.add('show');
+}
+
+let selectedDocumentType = null;
+let pendingWorkerSource = null;
+
+function selectDocumentType(type) {
+    const src = document.getElementById('workerSourceSelect').value;
+    if(!src) {
+        alert('⚠️ Please select Worker Source first!');
+        document.getElementById('workerSourceSelect').style.borderColor='#dc3545';
+        document.getElementById('workerSourceSelect').focus();
+        return;
+    }
+    // Enforce AllowNationalID restriction
+    if(type==='id') {
+        var allowed = currentSupplier && (currentSupplier.AllowNationalID===true||currentSupplier.AllowNationalID==='true'||currentSupplier.AllowNationalID==='TRUE');
+        if(!allowed) {
+            alert('❌ National ID workers are not enabled for this account.\n\nPlease contact MGS to enable this feature.');
+            return;
+        }
+    }
+    // Enforce AllowLocal restriction
+    if(src==='local') {
+        var localOk = currentSupplier && (currentSupplier.AllowLocal===true||currentSupplier.AllowLocal==='true'||currentSupplier.AllowLocal==='TRUE');
+        if(!localOk) {
+            alert('❌ Local workers are not enabled for this account.\n\nPlease contact MGS to enable this feature.');
+            return;
+        }
+    }
+    document.getElementById('workerSourceSelect').style.borderColor='#e2e8f0';
+    pendingWorkerSource = src;
+    selectedDocumentType = type;
+    closeDocumentTypeModal();
+    if(type==='passport') {
+        populateCheckNationality('passportCheckNationality');
+        applyAllowedNatFilter('passportCheckNationality');
+        document.getElementById('passportCheckModal').classList.add('show');
+        setTimeout(()=>document.getElementById('passportCheckInput').focus(),300);
+    } else {
+        populateCheckNationality('idCheckNationality');
+        document.getElementById('idCheckModal').classList.add('show');
+        setTimeout(()=>document.getElementById('idCheckInput').focus(),300);
+    }
+}
+function closeDocumentTypeModal() { document.getElementById('documentTypeModal').classList.remove('show'); document.getElementById('workerSourceSelect').value=''; }
+function closePassportCheckModal() { document.getElementById('passportCheckModal').classList.remove('show'); document.getElementById('passportCheckInput').value=''; document.getElementById('passportCheckNationality').value=''; document.getElementById('passportCheckGender').value=''; document.getElementById('duplicateResult').style.display='none'; }
+function closeIDCheckModal() { document.getElementById('idCheckModal').classList.remove('show'); document.getElementById('idCheckInput').value=''; document.getElementById('idCheckNationality').value=''; document.getElementById('idCheckGender').value=''; document.getElementById('idDuplicateResult').style.display='none'; }
+
+// ── NATIONALITY DROPDOWN ──────────────────────────────
+function getSupplierAllowedNat() {
+    if(!currentSupplier) return [];
+    const raw = currentSupplier.AllowedNationalities;
+    if(!raw) return [];
+    if(typeof raw==='string'){try{return JSON.parse(raw);}catch(e){return[];}}
+    if(Array.isArray(raw)) return raw;
+    return [];
+}
+
+function populateCheckNationality(selectId) {
+    const sel = document.getElementById(selectId);
+    if(!sel) return;
+    sel.innerHTML = '<option value="">-- Select Nationality --</option>';
+    const active = nationalities.filter(n=>n.Active).sort((a,b)=>(a.Nationality||'').localeCompare(b.Nationality||''));
+    const fallback = ['Ethiopian','Filipino','Sri Lankan','Indian','Nepalese','Kenyan','Ugandan','Bangladeshi','Indonesian'];
+    const list = active.length>0 ? active.map(n=>n.Nationality) : fallback;
+    list.forEach(nm=>{
+        if(!nm) return;
+        const o=document.createElement('option');o.value=nm;o.textContent=nm;sel.appendChild(o);
+    });
+}
+
+function applyAllowedNatFilter(selectId) {
+    const sel = document.getElementById(selectId);
+    if(!sel) return;
+    const allowed = getSupplierAllowedNat();
+    if(allowed.length===0) {
+        // hide badge
+        const badge = document.getElementById('passportNatLockBadge');
+        if(badge) badge.style.display='none';
+        return;
+    }
+    // Rebuild with only allowed
+    const all = Array.from(sel.options).map(o=>o.value).filter(v=>v);
+    sel.innerHTML='<option value="">-- Select Nationality --</option>';
+    all.filter(n=>allowed.includes(n)||allowed.some(a=>a.toLowerCase()===n.toLowerCase()))
+       .forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
+    if(allowed.length===1) sel.value=allowed[0];
+    const badge=document.getElementById('passportNatLockBadge');
+    if(badge){badge.textContent='🔒 Authorized: '+allowed.join(', ');badge.style.display='block';}
+}
+
+function populateNationalityDropdown() {
+    const sel = document.getElementById('Nationality');
+    if(!sel) return;
+    const cur = sel.value;
+    sel.innerHTML='<option value=""></option>';
+    const active = nationalities.filter(n=>n.Active).sort((a,b)=>(a.Nationality||'').localeCompare(b.Nationality||''));
+    active.forEach(n=>{if(!n.Nationality)return;const o=document.createElement('option');o.value=n.Nationality;o.textContent=n.Nationality;sel.appendChild(o);});
+    if(cur) sel.value=cur;
+}
+
+// ── PASSPORT CHECK ────────────────────────────────────
+function checkPassportNumber() {
+    const pn = (document.getElementById('passportCheckInput').value||'').trim().toUpperCase();
+    const nat = document.getElementById('passportCheckNationality').value;
+    const gen = document.getElementById('passportCheckGender').value;
+    const res = document.getElementById('duplicateResult');
+    if(!pn){alert('⚠️ Please enter a passport number!');return;}
+    if(!nat){alert('⚠️ Please select nationality!');document.getElementById('passportCheckNationality').focus();return;}
+    if(!gen){alert('⚠️ Please select gender!');document.getElementById('passportCheckGender').focus();return;}
+    // Nationality enforcement
+    const allowed=getSupplierAllowedNat();
+    if(allowed.length>0&&!allowed.some(a=>a.toLowerCase()===nat.toLowerCase())){alert('❌ Nationality "'+nat+'" not authorized.\nAuthorized: '+allowed.join(', '));return;}
+    // Duplicate check (across ALL suppliers)
+    const dup = workers.find(w=>w.PassportNumber&&String(w.PassportNumber||'').trim().toUpperCase()===pn);
+    if(dup) {
+        res.className='duplicate-info duplicate-info-error';
+        res.innerHTML='<div style="font-size:16px;font-weight:700;color:#dc3545;margin-bottom:8px;">❌ PASSPORT ALREADY REGISTERED</div>'+
+            '<div class="info-row"><span class="info-label">Passport:</span><span class="info-value">'+dup.PassportNumber+'</span></div>'+
+            '<div class="info-row"><span class="info-label">Worker:</span><span class="info-value">'+(dup.WFullName||dup.WorkerFirstName||'Unknown')+'</span></div>'+
+            '<div class="info-row"><span class="info-label">Worker ID:</span><span class="info-value">'+dup.WorkerID+'</span></div>';
+        res.style.display='block';
+    } else {
+        showWorkerNamesModal(pn,'passport',nat,gen);
+    }
+}
+
+function checkIDNumber() {
+    const idNum=(document.getElementById('idCheckInput').value||'').trim();
+    const nat=document.getElementById('idCheckNationality').value;
+    const gen=document.getElementById('idCheckGender').value;
+    const res=document.getElementById('idDuplicateResult');
+    if(!idNum){alert('⚠️ Please enter an ID number!');return;}
+    if(!nat){alert('⚠️ Please select nationality!');document.getElementById('idCheckNationality').focus();return;}
+    if(!gen){alert('⚠️ Please select gender!');document.getElementById('idCheckGender').focus();return;}
+    const dup=workers.find(w=>w.IDNumber&&String(w.IDNumber||'').trim()===idNum);
+    if(dup){
+        res.className='duplicate-info duplicate-info-error';
+        res.innerHTML='<div style="font-size:16px;font-weight:700;color:#dc3545;margin-bottom:8px;">❌ ID ALREADY REGISTERED</div>'+
+            '<div class="info-row"><span class="info-label">ID:</span><span class="info-value">'+dup.IDNumber+'</span></div>'+
+            '<div class="info-row"><span class="info-label">Worker:</span><span class="info-value">'+(dup.WFullName||dup.WorkerFirstName||'Unknown')+'</span></div>';
+        res.style.display='block';
+    } else {
+        showWorkerNamesModal(idNum,'id',nat,gen);
+    }
+}
+
+// ── WORKER NAMES MODAL ────────────────────────────────
+var _pendingDocNumber='',_pendingDocType='',_pendingNationality='',_pendingGender='';
+
+function showWorkerNamesModal(docNum,docType,nat,gen) {
+    closePassportCheckModal(); closeIDCheckModal();
+    _pendingDocNumber=docNum; _pendingDocType=docType; _pendingNationality=nat; _pendingGender=gen;
+    ['nameFirstEN','nameMiddleEN','nameLastEN','nameFirstAR','nameFatherAR','nameFamilyAR'].forEach(id=>{document.getElementById(id).value='';});
+    document.getElementById('workerNamesModal').classList.add('show');
+    setTimeout(()=>document.getElementById('nameFirstEN').focus(),300);
+}
+function closeWorkerNamesModal() { document.getElementById('workerNamesModal').classList.remove('show'); }
+function submitWorkerNames() {
+    const fn=(document.getElementById('nameFirstEN').value||'').trim().toUpperCase();
+    const ln=(document.getElementById('nameLastEN').value||'').trim().toUpperCase();
+    if(!fn){alert('⚠️ First Name is required!');document.getElementById('nameFirstEN').focus();return;}
+    if(!ln){alert('⚠️ Last Name is required!');document.getElementById('nameLastEN').focus();return;}
+    const names={firstEN:fn,middleEN:(document.getElementById('nameMiddleEN').value||'').trim().toUpperCase(),lastEN:ln,firstAR:(document.getElementById('nameFirstAR').value||'').trim(),fatherAR:(document.getElementById('nameFatherAR').value||'').trim(),familyAR:(document.getElementById('nameFamilyAR').value||'').trim()};
+    closeWorkerNamesModal();
+    proceedToWorkerForm(_pendingDocNumber,_pendingDocType,_pendingNationality,_pendingGender,names);
+}
+
+// ── PROCEED TO FORM ───────────────────────────────────
+async function proceedToWorkerForm(docNum,docType,nat,gen,names) {
+    closePassportCheckModal(); closeIDCheckModal();
+    _pendingWorkerFolder=''; _isNewWorker=true;
+    currentWorker=null;
+
+    // Get next ID
+    let nextId=1;
+    try {
+        const cn=await cloudNextID('Workers');
+        if(cn&&cn>0){nextId=cn;}
+        else throw new Error('no cloud id');
+    } catch(e) {
+        let maxId=0;
+        workers.forEach(w=>{const id=parseInt(w.WorkerID)||0;if(id>maxId)maxId=id;});
+        nextId=maxId+1;
+    }
+
+    // Reset form
+    document.getElementById('workerForm').reset();
+    ['ageWarning','passportValidityWarning'].forEach(id=>{var el=document.getElementById(id);if(el)el.style.display='none';});
+    document.getElementById('PassportScanPath').value='';
+    document.getElementById('IDScanPath').value='';
+    document.getElementById('passportFileInfo').textContent='';
+    document.getElementById('idFileInfo').textContent='';
+    document.getElementById('openFolderBtn').style.display='none';
+    document.getElementById('openIDFolderBtn').style.display='none';
+    document.getElementById('submittedBanner').style.display='none';
+    loadWorkerPhoto(null);
+
+    const sc = String(currentSupplier.SupplierCODE||'').toUpperCase();
+    const sid = String(currentSupplier.SupplierID||'');
+    const sName = currentSupplier.SupplierBusinessName||sc;
+
+    document.getElementById('WorkerID').value=nextId;
+    document.getElementById('SupplierID').value=sid;
+    document.getElementById('SupplierCode').value=sc;
+    document.getElementById('SupplierDisplay').value=sc+' - '+sName;
+    document.getElementById('WorkerCode').value=sc+'-'+String(nextId).padStart(4,'0');
+    document.getElementById('Nationality').value=nat;
+    document.getElementById('Gender').value=gen;
+    document.getElementById('IDNationality').value=nat;
+    document.getElementById('IDGender').value=gen;
+    if(pendingWorkerSource==='local'){ document.getElementById('IDNationality').value=nat; }
+
+    if(names) {
+        document.getElementById('WorkerFirstName').value=names.firstEN||'';
+        document.getElementById('WorkerMiddleName').value=names.middleEN||'';
+        document.getElementById('WorkerLastName').value=names.lastEN||'';
+        document.getElementById('ArabicName').value=names.firstAR||'';
+        document.getElementById('FatherName').value=names.fatherAR||'';
+        document.getElementById('FamilyName').value=names.familyAR||'';
+        document.getElementById('DocFirstName').value=names.firstEN||'';
+        document.getElementById('DocMiddleName').value=names.middleEN||'';
+        document.getElementById('DocLastName').value=names.lastEN||'';
+        document.getElementById('DocArabicName').value=names.firstAR||'';
+        document.getElementById('DocFatherName').value=names.fatherAR||'';
+        document.getElementById('DocFamilyName').value=names.familyAR||'';
+        const fullEN=[names.firstEN,names.middleEN,names.lastEN].filter(Boolean).join(' ');
+        const fullAR=[names.firstAR,names.fatherAR,names.familyAR].filter(Boolean).join(' ');
+        document.getElementById('WFullName').value=fullEN;
+        document.getElementById('DocFullName').value=fullEN;
+        document.getElementById('ArabicFullName').value=fullAR;
+        document.getElementById('DocArabicFullName').value=fullAR;
+    }
+
+    updateTabAccess(docType);
+    document.getElementById('DocumentType').value=docType;
+
+    if(docType==='passport') {
+        document.getElementById('PassportNumber').value=docNum;
+        openTab('documents');
+        setTimeout(()=>{
+            alert('📸 NEXT STEP: Upload Passport Scan\n\n✅ Passport: '+docNum+'\n🌍 Nationality: '+nat+'\n⚥ Gender: '+gen+'\n\n📤 Please upload the passport scan.');
+        },500);
+    } else {
+        document.getElementById('IDNumber') && (document.getElementById('IDNumber').value=docNum);
+        openTab('names');
+        setTimeout(()=>{ alert('✅ ID set: '+docNum+'\n🌍 Nationality: '+nat+'\n⚥ Gender: '+gen+'\n\n📤 Upload the ID scan in the Passport tab.'); },500);
+    }
+
+    currentWorker = null;
+    renderWorkerList();
+    setStatus('New worker — Worker Code: '+sc+'-'+String(nextId).padStart(4,'0'));
+}
+
+// ── SAVE WORKER ───────────────────────────────────────
+async function saveWorker() {
+    const firstName=(document.getElementById('WorkerFirstName').value||'').trim();
+    const workerId=document.getElementById('WorkerID').value;
+    const passportNumber=(document.getElementById('PassportNumber').value||'').trim();
+    const docType=document.getElementById('DocumentType').value||'';
+
+    if(!workerId){alert('Worker ID missing! Click "Add New Worker" first.');return;}
+    if(!firstName){alert('❌ Worker First Name is required!');document.getElementById('WorkerFirstName').focus();return;}
+
+    // Age validation
+    const dob=document.getElementById('DateOfBirth').value;
+    if(dob){
+        const age=Math.floor((new Date()-new Date(dob))/(1000*60*60*24*365.25));
+        if(age<19){alert('⚠️ AGE RESTRICTION!\n\nWorker is '+age+' years old.\nMinimum age required: 19 years.\n\n❌ Cannot save worker under 19.');openTab('documents');document.getElementById('DateOfBirth').focus();return;}
+    }
+
+    // Passport validity (warn, confirm)
+    const expiry=document.getElementById('PassportExpiryDate').value;
+    if(expiry){
+        const months=(new Date(expiry)-new Date())/(1000*60*60*24*30.44);
+        if(months<18){
+            const ok=await showConfirm('⚠️ PASSPORT VALIDITY\n\nPassport expires: '+expiry+'\n~'+Math.floor(months)+' months remaining.\n\nMinimum recommended: 18 months.\n\nSave anyway?');
+            if(!ok) return;
+        }
+    }
+
+    // Duplicate passport check (within supplier's workers)
+    if(passportNumber){
+        const dup=workers.find(w=>w.PassportNumber&&String(w.PassportNumber||'').trim().toUpperCase()===passportNumber.toUpperCase()&&parseInt(w.WorkerID)!==parseInt(workerId));
+        if(dup){alert('⚠️ DUPLICATE PASSPORT!\n\nPassport "'+passportNumber+'" already used by:\n👤 '+( dup.WFullName||dup.WorkerFirstName||'Worker #'+dup.WorkerID)+'\n\n❌ Please use a different passport number.');document.getElementById('PassportNumber').focus();return;}
+    }
+
+    const sc=currentSupplier?String(currentSupplier.SupplierCODE||'').toUpperCase():'';
+    const sid=currentSupplier?String(currentSupplier.SupplierID||''):'';
+    const fullName=[document.getElementById('WorkerFirstName').value,document.getElementById('WorkerMiddleName').value,document.getElementById('WorkerLastName').value].filter(p=>p.trim()).join(' ');
+
+    const worker={
+        WorkerID:parseInt(workerId),
+        SupplierID:sid, SupplierCode:sc,
+        WorkerFirstName:firstName,
+        WorkerMiddleName:document.getElementById('WorkerMiddleName').value,
+        WorkerLastName:document.getElementById('WorkerLastName').value,
+        ArabicName:document.getElementById('ArabicName').value,
+        FatherName:document.getElementById('FatherName').value,
+        FamilyName:document.getElementById('FamilyName').value,
+        WFullName:fullName,
+        ArabicFullName:document.getElementById('ArabicFullName').value,
+        Nationality:document.getElementById('Nationality').value,
+        Gender:document.getElementById('Gender').value,
+        DateOfBirth:document.getElementById('DateOfBirth').value,
+        ContactNumber:document.getElementById('ContactNumber').value,
+        WorkerImage:document.getElementById('WorkerImage').value,
+        PassportNumber:passportNumber,
+        PassportIssueDate:document.getElementById('PassportIssueDate').value,
+        PassportExpiryDate:expiry,
+        PassportIssuePlace:document.getElementById('PassportIssuePlace').value,
+        PassportScanPath:document.getElementById('PassportScanPath').value,
+        DocFirstName:document.getElementById('DocFirstName').value,
+        DocMiddleName:document.getElementById('DocMiddleName').value,
+        DocLastName:document.getElementById('DocLastName').value,
+        DocFullName:document.getElementById('DocFullName').value,
+        DocFamilyName:document.getElementById('DocFamilyName').value,
+        DocFatherName:document.getElementById('DocFatherName').value,
+        DocArabicName:document.getElementById('DocArabicName').value,
+        DocArabicFullName:document.getElementById('DocArabicFullName').value,
+        IDScanPath:document.getElementById('IDScanPath').value,
+        DocumentType:docType,
+        WorkerFolder:(currentWorker&&currentWorker.WorkerFolder)||_pendingWorkerFolder||'',
+        UploadedWorkerDocs:(currentWorker&&currentWorker.UploadedWorkerDocs)||{},
+        RequiredWorkerDocs:(currentWorker&&currentWorker.RequiredWorkerDocs)||[],
+        AdditionalPassports:(currentWorker&&currentWorker.AdditionalPassports)||[],
+        PortalSubmitted:true,
+        PortalSubmittedDate:new Date().toISOString()
+    };
+
+    setStatus('Saving...');
+    const result = await cloudSave('Workers', worker);
+    if(result&&result.success) {
+        const idx=workers.findIndex(w=>parseInt(w.WorkerID)===parseInt(workerId));
+        const isNew=idx<0;
+        if(idx>=0) workers[idx]=worker; else workers.push(worker);
+        currentWorker=worker;
+        _isNewWorker=false;
+        updateStats(); renderWorkerList(); updateCounter();
+        updateStatusBadges(worker);
+        document.getElementById('submittedBanner').style.display='block';
+        document.getElementById('submittedDate').textContent=new Date().toLocaleDateString();
+        setStatus(isNew?'✅ Worker submitted!':'✅ Worker updated!', true);
+        alert(isNew?
+            '✅ WORKER SUBMITTED SUCCESSFULLY!\n\n👤 Name: '+fullName+'\n🆔 Code: '+sc+'-'+String(workerId).padStart(4,'0')+'\n\n📋 MGS will review and update the status.':
+            '✅ WORKER UPDATED!\n\n👤 Name: '+fullName+'\n🆔 Code: '+sc+'-'+String(workerId).padStart(4,'0'));
+    } else {
+        setStatus('❌ Save failed');
+        alert('❌ Save failed! Please try again.');
+    }
+}
+
+// ── SILENT SAVE (after uploads) ───────────────────────
+function silentSaveWorker() {
+    try {
+        const wid=document.getElementById('WorkerID').value;
+        const fn=document.getElementById('WorkerFirstName').value.trim();
+        if(!wid||!fn) return;
+        const sc=currentSupplier?String(currentSupplier.SupplierCODE||'').toUpperCase():'';
+        const sid=currentSupplier?String(currentSupplier.SupplierID||''):'';
+        const workerData={
+            WorkerID:parseInt(wid), SupplierID:sid, SupplierCode:sc,
+            WorkerFirstName:fn,
+            WorkerMiddleName:document.getElementById('WorkerMiddleName').value,
+            WorkerLastName:document.getElementById('WorkerLastName').value,
+            WFullName:document.getElementById('WFullName').value,
+            Nationality:document.getElementById('Nationality').value,
+            Gender:document.getElementById('Gender').value,
+            DateOfBirth:document.getElementById('DateOfBirth').value,
+            ContactNumber:document.getElementById('ContactNumber').value,
+            WorkerImage:document.getElementById('WorkerImage').value,
+            PassportNumber:document.getElementById('PassportNumber').value,
+            PassportIssueDate:document.getElementById('PassportIssueDate').value,
+            PassportExpiryDate:document.getElementById('PassportExpiryDate').value,
+            PassportScanPath:document.getElementById('PassportScanPath').value,
+            IDScanPath:document.getElementById('IDScanPath').value,
+            DocumentType:document.getElementById('DocumentType').value,
+            WorkerFolder:(currentWorker&&currentWorker.WorkerFolder)||_pendingWorkerFolder||'',
+            UploadedWorkerDocs:(currentWorker&&currentWorker.UploadedWorkerDocs)||{},
+            RequiredWorkerDocs:(currentWorker&&currentWorker.RequiredWorkerDocs)||[],
+            PortalSubmitted:true,
+            PortalSubmittedDate:(currentWorker&&currentWorker.PortalSubmittedDate)||new Date().toISOString()
+        };
+        const idx=workers.findIndex(w=>parseInt(w.WorkerID)===parseInt(wid));
+        if(idx>=0){workers[idx]={...workers[idx],...workerData};if(currentWorker)Object.assign(currentWorker,workerData);}
+        else{workers.push(workerData);currentWorker=workerData;}
+        _isNewWorker=false;
+        cloudSave('Workers',workerData).catch(()=>{});
+        renderWorkerList();
+        console.log('💾 Silent save OK for worker',wid);
+    } catch(e){console.warn('Silent save failed:',e);}
+}
+
+// ── WORKER FOLDER HELPERS (same as WM) ───────────────
+function getWorkerFolder(workerCode) {
+    if(currentWorker&&currentWorker.WorkerFolder) return currentWorker.WorkerFolder;
+    if(_pendingWorkerFolder) return _pendingWorkerFolder;
+    const pp=document.getElementById('PassportScanPath').value;
+    if(pp&&pp.includes('/')) return pp.substring(0,pp.lastIndexOf('/'));
+    const ip=document.getElementById('IDScanPath').value;
+    if(ip&&ip.includes('/')) return ip.substring(0,ip.lastIndexOf('/'));
+    // Check registry
+    const wid=currentWorker?currentWorker.WorkerID:document.getElementById('WorkerID').value;
+    if(wid){try{const reg=JSON.parse(localStorage.getItem('mgsdb_worker_folders')||'{}');if(reg[String(wid)])return reg[String(wid)];}catch(e){}}
+    // Create new
+    const today=new Date().toISOString().split('T')[0];
+    const parts=workerCode.split('-');const sc=parts[0]||'';const wIdP=parts.slice(1).join('-')||workerCode;
+    const wName=currentWorker?(currentWorker.WFullName||currentWorker.WorkerFirstName||''):'';
+    const docType=document.getElementById('DocumentType').value||'';
+    const suffix=docType==='passport'?' PASS':docType==='id'?' ID':'';
+    if(sc&&wName) return sc+' ('+wIdP+') '+wName+' '+today+suffix;
+    if(sc) return sc+' ('+wIdP+') '+today+suffix;
+    return workerCode+' '+today+suffix;
+}
+function saveWorkerFolder(folderName) {
+    _pendingWorkerFolder=folderName;
+    const wid=currentWorker?currentWorker.WorkerID:document.getElementById('WorkerID').value;
+    if(wid&&folderName){try{const reg=JSON.parse(localStorage.getItem('mgsdb_worker_folders')||'{}');reg[String(wid)]=folderName;localStorage.setItem('mgsdb_worker_folders',JSON.stringify(reg));}catch(e){}}
+    if(currentWorker) currentWorker.WorkerFolder=folderName;
+}
+
+// ── UPLOAD FUNCTIONS (identical to WM CORS patch) ─────
+function fileToBase64(file) {
+    return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
+}
+async function uploadToGoogleDrive(file,folderName,fileName) {
+    try {
+        const base64=await fileToBase64(file);
+        const wid=currentWorker?currentWorker.WorkerID:document.getElementById('WorkerID').value;
+        let folderId='';
+        if(currentWorker&&currentWorker.WorkerFolderID) folderId=currentWorker.WorkerFolderID;
+        if(!folderId&&wid){try{const reg=JSON.parse(localStorage.getItem('mgsdb_worker_folderids')||'{}');folderId=reg[String(wid)]||'';}catch(e){}}
+        const result=await new Promise(resolve=>{
+            google.script.run
+                .withSuccessHandler(r=>resolve(r))
+                .withFailureHandler(err=>resolve({error:err.message||String(err)}))
+                .gsrPost(JSON.stringify({action:'uploadFile',folderName,fileName,fileData:base64,mimeType:file.type,parentFolder:'workers',folderId}));
+        });
+        if(result&&result.folderId){
+            if(currentWorker)currentWorker.WorkerFolderID=result.folderId;
+            const wid2=currentWorker?currentWorker.WorkerID:document.getElementById('WorkerID').value;
+            if(wid2){try{const reg=JSON.parse(localStorage.getItem('mgsdb_worker_folderids')||'{}');reg[String(wid2)]=result.folderId;localStorage.setItem('mgsdb_worker_folderids',JSON.stringify(reg));}catch(e){}}
+        }
+        if(result&&result.error&&result.error.includes&&result.error.includes('permission')) return{success:true,warning:result.error,fileUrl:result.fileUrl||'',folderId:result.folderId||''};
+        if(result&&result.error) throw new Error(result.error);
+        return{success:true,fileUrl:(result&&(result.fileUrl||result.url))||'',folderId:(result&&result.folderId)||''};
+    } catch(error){return{success:false,error:error.message};}
+}
+
+var _uploadLock=false;
+async function handlePassportUpload(event) {
+    if(_uploadLock)return; _uploadLock=true;
+    try {
+        const files=event.target.files; if(!files||!files.length){_uploadLock=false;return;}
+        const file=files[0];
+        const wid=document.getElementById('WorkerID').value;
+        if(!wid){alert('⚠️ Please save the worker first!');_uploadLock=false;return;}
+        const sc=document.getElementById('SupplierCode').value;
+        const workerCode=sc?sc+'-'+String(wid).padStart(4,'0'):'W'+wid;
+        const folderName=getWorkerFolder(workerCode); saveWorkerFolder(folderName);
+        const ext=file.name.substring(file.name.lastIndexOf('.'));
+        const ts=new Date().toISOString().replace(/[-:T]/g,'').substring(0,14);
+        const fileName=workerCode+'-Passport_'+ts+ext;
+        const fi=document.getElementById('passportFileInfo');
+        if(fi){fi.textContent='⏳ Uploading...';fi.style.color='#856404';}
+        showUploadOverlay('📤 Uploading Passport',fileName);
+        const result=await uploadToGoogleDrive(file,folderName,fileName);
+        if(result.success){
+            document.getElementById('PassportScanPath').value=folderName+'/'+fileName;
+            if(fi){fi.textContent='✅ Passport scan uploaded';fi.style.color='#28a745';}
+            document.getElementById('openFolderBtn').style.display='inline-flex';
+            silentSaveWorker();
+            hideUploadOverlay(true,'Passport saved');
+            setTimeout(()=>alert('✅ Passport uploaded!\n\n📁 Folder: '+folderName+'\n📄 File: '+fileName),1600);
+        } else throw new Error(result.error||'Upload failed');
+    } catch(error){
+        const fi=document.getElementById('passportFileInfo');
+        if(fi){fi.textContent='❌ Upload failed';fi.style.color='#dc3545';}
+        hideUploadOverlay(false,error.message);
+        setTimeout(()=>alert('❌ Upload failed!\n\n'+error.message),1600);
+    }
+    _uploadLock=false;
+    const pf=document.getElementById('PassportScanFile');if(pf)pf.value='';
+}
+async function handleIDUpload(event) {
+    if(_uploadLock)return; _uploadLock=true;
+    try {
+        const files=event.target.files; if(!files||!files.length){_uploadLock=false;return;}
+        const file=files[0];
+        const wid=document.getElementById('WorkerID').value;
+        if(!wid){alert('⚠️ Please save the worker first!');_uploadLock=false;return;}
+        const sc=document.getElementById('SupplierCode').value;
+        const workerCode=sc?sc+'-'+String(wid).padStart(4,'0'):'W'+wid;
+        const folderName=getWorkerFolder(workerCode); saveWorkerFolder(folderName);
+        const ext=file.name.substring(file.name.lastIndexOf('.'));
+        const ts=new Date().toISOString().replace(/[-:T]/g,'').substring(0,14);
+        const fileName=workerCode+'-ID_'+ts+ext;
+        const fi=document.getElementById('idFileInfo');
+        if(fi){fi.textContent='⏳ Uploading...';fi.style.color='#856404';}
+        showUploadOverlay('📤 Uploading ID Scan',fileName);
+        const result=await uploadToGoogleDrive(file,folderName,fileName);
+        if(result.success){
+            document.getElementById('IDScanPath').value=folderName+'/'+fileName;
+            if(fi){fi.textContent='✅ ID scan uploaded';fi.style.color='#28a745';}
+            document.getElementById('openIDFolderBtn').style.display='inline-flex';
+            silentSaveWorker();
+            hideUploadOverlay(true,'ID saved');
+            setTimeout(()=>alert('✅ ID uploaded!\n\n📁 Folder: '+folderName+'\n📄 File: '+fileName),1600);
+        } else throw new Error(result.error||'Upload failed');
+    } catch(error){
+        hideUploadOverlay(false,error.message);
+        setTimeout(()=>alert('❌ ID upload failed!\n\n'+error.message),1600);
+    }
+    _uploadLock=false;
+    const idf=document.getElementById('IDScanFile');if(idf)idf.value='';
+}
+
+// ── PHOTO ─────────────────────────────────────────────
+function loadWorkerPhoto(worker) {
+    const img=document.getElementById('workerPhotoPreview');
+    const ph=document.getElementById('workerPhotoPlaceholder');
+    const frame=document.getElementById('workerPhotoFrame');
+    img.src=''; img.style.display='none'; ph.style.display='block';
+    frame.style.borderStyle='dashed'; frame.style.borderColor='#c7d2fe';
+    if(worker&&worker.WorkerImage) showPhotoPreview(worker.WorkerImage);
+}
+function showPhotoPreview(url) {
+    const img=document.getElementById('workerPhotoPreview');
+    const ph=document.getElementById('workerPhotoPlaceholder');
+    const frame=document.getElementById('workerPhotoFrame');
+    let match=url.match(/\/d\/([a-zA-Z0-9_-]+)/)||url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if(match){
+        img.src='https://lh3.googleusercontent.com/d/'+match[1]+'=w400';
+        img.style.display='block'; ph.style.display='none';
+        frame.style.borderStyle='solid'; frame.style.borderColor='#667eea';
+        frame.onclick=()=>window.open(url,'_blank');
+    }
+}
+function handlePhotoDrop(e) {
+    e.preventDefault();
+    document.getElementById('workerPhotoFrame').style.borderColor='#c7d2fe';
+    document.getElementById('workerPhotoFrame').style.background='#f8f9ff';
+    const file=e.dataTransfer&&e.dataTransfer.files[0];
+    if(file&&file.type.startsWith('image/')) doPhotoUpload(file);
+}
+function handlePhotoSelect(e) { const f=e.target.files[0]; if(f)doPhotoUpload(f); }
+async function doPhotoUpload(file) {
+    const wid=document.getElementById('WorkerID').value;
+    if(!wid){alert('⚠️ Select a worker first!');return;}
+    if(file.size>5*1024*1024){alert('⚠️ Image too large! Max 5MB.');return;}
+    const sc=document.getElementById('SupplierCode').value;
+    const workerCode=sc?sc+'-'+String(wid).padStart(4,'0'):'W'+wid;
+    const folderName=getWorkerFolder(workerCode); saveWorkerFolder(folderName);
+    const ext=file.name.substring(file.name.lastIndexOf('.'));
+    const ts=new Date().toISOString().replace(/[-:T]/g,'').substring(0,14);
+    const fileName=workerCode+'-Photo_'+ts+ext;
+    showUploadOverlay('📸 Uploading Photo',fileName);
+    const result=await uploadToGoogleDrive(file,folderName,fileName);
+    if(result.success){
+        const fileUrl=result.fileUrl||folderName+'/'+fileName;
+        document.getElementById('WorkerImage').value=fileUrl;
+        showPhotoPreview(fileUrl);
+        if(currentWorker)currentWorker.WorkerImage=fileUrl;
+        silentSaveWorker();
+        hideUploadOverlay(true,'Photo saved');
+    } else {
+        hideUploadOverlay(false,result.error||'Failed');
+        alert('❌ Photo upload failed!\n\n'+(result.error||''));
+    }
+}
+
+// ── UPLOAD FILES TAB ──────────────────────────────────
+async function loadWorkerUploadList() {
+    const container = document.getElementById('workerUploadList');
+    if(!container) return;
+    if(!currentWorker) {
+        container.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">⚠️ Please select a worker first!</p>';
+        return;
+    }
+
+    const sc = currentSupplier ? String(currentSupplier.SupplierCODE||'').toUpperCase() : '';
+    const wcode = sc + '-' + String(currentWorker.WorkerID).padStart(4,'0');
+    const wname = currentWorker.WFullName || currentWorker.WorkerFirstName || 'Worker';
+
+    container.innerHTML = '<div style="background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;padding:10px 14px;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">'
+        + '<span style="font-size:18px;">📤</span><div>'
+        + '<div style="font-weight:700;font-size:13px;">' + wname + '</div>'
+        + '<div style="font-size:10px;opacity:.9;">Code: ' + wcode + '</div>'
+        + '</div></div>'
+        + '<div id="uploadListInner"><div style="text-align:center;padding:20px;color:#999;">⏳ Loading documents...</div></div>';
+
+    // Load Worker_Documents fresh from cloud every time
+    let allDocs = [];
+    try {
+        const fresh = await cloudLoad('Worker_Documents');
+        if(fresh && fresh.length > 0) allDocs = fresh;
+    } catch(e) { console.warn('Worker_Documents load failed:', e); }
+
+    if(allDocs.length === 0) {
+        document.getElementById('uploadListInner').innerHTML
+            = '<p style="padding:18px;text-align:center;color:#999;">No required documents configured.<br><small>MGS will assign required documents to your workers.</small></p>';
+        return;
+    }
+
+    // Get required docs from worker cloud record
+    let required = currentWorker.RequiredWorkerDocs || [];
+    if(typeof required === 'string') { try { required = JSON.parse(required); } catch(e) { required = []; } }
+    if(!Array.isArray(required)) required = [];
+
+    if(required.length === 0) {
+        document.getElementById('uploadListInner').innerHTML
+            = '<p style="padding:18px;text-align:center;color:#999;">No documents required for this worker yet.<br><small>MGS will assign required documents.</small></p>';
+        return;
+    }
+
+    // Get uploaded docs from worker record
+    let uploaded = currentWorker.UploadedWorkerDocs || {};
+    if(typeof uploaded === 'string') { try { uploaded = JSON.parse(uploaded); } catch(e) { uploaded = {}; } }
+
+    const inner = document.getElementById('uploadListInner');
+    inner.innerHTML = '';
+
+    required.forEach(function(docId) {
+        const doc = allDocs.find(function(d){ return parseInt(d.DocumentID) === parseInt(docId); });
+        if(!doc) return;
+
+        const uploadedData = uploaded[docId];
+        const uploadedFiles = Array.isArray(uploadedData) ? uploadedData
+            : (uploadedData && typeof uploadedData === 'object' ? [uploadedData] : []);
+        const fileCount = uploadedFiles.length;
+
+        // Build uploaded files list
+        let filesHTML = '';
+        if(fileCount > 0) {
+            filesHTML = '<div style="background:#d4edda;padding:8px 10px;border-radius:6px;margin-top:8px;">'
+                + '<div style="color:#155724;font-weight:700;font-size:11px;margin-bottom:5px;">✅ ' + fileCount + ' file(s) uploaded:</div>';
+            uploadedFiles.forEach(function(f, i) {
+                filesHTML += '<div style="padding:4px 8px;background:white;border-radius:4px;margin-top:3px;display:flex;justify-content:space-between;align-items:center;">'
+                    + '<span style="font-size:11px;color:#155724;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📄 Copy ' + (i+1) + ': ' + (f.fileName||'file') + '</span>'
+                    + (f.fileUrl ? '<a href="' + f.fileUrl + '" target="_blank" style="padding:2px 8px;background:#007bff;color:white;text-decoration:none;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;flex-shrink:0;">📂 Open</a>' : '')
+                    + '</div>';
+            });
+            filesHTML += '</div>';
+        } else {
+            filesHTML = '<div style="color:#999;font-size:11px;margin-top:6px;">No files uploaded yet</div>';
+        }
+
+        // Build card — use data attributes to avoid inline quote escaping issues
+        const div = document.createElement('div');
+        div.style.cssText = 'background:white;border:2px solid ' + (fileCount > 0 ? '#28a745' : '#e9ecef') + ';border-radius:8px;padding:13px;margin-bottom:10px;';
+        div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+            + '<h4 style="margin:0;font-size:13px;color:#333;">' + doc.DocumentNameEN + '</h4>'
+            + '<span style="font-size:11px;color:#999;direction:rtl;">' + (doc.DocumentNameAR||'') + '</span>'
+            + '</div>'
+            + '<div style="display:flex;gap:7px;align-items:center;margin:8px 0;">'
+            + '<input type="file" id="wfile-' + doc.DocumentID + '" accept=".pdf,.jpg,.jpeg,.png" multiple style="font-size:11px;flex:1;">'
+            + '<button class="upload-doc-btn" data-docid="' + doc.DocumentID + '" data-docname="' + doc.DocumentNameEN.replace(/"/g,'&quot;') + '" data-existing="' + fileCount + '" '
+            + 'style="background:#28a745;color:white;border:none;padding:7px 13px;border-radius:5px;cursor:pointer;font-weight:600;font-size:11px;white-space:nowrap;font-family:inherit;">📤 Upload</button>'
+            + '</div>'
+            + '<div id="wstatus-' + doc.DocumentID + '">' + filesHTML + '</div>';
+        inner.appendChild(div);
+    });
+
+    // Attach click handlers after DOM is built — no inline onclick needed
+    inner.querySelectorAll('.upload-doc-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var docId   = parseInt(this.getAttribute('data-docid'));
+            var docName = this.getAttribute('data-docname');
+            var existing = parseInt(this.getAttribute('data-existing')) || 0;
+            uploadWorkerFile(docId, docName, existing);
+        });
+    });
+}
+
+async function uploadWorkerFile(docId, docName, existingCount) {
+    const fileInput = document.getElementById('wfile-'+docId);
+    const files = fileInput ? fileInput.files : null;
+    if(!files || !files.length) { alert('⚠️ Select at least one file!'); return; }
+    if(!currentWorker) { alert('⚠️ No worker selected!'); return; }
+
+    const sc = currentSupplier ? String(currentSupplier.SupplierCODE||'').toUpperCase() : '';
+    const workerCode = sc+'-'+String(currentWorker.WorkerID).padStart(4,'0');
+    const folderName = getWorkerFolder(workerCode);
+    saveWorkerFolder(folderName);
+
+    const copyStart = (existingCount || 0);
+    const uploadedFiles = [];
+    const failedFiles = [];
+
+    showUploadOverlay('📤 Uploading '+docName, '1 of '+files.length);
+
+    for(let i=0; i<files.length; i++) {
+        const file = files[i];
+        const copyNum = copyStart + i + 1;
+        const safeName = docName.replace(/[^a-zA-Z0-9]/g,'_');
+        const ext = file.name.substring(file.name.lastIndexOf('.'));
+        const fileName = workerCode+'-'+safeName+'_Copy'+copyNum+ext;
+
+        const result = await uploadToGoogleDrive(file, folderName, fileName);
+
+        if(result.success) {
+            uploadedFiles.push({ fileName, folderPath:folderName, fileUrl:result.fileUrl||'' });
+        } else {
+            // Retry once
+            await new Promise(r=>setTimeout(r,2000));
+            const retry = await uploadToGoogleDrive(file, folderName, fileName);
+            if(retry.success) uploadedFiles.push({ fileName, folderPath:folderName, fileUrl:retry.fileUrl||'' });
+            else failedFiles.push({ fileName, error:result.error||'Unknown' });
+        }
+        if(i < files.length-1) await new Promise(r=>setTimeout(r,1000));
+    }
+
+    if(uploadedFiles.length > 0) {
+        // Update worker's UploadedWorkerDocs in memory and cloud
+        if(!currentWorker.UploadedWorkerDocs) currentWorker.UploadedWorkerDocs = {};
+        if(typeof currentWorker.UploadedWorkerDocs === 'string') {
+            try { currentWorker.UploadedWorkerDocs = JSON.parse(currentWorker.UploadedWorkerDocs); } catch(e) { currentWorker.UploadedWorkerDocs = {}; }
+        }
+        const existing = currentWorker.UploadedWorkerDocs[docId];
+        if(Array.isArray(existing)) currentWorker.UploadedWorkerDocs[docId] = [...existing, ...uploadedFiles];
+        else if(existing && typeof existing==='object') currentWorker.UploadedWorkerDocs[docId] = [existing, ...uploadedFiles];
+        else currentWorker.UploadedWorkerDocs[docId] = uploadedFiles;
+
+        // Update in workers array
+        const idx = workers.findIndex(w=>w.WorkerID==currentWorker.WorkerID);
+        if(idx>=0) workers[idx].UploadedWorkerDocs = currentWorker.UploadedWorkerDocs;
+
+        // Save to cloud immediately
+        await cloudSave('Workers', currentWorker);
+    }
+
+    if(fileInput) fileInput.value='';
+    hideUploadOverlay(uploadedFiles.length>0, uploadedFiles.length+' uploaded');
+
+    // Refresh the upload list from updated worker record
+    await loadWorkerUploadList();
+    // Also refresh All Files tab if open
+    if(document.getElementById('tab-allfiles').classList.contains('active')) loadAllFilesTab();
+
+    setTimeout(()=>{
+        if(uploadedFiles.length>0 && failedFiles.length===0)
+            alert('✅ Uploaded '+uploadedFiles.length+' file(s)!\n\n📁 Folder: '+folderName+'\n📄 Document: '+docName);
+        else if(failedFiles.length>0)
+            alert((uploadedFiles.length>0?'⚠️ Partial upload\n✅ '+uploadedFiles.length+' ok, ❌ '+failedFiles.length+' failed':'❌ Upload failed!')+
+                '\n\n'+failedFiles.map(f=>'• '+f.fileName+': '+f.error).join('\n'));
+    }, 1600);
+}
+
+// ── PASSPORT / ID FOLDER OPENERS ─────────────────────
+function openPassportFolder(){const p=document.getElementById('PassportScanPath').value;if(p)alert('📁 Folder: '+(p.substring(0,p.lastIndexOf('/'))||p)+'\n\nCheck your Google Drive.');}
+function openIDFolder(){const p=document.getElementById('IDScanPath').value;if(p)alert('📁 Folder: '+(p.substring(0,p.lastIndexOf('/'))||p)+'\n\nCheck your Google Drive.');}
+
+// ── DROP ZONES ────────────────────────────────────────
+function setupPassportDropZone(){
+    const dz=document.getElementById('passportDropZone');
+    if(!dz)return;
+    dz.addEventListener('click',()=>document.getElementById('PassportScanFile').click());
+    ['dragenter','dragover','dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();},false));
+    ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,()=>{dz.style.background='linear-gradient(135deg,#667eea,#764ba2)';dz.style.borderColor='#28a745';},false));
+    ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,()=>{dz.style.background='linear-gradient(135deg,#faf5ff,#ede9fe)';dz.style.borderColor='#7c3aed';},false));
+    dz.addEventListener('drop',e=>{const f=e.dataTransfer&&e.dataTransfer.files;if(f&&f.length)handlePassportUpload({target:{files:f,value:''}});},false);
+}
+function setupIDDropZone(){
+    const dz=document.getElementById('idDropZone');
+    if(!dz)return;
+    dz.addEventListener('click',()=>document.getElementById('IDScanFile').click());
+    ['dragenter','dragover','dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();},false));
+    ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,()=>{dz.style.background='linear-gradient(135deg,#10b981,#059669)';},false));
+    ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,()=>{dz.style.background='linear-gradient(135deg,#ecfdf5,#d1fae5)';},false));
+    dz.addEventListener('drop',e=>{const f=e.dataTransfer&&e.dataTransfer.files;if(f&&f.length)handleIDUpload({target:{files:f,value:''}});},false);
+}
+
+// ── VALIDATIONS (same as WM) ──────────────────────────
+function validateAge(){
+    const field=document.getElementById('DateOfBirth');
+    const warn=document.getElementById('ageWarning');
+    const warnT=document.getElementById('ageWarningText');
+    if(!field.value){if(warn)warn.style.display='none';return true;}
+    const dob=new Date(field.value);const today=new Date();today.setHours(0,0,0,0);
+    let age=today.getFullYear()-dob.getFullYear();
+    if(today.getMonth()-dob.getMonth()<0||(today.getMonth()===dob.getMonth()&&today.getDate()<dob.getDate()))age--;
+    if(age<19){
+        field.style.borderColor='#dc3545';field.style.background='#f8d7da';
+        warn.style.display='block';
+        warnT.innerHTML='Worker born <strong>'+field.value+'</strong> is only <strong>'+age+' years old</strong>. Minimum: 19 years.';
+        return false;
+    }
+    warn.style.display='none';field.style.borderColor='#28a745';field.style.background='#d4edda';
+    setTimeout(()=>{field.style.borderColor='';field.style.background='';},2000);
+    return true;
+}
+function checkPassportValidity(){
+    const exp=document.getElementById('PassportExpiryDate');
+    const warn=document.getElementById('passportValidityWarning');
+    const warnT=document.getElementById('validityWarningText');
+    if(!exp||!exp.value){if(warn)warn.style.display='none';return;}
+    const expDate=new Date(exp.value);const today=new Date();today.setHours(0,0,0,0);
+    const months=(expDate.getFullYear()-today.getFullYear())*12+(expDate.getMonth()-today.getMonth());
+    const days=Math.ceil((expDate-today)/(1000*60*60*24));
+    const fmt=String(expDate.getDate()).padStart(2,'0')+'/'+String(expDate.getMonth()+1).padStart(2,'0')+'/'+expDate.getFullYear();
+    if(days<0){warn.style.display='block';warnT.innerHTML='<strong>❌ PASSPORT EXPIRED</strong> on <strong>'+fmt+'</strong> ('+Math.abs(days)+' days ago).';exp.style.borderColor='#dc3545';exp.style.background='#f8d7da';}
+    else if(months<18){warn.style.display='block';warnT.innerHTML='<strong>⚠️ LOW VALIDITY</strong>: expires <strong>'+fmt+'</strong> ('+months+' months). Minimum: 18 months.';exp.style.borderColor='#ffc107';exp.style.background='#fff3cd';}
+    else{warn.style.display='none';exp.style.borderColor='#28a745';exp.style.background='#d4edda';setTimeout(()=>{exp.style.borderColor='';exp.style.background='';},2000);}
+}
+function checkPassportDuplicate(){
+    const field=document.getElementById('PassportNumber');
+    const val=(field.value||'').trim().toUpperCase();
+    const wid=parseInt(document.getElementById('WorkerID').value);
+    if(!val)return;
+    const dup=workers.find(w=>w.PassportNumber&&String(w.PassportNumber||'').trim().toUpperCase()===val&&w.WorkerID!==wid);
+    if(dup){field.style.borderColor='#dc3545';field.style.backgroundColor='#fff3cd';field.title='⚠️ DUPLICATE: '+( dup.WFullName||'Worker #'+dup.WorkerID);}
+    else{field.style.borderColor='#28a745';field.style.backgroundColor='#d4edda';field.title='✅ Available';setTimeout(()=>{field.style.borderColor='';field.style.backgroundColor='';},3000);}
+}
+
+// ── TABS ──────────────────────────────────────────────
+function openTab(name){
+    const btn=document.getElementById('tabBtn-'+name);
+    if(btn&&btn.classList.contains('tab-disabled')){alert('🔒 This tab is locked for this worker type.');return;}
+    switchToTab(name);
+}
+function isWorkerLocked(w) {
+    if(!w) return false;
+    // Locked if accepted by admin OR WorkerLocked flag set
+    return (w.WorkerLocked===true||w.WorkerLocked==='true'||w.WorkerLocked==='TRUE') ||
+           (w.AcceptedByAdmin===true||w.AcceptedByAdmin==='true'||w.AcceptedByAdmin==='TRUE');
+}
+
+function showWorkerStatusBanner() {
+    // Remove old banner
+    var old = document.getElementById('workerStatusBanner');
+    if(old) old.remove();
+
+    if(!currentWorker) return;
+
+    var w = currentWorker;
+    var ref = w.RefusedByAdmin===true||w.RefusedByAdmin==='true';
+    var acc = w.AcceptedByAdmin===true||w.AcceptedByAdmin==='true';
+    var locked = isWorkerLocked(w);
+    var reason = (w.RefusalReason||'').trim();
+    var solved = w.RefusalSolved===true||w.RefusalSolved==='true';
+
+    var banner = document.createElement('div');
+    banner.id = 'workerStatusBanner';
+    banner.style.cssText = 'padding:10px 14px;';
+
+    if(locked && acc) {
+        banner.innerHTML = '<div class="worker-locked-notice">🔒 This worker has been <strong>Accepted</strong> by MGS. The record is now locked and cannot be edited.</div>';
+    }
+
+    if(ref && reason) {
+        var solvedHtml = solved
+            ? '<div style="margin-top:6px;padding:5px 8px;background:#d4edda;border:1px solid #28a745;border-radius:5px;font-size:11px;color:#155724;font-weight:700;">✅ You marked this as solved. MGS will re-review.</div>'
+            : '<div class="refusal-actions"><div class="refusal-actions-hdr">⚡ Action Required</div>'
+              +'<div class="refusal-actions-body">'
+              +'<p>Please resolve the issue mentioned above, then click <strong>Solved</strong>. MGS will re-review your worker.</p>'
+              +'<div class="solved-btn-row">'
+              +'<button class="btn-portal-solved" onclick="markRefusalSolved()">✅ Solved — Re-submit for Review</button>'
+              +'<button class="btn-portal-cancel" onclick="window._closeRefusalActions()">✕ Close</button>'
+              +'</div></div></div>';
+
+        banner.innerHTML += '<div class="refusal-reason-display">'
+            +'<div class="rf-title">✖️ Refused by MGS</div>'
+            +'<div class="rf-text">'+esc(reason)+'</div>'
+            +'</div>'
+            +solvedHtml;
+    }
+
+    if(banner.innerHTML) {
+        // Insert BEFORE tabs so it stays visible across all tab switches
+        var tabsBar = document.querySelector('.tabs');
+        if(tabsBar) {
+            tabsBar.parentNode.insertBefore(banner, tabsBar.nextSibling);
+        } else {
+            var formContent = document.querySelector('.form-content');
+            if(formContent) formContent.insertBefore(banner, formContent.firstChild);
+        }
+    }
+
+    // Lock/unlock all form fields based on status
+    var locked2 = isWorkerLocked(currentWorker);
+    document.querySelectorAll('#workerForm input, #workerForm select, #workerForm textarea').forEach(function(el) {
+        if(el.id === 'searchBox') return;
+        if(locked2) {
+            el.setAttribute('readonly','true');
+            el.disabled = (el.tagName==='SELECT');
+            el.style.background = '#f0f0f0';
+            el.style.cursor = 'not-allowed';
+        } else {
+            el.removeAttribute('readonly');
+            el.disabled = false;
+            el.style.background = '';
+            el.style.cursor = '';
+        }
+    });
+
+    // Lock save button
+    var saveBtn = document.querySelector('.form-toolbar .btn-success');
+    if(saveBtn) {
+        saveBtn.disabled = locked2;
+        saveBtn.title = locked2 ? 'Worker is locked — cannot edit after acceptance' : '';
+        saveBtn.style.opacity = locked2 ? '0.5' : '1';
+    }
+
+    // Hide ID scan section if supplier does not allow National ID
+    var idSection = document.getElementById('idScanSection');
+    if(idSection){
+        var idOk = currentSupplier &&
+            (currentSupplier.AllowNationalID===true||currentSupplier.AllowNationalID==='true'||currentSupplier.AllowNationalID==='TRUE');
+        idSection.style.display = idOk ? '' : 'none';
+    }
+}
+
+window._closeRefusalActions = function() {
+    var ra = document.querySelector('#workerStatusBanner .refusal-actions');
+    if(ra) ra.style.display = 'none';
+};
+
+async function markRefusalSolved() {
+    if(!currentWorker) return;
+    if(!confirm('Mark this worker as Solved?\n\nMGS will be notified to re-review the worker.')) return;
+
+    currentWorker.RefusalSolved = true;
+    currentWorker.RefusalSolvedDate = new Date().toISOString();
+    // Return worker to Pending — clear refusal so MGS re-reviews
+    currentWorker.RefusedByAdmin = false;
+    currentWorker.RefusalReason  = '';  // keep reason in RefusalSolvedNote if needed
+
+    // Update in workers array and list tabs
+    var idx = workers.findIndex(function(w){ return String(w.WorkerID)===String(currentWorker.WorkerID); });
+    if(idx >= 0) workers[idx] = currentWorker;
+    updateListTabCounts();
+
+    // Save to cloud
+    try {
+        await cloudSave('Workers', currentWorker);
+        setStatus('✅ Marked as solved — MGS will re-review', true);
+    } catch(e) {
+        setStatus('⚠️ Saved locally', false);
+    }
+
+    showWorkerStatusBanner();
+
+    // Refresh list so worker moves from Refused to Pending
+    renderWorkerList();
+    updateListTabCounts();
+    // Switch to Pending tab if we're on Refused tab
+    if(typeof _listTab !== 'undefined' && _listTab === 'refused') {
+        setListTab('pending');
+    }
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function switchToTab(name){
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    const tc=document.getElementById('tab-'+name); if(tc)tc.classList.add('active');
+    const tb=document.getElementById('tabBtn-'+name); if(tb)tb.classList.add('active');
+    if(name==='uploaddocs')loadWorkerUploadList();
+    if(name!=='documents'){const w=document.getElementById('passportValidityWarning');if(w)w.style.display='none';}
+    else if(document.getElementById('PassportExpiryDate').value)setTimeout(checkPassportValidity,100);
+
+    // Re-apply lock after every tab switch
+    if(typeof applyWorkerLock==='function') setTimeout(applyWorkerLock,50);
+}
+function updateTabAccess(docType){
+    // Also hide/show ID scan section based on AllowNationalID
+    var idSec = document.getElementById('idScanSection');
+    if(idSec){
+        var idOk = currentSupplier &&
+            (currentSupplier.AllowNationalID===true||currentSupplier.AllowNationalID==='true'||currentSupplier.AllowNationalID==='TRUE');
+        idSec.style.display = idOk ? '' : 'none';
+    }
+
+    document.getElementById('DocumentType').value=docType||'';
+    const passBtn=document.getElementById('tabBtn-documents');
+    const namesBtn=document.getElementById('tabBtn-names');
+    [passBtn,namesBtn].forEach(b=>{if(b){b.classList.remove('tab-disabled');b.title='';}});
+    if(docType==='id'){if(passBtn){passBtn.classList.add('tab-disabled');passBtn.title='🔒 ID worker';}if(document.getElementById('tab-documents').classList.contains('active'))switchToTab('names');}
+    else if(docType==='passport'){if(namesBtn){namesBtn.classList.add('tab-disabled');namesBtn.title='🔒 Passport worker';}if(document.getElementById('tab-names').classList.contains('active'))switchToTab('documents');}
+}
+
+// ── MISC ──────────────────────────────────────────────
+function copyWorkerCode(){
+    const wc=document.getElementById('WorkerCode').value;
+    if(!wc)return;
+    navigator.clipboard.writeText(wc).then(()=>{
+        const fb=document.getElementById('copyFeedback');
+        if(fb){fb.style.display='block';setTimeout(()=>fb.style.display='none',2000);}
+    }).catch(()=>{});
+}
+function updateFullNames(){
+    const ep=[document.getElementById('WorkerFirstName').value,document.getElementById('WorkerMiddleName').value,document.getElementById('WorkerLastName').value].filter(p=>p&&p.trim());
+    document.getElementById('WFullName').value=ep.join(' ');
+    const ap=[document.getElementById('FamilyName').value,document.getElementById('FatherName').value,document.getElementById('ArabicName').value].filter(p=>p&&p.trim());
+    const af=document.getElementById('ArabicFullName');if(af)af.value=ap.join(' ');
+}
+function updatePassportFullName(){
+    const ep=[document.getElementById('DocFirstName').value,document.getElementById('DocMiddleName').value,document.getElementById('DocLastName').value].filter(p=>p&&p.trim());
+    const df=document.getElementById('DocFullName');if(df)df.value=ep.join(' ');
+    const ap=[document.getElementById('DocFamilyName').value,document.getElementById('DocFatherName').value,document.getElementById('DocArabicName').value].filter(p=>p&&p.trim());
+    const daf=document.getElementById('DocArabicFullName');if(daf)daf.value=ap.join(' ');
+    // Sync to Worker ID tab
+    [['DocFirstName','WorkerFirstName'],['DocMiddleName','WorkerMiddleName'],['DocLastName','WorkerLastName'],['DocArabicName','ArabicName'],['DocFatherName','FatherName'],['DocFamilyName','FamilyName']].forEach(([s,d])=>{const sv=document.getElementById(s);const dv=document.getElementById(d);if(sv&&dv)dv.value=sv.value;});
+    updateFullNames();
+}
+function copyField(fieldId){const f=document.getElementById(fieldId);if(!f||!f.value.trim()){alert('⚠️ Nothing to copy!');return;}navigator.clipboard.writeText(f.value.trim()).then(()=>{const b=f.parentElement.querySelector('button');if(b){b.textContent='✅';setTimeout(()=>{b.textContent='📋';},1500);}}).catch(()=>{});}
+function toggleNavButtons(){
+    const p=document.getElementById('navButtonsPanel');const icon=document.getElementById('navBtnToggleIcon');
+    if(p.style.display==='none'){p.style.display='flex';icon.textContent='▼';}else{p.style.display='none';icon.textContent='▶';}
+}
+function updateCounter(){document.getElementById('recordCounter').textContent=workers.length+' Workers';}
+function setStatus(msg,ok=false){
+    const el=document.getElementById('statusText');
+    el.textContent=msg;el.className='status-text'+(ok?' success':'');
+    if(ok)setTimeout(()=>{el.textContent='Ready';el.className='status-text';},3000);
+}
+function showUploadOverlay(title,detail){
+    const ov=document.getElementById('uploadOverlay');ov.style.display='flex';
+    document.getElementById('uploadTitle').textContent=title||'📤 Uploading...';
+    document.getElementById('uploadDetail').textContent=detail||'';
+    document.getElementById('uploadProgressBar').style.width='0%';
+    document.getElementById('uploadPercent').textContent='0%';
+}
+function hideUploadOverlay(success,msg){
+    const spinner=document.getElementById('uploadSpinner');
+    const title=document.getElementById('uploadTitle');
+    const bar=document.getElementById('uploadProgressBar');
+    bar.style.width='100%';document.getElementById('uploadPercent').textContent='100%';
+    if(success){spinner.style.animation='none';spinner.style.border='none';spinner.innerHTML='<div style="font-size:48px;line-height:55px">✅</div>';title.textContent='✅ Upload Complete!';title.style.color='#28a745';}
+    else{spinner.style.animation='none';spinner.style.border='none';spinner.innerHTML='<div style="font-size:48px;line-height:55px">❌</div>';title.textContent='❌ Upload Failed';title.style.color='#dc3545';bar.style.background='#dc3545';}
+    document.getElementById('uploadDetail').textContent=msg||'';
+    setTimeout(()=>{
+        document.getElementById('uploadOverlay').style.display='none';
+        spinner.innerHTML='';spinner.style.animation='uploadSpin 1s linear infinite';
+        spinner.style.border='5px solid #e0e0e0';spinner.style.borderTop='5px solid #667eea';
+        title.style.color='#333';bar.style.background='linear-gradient(90deg,#667eea,#764ba2)';
+    },1500);
+}
+
+// ── NAME LISTENERS ────────────────────────────────────
+['WorkerFirstName','WorkerMiddleName','WorkerLastName','ArabicName','FatherName','FamilyName'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.addEventListener('input',updateFullNames);el.addEventListener('change',updateFullNames);}
+});
+document.getElementById('searchBox').addEventListener('input',renderWorkerList);
+
+// ── ALL FILES TAB ─────────────────────────────────────────────
+async function loadAllFilesTab() {
+    const container = document.getElementById('allFilesContent');
+    if(!container) return;
+    if(!currentWorker) {
+        container.innerHTML='<p style="padding:20px;text-align:center;color:#999;">⚠️ Please select a worker first!</p>';
+        return;
+    }
+    const sc = currentSupplier ? String(currentSupplier.SupplierCODE||'').toUpperCase() : '';
+    const wcode = sc+'-'+String(currentWorker.WorkerID).padStart(4,'0');
+    const wname = currentWorker.WFullName||currentWorker.WorkerFirstName||'Worker';
+    const folderName = currentWorker.WorkerFolder||'';
+
+    container.innerHTML = '<div style="background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;padding:10px 14px;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">'
+        +'<span style="font-size:18px;">📂</span><div><div style="font-weight:700;font-size:13px;">'+wname+'</div>'
+        +'<div style="font-size:10px;opacity:.9;">Code: '+wcode+(folderName?' | Folder: '+folderName:'')+'</div></div>'
+        +'<button onclick="openAllFilesGallery()" style="margin-left:auto;padding:6px 14px;background:rgba(255,255,255,.9);color:#0284c7;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Open Gallery</button>'
+        +'</div>'
+        +'<div id="allFilesList"><div style="text-align:center;padding:20px;color:#999;">⏳ Loading files...</div></div>';
+
+    let uploaded = currentWorker.UploadedWorkerDocs||{};
+    if(typeof uploaded==='string'){try{uploaded=JSON.parse(uploaded);}catch(e){uploaded={};}}
+
+    // Load doc names from cloud
+    const allDocs = await cloudLoad('Worker_Documents')||[];
+    const fileList = [];
+
+    if(currentWorker.WorkerImage)   fileList.push({section:'📷 Worker Photo',    fileName:'Photo',          fileUrl:currentWorker.WorkerImage});
+    if(currentWorker.PassportScanPath) fileList.push({section:'🛂 Passport Scan', fileName:currentWorker.PassportScanPath.split('/').pop(), fileUrl:''});
+    if(currentWorker.IDScanPath)    fileList.push({section:'🪪 ID Scan',          fileName:currentWorker.IDScanPath.split('/').pop(),        fileUrl:''});
+
+    Object.keys(uploaded).forEach(function(docId){
+        const doc = allDocs.find(function(d){ return parseInt(d.DocumentID)===parseInt(docId); });
+        const docName = doc ? doc.DocumentNameEN : 'Document #'+docId;
+        const uploads = Array.isArray(uploaded[docId]) ? uploaded[docId] : (uploaded[docId]?[uploaded[docId]]:[]);
+        uploads.forEach(function(f,i){
+            fileList.push({section:docName, fileName:f.fileName||('Copy '+(i+1)), fileUrl:f.fileUrl||''});
+        });
+    });
+
+    const inner = document.getElementById('allFilesList');
+    if(!fileList.length) {
+        inner.innerHTML='<div style="text-align:center;padding:30px;color:#999;background:#f8f9fa;border-radius:8px;">📭 No files uploaded yet for this worker.</div>';
+        return;
+    }
+
+    // Build gallery-style cards (same as WM)
+    let html = '';
+    fileList.forEach(function(f,i){
+        const ext = (f.fileName||'').split('.').pop().toLowerCase();
+        const icon = ['jpg','jpeg','png','gif','webp'].includes(ext)?'🖼️':ext==='pdf'?'📄':'📎';
+        const fid = (function(url){
+            if(!url) return '';
+            let m=url.match(/\/d\/([a-zA-Z0-9_-]+)/)||url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+            return m?m[1]:'';
+        })(f.fileUrl);
+
+        html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden;">'
+            +'<div style="background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;">'
+            +'<span style="font-weight:700;font-size:12px;">'+icon+' '+(i+1)+'. '+f.section+'</span>'
+            +'<span style="font-size:10px;opacity:.8;">'+f.fileName+'</span>'
+            +(f.fileUrl?'<a href="'+f.fileUrl+'" target="_blank" style="color:white;font-size:11px;background:rgba(255,255,255,.25);padding:3px 8px;border-radius:4px;text-decoration:none;margin-left:8px;">📂 Open</a>':'')
+            +'</div>';
+        if(fid){
+            html += '<iframe src="https://drive.google.com/file/d/'+fid+'/preview" style="width:100%;height:300px;border:none;display:block;" allow="autoplay"></iframe>';
+        } else {
+            html += '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px;">📎 Preview not available'
+                +(f.fileUrl?'<br><a href="'+f.fileUrl+'" target="_blank" style="color:#4facfe;font-weight:600;">Open in Drive</a>':'')+'</div>';
+        }
+        html += '</div>';
+    });
+    html += '<div style="margin-top:6px;font-size:11px;color:#64748b;text-align:right;">'+fileList.length+' file(s) total</div>';
+    inner.innerHTML = html;
+}
+
+function openAllFilesGallery() {
+    if(!currentWorker) return;
+    const sc = currentSupplier ? String(currentSupplier.SupplierCODE||'').toUpperCase() : '';
+    const wcode = sc+'-'+String(currentWorker.WorkerID).padStart(4,'0');
+    const wname = currentWorker.WFullName||currentWorker.WorkerFirstName||'';
+    let uploaded = currentWorker.UploadedWorkerDocs||{};
+    if(typeof uploaded==='string'){try{uploaded=JSON.parse(uploaded);}catch(e){uploaded={};}}
+    const files = [];
+    if(currentWorker.WorkerImage) files.push({name:'Worker Photo', url:currentWorker.WorkerImage});
+    Object.keys(uploaded).forEach(function(docId){
+        const ups = Array.isArray(uploaded[docId])?uploaded[docId]:(uploaded[docId]?[uploaded[docId]]:[]);
+        ups.forEach(function(f,i){ if(f.fileUrl) files.push({name:'Doc #'+docId+' Copy '+(i+1), url:f.fileUrl}); });
+    });
+    if(!files.length){ alert('No files with Drive links available yet.'); return; }
+
+    function fid(url){ if(!url)return''; let m=url.match(/\/d\/([a-zA-Z0-9_-]+)/)||url.match(/[?&]id=([a-zA-Z0-9_-]+)/); return m?m[1]:''; }
+    let h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Files — '+wcode+'</title>'
+        +'<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,sans-serif;background:linear-gradient(135deg,#4facfe,#00f2fe);padding:12px;min-height:100vh}'
+        +'.header{background:white;padding:14px 20px;border-radius:10px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 10px rgba(0,0,0,.1)}'
+        +'.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}'
+        +'.card{background:white;border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.1)}'
+        +'.card-hdr{background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;padding:8px 12px;font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center}'
+        +'.card-hdr a{color:white;font-size:11px;background:rgba(255,255,255,.25);padding:3px 8px;border-radius:4px;text-decoration:none}'
+        +'.pbtn{padding:8px 18px;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;color:white;margin-left:6px}'
+        +'@media print{.header button{display:none}}</style></head><body>'
+        +'<div class="header"><div><h2 style="color:#0284c7;font-size:17px;">📂 '+wcode+' — '+wname+'</h2>'
+        +'<p style="font-size:11px;color:#64748b;">'+files.length+' file(s)</p></div>'
+        +'<div><button class="pbtn" style="background:#28a745;" onclick="window.print()">🖨️ Print</button>'
+        +'<button class="pbtn" style="background:#6c757d;" onclick="window.close()">✕ Close</button></div></div>'
+        +'<div class="gallery">';
+    files.forEach(function(f){
+        const id=fid(f.url);
+        h+='<div class="card"><div class="card-hdr"><span>'+f.name+'</span>'
+            +(f.url?'<a href="'+f.url+'" target="_blank">📂 Open</a>':'<span style="opacity:.6">No link</span>')+'</div>';
+        h+=id?'<iframe src="https://drive.google.com/file/d/'+id+'/preview" style="width:100%;height:300px;border:none;" allow="autoplay"></iframe>'
+              :'<div style="padding:40px;text-align:center;color:#94a3b8;">📎 No preview</div>';
+        h+='</div>';
+    });
+    h+='</div></body></html>';
+    const w=window.open('','_blank');
+    if(w){w.document.write(h);w.document.close();}
+    else alert('⚠️ Pop-up blocked!');
+}
+
+// ── GUIDED WORKFLOW (same v5 logic as WM) ─────────────
+(function(){
+    var _steps={dob:false,issue:false,expiry:false,photo:false};
+    var _lastPassportPath='';
+    function resetSteps(){_steps={dob:false,issue:false,expiry:false,photo:false};_lastPassportPath='';}
+    var _origSelect=window.selectWorker;
+    window.selectWorker=function(w){resetSteps();_lastPassportPath=(w&&w.PassportScanPath)?w.PassportScanPath:'';return _origSelect.apply(this,arguments);};
+    setInterval(function(){
+        var pe=document.getElementById('PassportScanPath');if(!pe)return;
+        var np=pe.value||'';
+        if(np&&np!==_lastPassportPath&&!_steps.dob){_lastPassportPath=np;_steps.dob=true;setTimeout(promptDOB,2000);}
+    },1000);
+    function promptDOB(){
+        var wn=(typeof currentWorker!=='undefined'&&currentWorker)?(currentWorker.WFullName||currentWorker.WorkerFirstName||''):'';
+        showConfirm('🎂 STEP 1 of 3 — Date of Birth\n\n'+(wn?'👤 Worker: '+wn+'\n\n':'')+'✅ Passport scan uploaded!\n\n📋 Fill in the Date of Birth\n   (Passport tab → Passport Information)\n\n📌 Minimum age: 19 years\n\nYes → fill it now\nCancel → remove this worker').then(function(ok){if(!ok){cancelWorkerPortal('Date of Birth not provided');return;}switchToTab('documents');setTimeout(function(){var f=document.getElementById('DateOfBirth');if(f)f.focus();},400);});
+    }
+    var dobEl=document.getElementById('DateOfBirth');
+    if(dobEl){dobEl.addEventListener('change',function(){
+        if(!this.value)return;
+        var age=Math.floor((new Date()-new Date(this.value))/(1000*60*60*24*365.25));
+        if(age<19){_steps.issue=false;showMsg('⚠️ AGE RESTRICTION\n\n❌ Age: '+age+' years\n\n📌 Minimum: 19 years.\n\nPlease enter the correct date.','Age Restriction');this.value='';return;}
+        if(_steps.issue)return;_steps.issue=true;
+        setTimeout(function(){showConfirm('📅 STEP 2 of 3 — Passport Issue Date\n\n✅ Date of Birth saved!\n\n📋 Fill Passport Issue Date\n   (Passport tab)\n\nYes → fill now\nCancel → remove worker').then(function(ok){if(!ok){cancelWorkerPortal('Issue Date not provided');return;}switchToTab('documents');setTimeout(function(){var f=document.getElementById('PassportIssueDate');if(f)f.focus();},400);});},500);
+    });}
+    var issueEl=document.getElementById('PassportIssueDate');
+    if(issueEl){issueEl.addEventListener('change',function(){
+        if(!this.value||_steps.expiry)return;_steps.expiry=true;
+        setTimeout(function(){showConfirm('⏳ STEP 3 of 3 — Passport Expiry Date\n\n✅ Issue Date saved!\n\n📋 Fill Passport Expiry Date\n   (Passport tab)\n\n⚠️ Must have 18+ months validity\n\nYes → fill now\nCancel → remove worker').then(function(ok){if(!ok){cancelWorkerPortal('Expiry Date not provided');return;}switchToTab('documents');setTimeout(function(){var f=document.getElementById('PassportExpiryDate');if(f)f.focus();},400);});},500);
+    });}
+    var expiryEl=document.getElementById('PassportExpiryDate');
+    if(expiryEl){expiryEl.addEventListener('change',function(){
+        if(!this.value)return;
+        var months=(new Date(this.value)-new Date())/(1000*60*60*24*30.44);
+        if(months<18){_steps.photo=false;showMsg('⚠️ PASSPORT VALIDITY\n\n❌ Expires in '+Math.floor(months)+' months\n\n📌 Minimum: 18 months\n\nPlease enter the correct date.','Passport Validity');this.value='';return;}
+        if(_steps.photo)return;_steps.photo=true;
+        setTimeout(function(){showMsg('📸 FINAL STEP — Worker Photo\n\n✅ All passport dates complete!\n\n📋 Now add the Worker Photo:\n\n  1️⃣  Basic Info tab\n  2️⃣  Drag & drop photo onto the frame\n\n💾 Then click Save to complete!','Final Step');setTimeout(function(){switchToTab('basic');setTimeout(function(){var f=document.getElementById('workerPhotoFrame');if(f){f.style.boxShadow='0 0 0 5px rgba(79,172,254,.6)';f.style.borderColor='#4facfe';f.style.borderStyle='solid';setTimeout(function(){f.style.boxShadow='';f.style.borderStyle='dashed';f.style.borderColor='#c7d2fe';},5000);}},500);},1500);},500);
+    });}
+    async function cancelWorkerPortal(reason){
+        if(typeof currentWorker==='undefined'||!currentWorker)return;
+        var wn=currentWorker.WFullName||currentWorker.WorkerFirstName||'Worker';
+        var wid=currentWorker.WorkerID;
+        var fn=currentWorker.WorkerFolder||'';
+        var fi=currentWorker.WorkerFolderID||'';
+        workers=workers.filter(function(w){return String(w.WorkerID)!==String(wid);});
+        try{await cloudSave('Workers',{WorkerID:wid,_delete:true});}catch(e){}
+        if(fi||fn){try{await new Promise(function(res){google.script.run.withSuccessHandler(res).withFailureHandler(function(){res(null);}).gsrPost(JSON.stringify({action:'deleteFolder',folderId:fi,folderName:fn,parentFolder:'workers'}));});}catch(e){}}
+        try{var reg=JSON.parse(localStorage.getItem('mgsdb_worker_folders')||'{}');delete reg[String(wid)];localStorage.setItem('mgsdb_worker_folders',JSON.stringify(reg));var regI=JSON.parse(localStorage.getItem('mgsdb_worker_folderids')||'{}');delete regI[String(wid)];localStorage.setItem('mgsdb_worker_folderids',JSON.stringify(regI));}catch(e){}
+        resetSteps();currentWorker=null;
+        document.getElementById('workerForm').reset();
+        renderWorkerList();updateCounter();updateStats();
+        showMsg('🗑️ WORKER REMOVED\n\n👤 '+wn+'\n\n❌ Reason: '+reason+'\n\n📁 Drive folder cleaned up.','Worker Removed');
+    }
+})();
+
+
+// ═══════════════════════════════════════════════════════════════
+// WORKFLOW FILTER — 17 categories (same as Suppliers Manager)
+// ═══════════════════════════════════════════════════════════════
+(function(){
+'use strict';
+
+// ── WORKFLOW: identical to Suppliers Manager ─────────────────────
+// Removed: 'available' (same as accepted) | 'immigration' (same as waitingvisa)
+// To add/remove: edit WORKFLOW_Config.js then update both pages
+var WORKFLOW = [
+    { id: 'all',           num: '',   icon: '📋', label: 'All',        color: '#667eea', type: 'all',      hidden: true },
+    { id: 'pending',       num: '1',  icon: '⏳', label: 'Pending',    color: '#f59e0b', type: 'approval', hidden: true },
+    { id: 'accepted',      num: '2',  icon: '✅', label: 'Accepted',   color: '#22c55e', type: 'approval' },
+    { id: 'refused',       num: '3',  icon: '✖️', label: 'Refused',    color: '#ef4444', type: 'approval', hidden: true },
+    { id: 'selected',      num: '4',  icon: '☑️', label: 'Selected',   color: '#3b82f6', type: 'outcome' },
+    { id: 'preapproval',   num: '5',  icon: '📋', label: 'Pre-Appr',   color: '#9c27b0', type: 'outcome' },
+    { id: 'waitingvisa',   num: '6',  icon: '🛂', label: 'W.Visa',     color: '#2196f3', type: 'outcome' },
+    { id: 'waitingticket', num: '7',  icon: '🎫', label: 'W.Ticket',   color: '#00bcd4', type: 'outcome' },
+    { id: 'arrived',       num: '8',  icon: '✈️', label: 'Arrived',    color: '#16a34a', type: 'outcome' },
+    { id: 'local',         num: '9',  icon: '🏠', label: 'Local',      color: '#6b7280', type: 'tag' },
+    { id: 'moved',         num: '10', icon: '🔀', label: 'Moved',      color: '#7c3aed', type: 'tag' },
+    { id: 'cancelled',     num: '11', icon: '❌', label: 'Cancel',     color: '#dc2626', type: 'sticky' },
+    { id: 'unfit',         num: '12', icon: '🚫', label: 'Unfit',      color: '#92400e', type: 'sticky' },
+    { id: 'runaway',       num: '13', icon: '🏃', label: 'RunAway',    color: '#b91c1c', type: 'sticky' },
+    { id: 'senthome',      num: '14', icon: '🛫', label: 'Home',       color: '#475569', type: 'sticky' }
+    // ADD NEW CATEGORIES HERE — also update WORKFLOW_Config.js and Suppliers_Manager.html
+];
+
+var _wfFilter = 'all';
+
+// Build filter bar buttons
+function buildWFBar(){
+    var bar = document.getElementById('wfFilterBar');
+    if(!bar) return;
+    bar.querySelectorAll('.wf-btn').forEach(function(b){ b.remove(); });
+    var localAllowed = currentSupplier &&
+        (currentSupplier.AllowLocal===true||currentSupplier.AllowLocal==='true'||currentSupplier.AllowLocal==='TRUE');
+
+    // Helper: build one button
+    function mkBtn(id, icon, label, count, color, isActive, hasWorkers) {
+        var btn = document.createElement('button');
+        btn.type='button'; btn.className='wf-btn'; btn.setAttribute('data-wf', id);
+        var bg  = isActive ? color : 'white';
+        var clr = isActive ? 'white' : (hasWorkers ? color : '#ccc');
+        var bdr = isActive ? color : (hasWorkers ? color : '#e0e0e0');
+        var opc = hasWorkers ? '1' : '0.4';
+        btn.style.cssText = 'padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;'
+            +'cursor:'+(hasWorkers?'pointer':'default')+';border:2px solid '+bdr+';background:'+bg
+            +';color:'+clr+';opacity:'+opc+';transition:all 0.2s;white-space:nowrap;font-family:inherit;'
+            +(isActive?'box-shadow:0 2px 8px rgba(0,0,0,0.2);':'');
+        var cntBg  = isActive ? 'rgba(255,255,255,0.3)' : (hasWorkers ? color   : '#e0e0e0');
+        var cntClr = isActive ? 'white'                 : (hasWorkers ? 'white' : '#aaa');
+        btn.innerHTML = icon+' '+label
+            +' <span style="background:'+cntBg+';color:'+cntClr
+            +';padding:1px 6px;border-radius:10px;margin-left:2px;font-size:10px;font-weight:700;">'
+            +count+'</span>';
+        return btn;
+    }
+
+    // "All" reset button
+    var allCount = workers.length;
+    var allBtn = mkBtn('all','📋','All', allCount,'#667eea',_wfFilter==='all', allCount>0);
+    allBtn.addEventListener('click', function(){ if(allCount>0) setWFFilter('all'); });
+    bar.appendChild(allBtn);
+
+    // Outcome / tag / sticky categories only (all/pending/accepted/refused are hidden)
+    WORKFLOW.forEach(function(cat){
+        if(cat.hidden) return;
+        if(cat.id==='local' && !localAllowed) return;
+        var catCount = filterByWF(workers, cat.id).length;
+        var isActive = cat.id === _wfFilter;
+        var btn = mkBtn(cat.id, cat.icon, (cat.num?cat.num+'. ':'')+cat.label, catCount, cat.color, isActive, catCount>0);
+        btn.addEventListener('click', function(){ if(catCount>0) setWFFilter(cat.id); });
+        bar.appendChild(btn);
+    });
+}
+
+function setWFFilter(filterId){
+    _wfFilter = filterId;
+    buildWFBar(); // rebuild to update highlights
+    renderWorkerList();
+    // Auto-select first worker in filtered result
+    var filtered = filterByWF(getTabWorkers(_listTab), filterId);
+    if(filtered.length > 0) selectWorker(filtered[0]);
+}
+
+// ── Worker category logic (identical to Suppliers Manager) ────
+function _isT(v){ return v===true||v==='true'||v==='TRUE'||v===1||v==='1'; }
+
+function getWorkerCategory(w){
+    var outs=[]; try{ outs=JSON.parse(w.WorkerOutcomes||'[]'); }catch(e){}
+    // Sticky terminal
+    if(outs.indexOf('senthome')>=0)  return 'senthome';
+    if(outs.indexOf('runaway')>=0)   return 'runaway';
+    if(outs.indexOf('unfit')>=0)     return 'unfit';
+    if(outs.indexOf('cancelled')>=0) return 'cancelled';
+    // Tags
+    if(outs.indexOf('moved')>=0) return 'moved';
+    if(outs.indexOf('local')>=0) return 'local';
+    // Progression (immigration → waitingvisa since they are the same)
+    if(outs.indexOf('arrived')>=0)        return 'arrived';
+    if(outs.indexOf('waitingticket')>=0)  return 'waitingticket';
+    if(outs.indexOf('waitingvisa')>=0)    return 'waitingvisa';
+    if(outs.indexOf('immigration')>=0)    return 'waitingvisa'; // immigration = waitingvisa
+    if(outs.indexOf('preapproval')>=0)    return 'preapproval';
+    if(outs.indexOf('selected')>=0)       return 'selected';
+    // Approval (available = accepted)
+    if(_isT(w.RefusedByAdmin)&&!_isT(w.AcceptedByAdmin)) return 'refused';
+    if(_isT(w.AcceptedByAdmin)){
+        if(_isT(w.Selected)||w.EmployerCode) return 'selected';
+        return 'accepted'; // available → accepted
+    }
+    return 'pending';
+}
+
+function filterByWF(wList, filterId){
+    if(filterId==='all') return wList;
+    // If AllowLocal is false, hide local workers from portal entirely
+    if(filterId==='local' && currentSupplier &&
+       !(currentSupplier.AllowLocal===true||currentSupplier.AllowLocal==='true'||currentSupplier.AllowLocal==='TRUE')){
+        return [];
+    }
+    return wList.filter(function(w){
+        var cat = getWorkerCategory(w);
+        if(cat===filterId) return true;
+        // 'accepted' = AcceptedByAdmin OR WorkerLocked (belt-and-suspenders)
+        if(filterId==='accepted') {
+            var acc = w.AcceptedByAdmin;
+            if(acc===true||acc==='true'||acc==='TRUE'||acc===1||acc==='1') return true;
+            var lk = w.WorkerLocked;
+            if(lk===true||lk==='true'||lk==='TRUE'||lk===1||lk==='1') return true;
+        }
+        var outs=[]; try{ outs=JSON.parse(w.WorkerOutcomes||'[]'); }catch(e){}
+        // waitingvisa also catches immigration
+        if(filterId==='waitingvisa'&&outs.indexOf('immigration')>=0) return true;
+        if(filterId==='local'&&outs.indexOf('local')>=0)  return true;
+        if(filterId==='moved'&&outs.indexOf('moved')>=0)  return true;
+        // Sticky states: also appear in their progression stage
+        var STICKY=['cancelled','unfit','runaway','senthome'];
+        if(STICKY.some(function(s){return outs.indexOf(s)>=0;})){
+            if(filterId==='selected'&&outs.indexOf('selected')>=0)           return true;
+            if(filterId==='preapproval'&&outs.indexOf('preapproval')>=0)     return true;
+            if(filterId==='waitingvisa'&&(outs.indexOf('waitingvisa')>=0||outs.indexOf('immigration')>=0)) return true;
+            if(filterId==='waitingticket'&&outs.indexOf('waitingticket')>=0) return true;
+            if(filterId==='arrived'&&outs.indexOf('arrived')>=0)             return true;
+        }
+        return false;
+    });
+}
+
+function updateWFCounts(wList){
+    WORKFLOW.forEach(function(cat){
+        var el = document.getElementById('wfc-'+cat.id);
+        if(!el) return;
+        el.textContent = cat.id==='all' ? wList.length : filterByWF(wList, cat.id).length;
+    });
+}
+
+// ── Override renderWorkerList to apply WF filter ──────────────
+var _origRender = window.renderWorkerList;
+window.renderWorkerList = function(){
+    // Show/hide the filter bar
+    var bar = document.getElementById('wfFilterBar');
+    if(bar) bar.style.display = (typeof workers!=='undefined' && workers.length > 0) ? 'flex' : 'none';
+
+    // Update counts on all buttons
+    updateWFCounts(workers);
+
+    // Apply filter to workers list display
+    var search = (document.getElementById('searchBox').value||'').toLowerCase();
+    var sc = currentSupplier ? String(currentSupplier.SupplierCODE||'').toUpperCase() : '';
+
+    // First filter by search
+    // Apply list tab filter using shared function
+    var tabFiltered = getTabWorkers(_listTab);
+
+    var searched = tabFiltered.filter(function(w){
+        if(!search) return true;
+        return [w.WorkerID,w.WorkerFirstName,w.WorkerMiddleName,w.WorkerLastName,
+                w.WFullName,w.Nationality,w.PassportNumber,w.ContactNumber].join(' ').toLowerCase().indexOf(search) > -1;
+    });
+
+    // Then apply WF filter
+    var filtered = filterByWF(searched, _wfFilter);
+    
+    // Update tab counts
+    updateListTabCounts();
+
+    var list = document.getElementById('recordList');
+    if(!list) return;
+
+    if(filtered.length === 0){
+        var cat = WORKFLOW.find(function(c){ return c.id===_wfFilter; })||WORKFLOW[0];
+        list.innerHTML = '<li style="padding:14px;text-align:center;color:#94a3b8;font-size:12px;">'
+            + (search ? '🔍 No matches' : cat.icon+' No workers in "'+cat.label+'"') + '</li>';
+        return;
+    }
+
+    list.innerHTML = '';
+    filtered.forEach(function(w){
+        var code = sc+'-'+String(w.WorkerID).padStart(4,'0');
+        var name = w.WFullName||((w.WorkerFirstName||'')+' '+(w.WorkerLastName||'')).trim()||'Unknown';
+        var isActive = currentWorker && parseInt(currentWorker.WorkerID)===parseInt(w.WorkerID);
+        // Show approval status badge (for panel 1) + workflow stage
+        var isRef = isT(w.RefusedByAdmin);
+        var isAcc = isT(w.AcceptedByAdmin);
+        var approvalBadge = '';
+        if(isRef) approvalBadge = '<span style="background:#ef4444;color:white;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;">✖️ Refused</span>';
+        else if(isAcc) approvalBadge = '<span style="background:#22c55e;color:white;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;">✅ Accepted</span>';
+        else {
+            var cat = getWorkerCategory(w);
+            var catDef = WORKFLOW.find(function(c){ return c.id===cat && !c.hidden; })||WORKFLOW[1];
+            approvalBadge = '<span style="background:'+catDef.color+';color:white;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;">'+catDef.icon+' '+catDef.label+'</span>';
+        }
+        var li = document.createElement('li');
+        li.className = 'record-item'+(isActive?' active':'');
+        li.innerHTML = '<div class="id">'+code+'</div>'
+            +'<div class="name">'+name+'</div>'
+            +'<div class="status">'+approvalBadge
+            +(w.Nationality?' <span style="color:#94a3b8;font-size:10px;">· '+w.Nationality+'</span>':'')+'</div>';
+        li.onclick = function(){ selectWorker(w); };
+        list.appendChild(li);
+    });
+};
+
+// ── Show filter bar after data loads ─────────────────────────
+
+
+// Init bar on page load too (after a delay)
+setTimeout(function(){
+    buildWFBar();
+    // Show if workers already loaded
+    if(typeof workers !== 'undefined' && workers.length > 0){
+        var bar = document.getElementById('wfFilterBar');
+        if(bar) bar.style.display = 'flex';
+    }
+}, 1000);
+
+// Expose to window so loadPortalData wrapper (outside IIFE) can call them
+window.buildWFBar      = buildWFBar;
+window.setWFFilter     = setWFFilter;
+window.updateWFCounts  = updateWFCounts;
+window.filterByWF      = filterByWF;
+window.getWorkerCategory = getWorkerCategory;
+
+console.log('✅ Workflow Filter (17 categories) loaded for Supplier Portal');
+})();
+
+// ── START ─────────────────────────────────────────────
+init();
+
+// ═══════════════════════════════════════════════════════════════
+// BACKGROUND SYNC — refreshes workers every 60s silently
+// Updates counts and list without disrupting current view
+// ═══════════════════════════════════════════════════════════════
+var _bgSyncInterval = null;
+
+function startBackgroundSync() {
+    if(_bgSyncInterval) clearInterval(_bgSyncInterval);
+    _bgSyncInterval = setInterval(async function() {
+        if(!currentSupplier) return;
+        try {
+            var fresh = await cloudLoad('Workers');
+            if(!fresh || fresh.length === 0) return;
+            var sc  = String(currentSupplier.SupplierCODE||'').toUpperCase();
+            var sid = String(currentSupplier.SupplierID||'');
+            var myWorkers = fresh.filter(function(w){
+                return String(w.SupplierCode||'').toUpperCase()===sc ||
+                       String(w.SupplierID||'')===sid;
+            });
+            if(myWorkers.length === 0) return;
+
+            // Update workers array silently
+            workers = myWorkers;
+
+            // Update current worker data if one is selected
+            if(currentWorker) {
+                var updated = workers.find(function(w){ return String(w.WorkerID)===String(currentWorker.WorkerID); });
+                if(updated) currentWorker = updated;
+            }
+
+            // Refresh counts and list without changing selected worker
+            updateListTabCounts();
+            renderWorkerList();
+            updateCounter();
+
+            var el = document.getElementById('cloudStatus');
+            if(el){ el.textContent='☁️ Synced '+new Date().toLocaleTimeString(); el.style.background='#d4edda'; el.style.color='#155724'; }
+            console.log('🔄 Background sync: '+workers.length+' workers');
+        } catch(e) {
+            console.warn('Background sync failed:', e);
+        }
+    }, 60000); // every 60 seconds
+    console.log('✅ Background sync started (every 60s)');
+}
+
+function stopBackgroundSync() {
+    if(_bgSyncInterval) { clearInterval(_bgSyncInterval); _bgSyncInterval = null; }
+}
+
+// Start sync after login
+var _origLoadPortal = window.loadPortalData;
+window.loadPortalData = async function() {
+    _wfFilter = 'all'; // reset on every login
+    await _origLoadPortal.apply(this, arguments);
+    // buildWFBar is called inside setListTab (via _origLoadPortal) — just show the bar
+    var bar = document.getElementById('wfFilterBar');
+    if(bar) bar.style.display = workers.length > 0 ? 'flex' : 'none';
+    startBackgroundSync();
+};
+
+</script>
+<!-- ═══════════════════════════════════════════════════════════════
+     ARCHIVED WORKERS PATCH — Supplier_Portal
+     Adds:  🗄️ Archived tab in left panel (Panel 1)
+            Archive / Unarchive button in toolbar
+            WorkerArchived field saved to Workers sheet
+            Suppliers can archive BEFORE selected
+     Paste BEFORE </body>
+═══════════════════════════════════════════════════════════════ -->
+<style>
+/* ── Archived tab ─────────────────────────────────── */
+.list-tab#listTabArchived.active {
+    color:#78716c; border-bottom-color:#78716c;
+    background:rgba(120,113,108,0.07);
+}
+.list-tab#listTabArchived.active .lt-count { background:#78716c; color:white; }
+
+/* ── Archived worker items ────────────────────────── */
+.record-item.archived-item {
+    opacity:0.7; background:#f5f5f4 !important;
+    border-left:3px solid #a8a29e !important;
+}
+.record-item.archived-item .id   { color:#78716c; }
+.record-item.archived-item .name { color:#57534e; }
+
+/* ── Archive / Unarchive buttons ─────────────────── */
+#archiveWorkerBtn {
+    padding:8px 16px; font-size:13px; font-weight:700;
+    border:none; border-radius:6px; cursor:pointer;
+    font-family:inherit; transition:all 0.2s;
+    display:inline-flex; align-items:center; gap:6px;
+}
+#archiveWorkerBtn.archive   { background:#78716c; color:white; }
+#archiveWorkerBtn.archive:hover { background:#57534e; }
+#archiveWorkerBtn.unarchive { background:#22c55e; color:white; }
+#archiveWorkerBtn.unarchive:hover { background:#16a34a; }
+
+/* ── Archived banner ──────────────────────────────── */
+.archived-notice {
+    padding:8px 14px; background:#f5f5f4;
+    border:1.5px solid #d6d3d1; border-radius:7px;
+    font-size:12px; font-weight:700; color:#57534e;
+    margin-bottom:8px; display:flex; align-items:center; gap:6px;
+}
+</style>
+
+<script>
+(function(){
+'use strict';
+console.log('🗄️ Archive Patch (Supplier Portal) loading...');
+
+function _isT(v){ return v===true||v==='true'||v==='TRUE'||v===1||v==='1'; }
+function isArchived(w){ return _isT(w.WorkerArchived); }
+
+// ─────────────────────────────────────────────────────────────────
+// 1. Inject Archived tab into the list-tabs bar
+// ─────────────────────────────────────────────────────────────────
+function injectArchivedTab(){
+    var tabs = document.querySelector('.list-tabs');
+    if(!tabs || document.getElementById('listTabArchived')) return;
+    var btn = document.createElement('button');
+    btn.className = 'list-tab';
+    btn.id = 'listTabArchived';
+    btn.innerHTML = '🗄️ Archived <span class="lt-count" id="ltCountArchived">0</span>';
+    btn.onclick = function(){ setListTab('archived'); };
+    tabs.appendChild(btn);
+    console.log('✅ Archived tab injected');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 2. Inject Archive button into the form-toolbar
+// ─────────────────────────────────────────────────────────────────
+function injectArchiveButton(){
+    var toolbar = document.querySelector('.form-toolbar');
+    if(!toolbar || document.getElementById('archiveWorkerBtn')) return;
+    var btn = document.createElement('button');
+    btn.id = 'archiveWorkerBtn';
+    btn.type = 'button';
+    btn.className = 'archive';
+    btn.textContent = '🗄️ Archive';
+    btn.onclick = toggleArchive;
+    // Insert before the cloud status span (last in toolbar)
+    var cs = document.getElementById('cloudStatus');
+    if(cs) toolbar.insertBefore(btn, cs);
+    else toolbar.appendChild(btn);
+    console.log('✅ Archive button injected into toolbar');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3. Patch getTabWorkers — archived tab + exclude from others
+// ─────────────────────────────────────────────────────────────────
+var _origGetTabWorkers = window.getTabWorkers;
+window.getTabWorkers = function(tab){
+    if(tab === 'archived'){
+        return (typeof workers !== 'undefined' ? workers : []).filter(isArchived);
+    }
+    // All other tabs: exclude archived workers
+    var base = typeof _origGetTabWorkers === 'function' ? _origGetTabWorkers(tab) : [];
+    return base.filter(function(w){ return !isArchived(w); });
+};
+
+// ─────────────────────────────────────────────────────────────────
+// 4. Patch updateListTabCounts — add archived count
+// ─────────────────────────────────────────────────────────────────
+var _origUpdateCounts = window.updateListTabCounts;
+window.updateListTabCounts = function(){
+    if(typeof _origUpdateCounts === 'function') _origUpdateCounts.apply(this, arguments);
+    var el = document.getElementById('ltCountArchived');
+    if(el) el.textContent = (typeof workers !== 'undefined' ? workers : []).filter(isArchived).length;
+};
+
+// ─────────────────────────────────────────────────────────────────
+// 5. Patch setListTab — handle archived tab
+// ─────────────────────────────────────────────────────────────────
+var _origSetListTab = window.setListTab;
+window.setListTab = function(tab){
+    // Update active class for ALL tabs including archived
+    ['listTabAll','listTabPending','listTabRefused','listTabArchived'].forEach(function(id){
+        var el = document.getElementById(id);
+        if(!el) return;
+        el.classList.remove('active');
+        var match = (id==='listTabAll'&&tab==='all')     ||
+                    (id==='listTabPending'&&tab==='pending') ||
+                    (id==='listTabRefused'&&tab==='refused') ||
+                    (id==='listTabArchived'&&tab==='archived');
+        if(match) el.classList.add('active');
+    });
+
+    if(tab !== 'archived'){
+        window._archiveTabActive = false; // clear archive flag so renderWorkerList works normally
+        if(typeof _origSetListTab === 'function') _origSetListTab.apply(this, arguments);
+        return;
+    }
+
+    // ── Archived tab rendering ──
+    // Store current tab state
+    window._archiveTabActive = true; // dedicated flag — avoids conflict with let _listTab
+
+    updateListTabCounts();
+
+    // Show archived workers list
+    var archived = getTabWorkers('archived');
+    var list = document.getElementById('recordList');
+    if(!list) return;
+    list.innerHTML = '';
+
+    if(!archived.length){
+        list.innerHTML = '<li style="padding:14px;text-align:center;color:#94a3b8;font-size:12px;">🗄️ No archived workers</li>';
+        // Clear right panel
+        currentWorker = null;
+        document.querySelectorAll('#workerForm input:not([type=hidden]), #workerForm select, #workerForm textarea').forEach(function(el){ el.value=''; });
+        var banner = document.getElementById('workerStatusBanner');
+        if(banner){ banner.innerHTML=''; banner.style.padding='0'; }
+        setStatus('No archived workers');
+        return;
+    }
+
+    var sc = currentSupplier ? String(currentSupplier.SupplierCODE||'').toUpperCase() : '';
+    archived.forEach(function(w){
+        var code = sc+'-'+String(w.WorkerID).padStart(4,'0');
+        var name = w.WFullName||((w.WorkerFirstName||'')+' '+(w.WorkerLastName||'')).trim()||'Unknown';
+        var isActive = currentWorker && parseInt(currentWorker.WorkerID)===parseInt(w.WorkerID);
+        var li = document.createElement('li');
+        li.className = 'record-item archived-item'+(isActive?' active':'');
+        li.innerHTML = '<div class="id">'+code+'</div>'
+            +'<div class="name">'+name+'</div>'
+            +'<div class="status">🗄️ Archived'+(w.Nationality?' · '+w.Nationality:'')+'</div>';
+        li.onclick = function(){ selectWorker(w); };
+        list.appendChild(li);
+    });
+
+    // Auto-select first
+    selectWorker(archived[0]);
+    setStatus('Archived workers — '+archived.length);
+};
+
+// ─────────────────────────────────────────────────────────────────
+// 6. Archive / Unarchive action
+// ─────────────────────────────────────────────────────────────────
+async function toggleArchive(){
+    if(!currentWorker){ alert('⚠️ Please select a worker first.'); return; }
+    var w = currentWorker;
+
+    if(isArchived(w)){
+        // Unarchive — always allowed by supplier
+        var ok = await showConfirm('✅ Unarchive this worker?\n\n👤 '+(w.WFullName||w.WorkerFirstName)+'\n\nThey will return to the active list.');
+        if(!ok) return;
+        w.WorkerArchived = false;
+        w.WorkerArchivedReason = '';
+        w.WorkerArchivedDate = '';
+    } else {
+        // Archive — only allowed BEFORE selected/accepted
+        var sel = _isT(w.Selected) || _isT(w.AcceptedByAdmin) || _isT(w.WorkerLocked);
+        if(sel){
+            alert('❌ Cannot archive this worker.\n\nThis worker has already been Selected or Accepted by MGS.\n\nContact MGS to remove this worker.');
+            return;
+        }
+        var reason = prompt('🗄️ Archive this worker?\n\n'+(w.WFullName||w.WorkerFirstName)+'\n\nOptional reason (e.g. "Wrong submission", "Duplicate"):', '');
+        if(reason === null) return; // user pressed Cancel
+        w.WorkerArchived = true;
+        w.WorkerArchivedReason = reason.trim();
+        w.WorkerArchivedDate = new Date().toISOString();
+    }
+
+    // Update in workers array
+    var idx = workers.findIndex(function(wk){ return String(wk.WorkerID)===String(w.WorkerID); });
+    if(idx>=0) workers[idx] = w;
+    currentWorker = w;
+
+    // Save to cloud
+    setStatus('Saving...');
+    var result = await cloudSave('Workers', w);
+    if(result && result.success){
+        setStatus(isArchived(w) ? '🗄️ Worker archived' : '✅ Worker unarchived', true);
+    } else {
+        setStatus('⚠️ Save failed — please try again');
+    }
+
+    // Refresh UI
+    updateArchiveButton();
+    updateListTabCounts();
+    showWorkerStatusBanner();
+
+    // Switch to appropriate tab
+    if(isArchived(w)){
+        setListTab('archived');
+    } else {
+        // Move to pending tab after unarchive
+        var dflt = getTabWorkers('refused').length > 0 ? 'refused'
+                 : getTabWorkers('pending').length > 0 ? 'pending' : 'all';
+        setListTab(dflt);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 7. Update archive button state when worker is selected
+// ─────────────────────────────────────────────────────────────────
+function updateArchiveButton(){
+    var btn = document.getElementById('archiveWorkerBtn');
+    if(!btn) return;
+    if(!currentWorker){ btn.style.display='none'; return; }
+    btn.style.display = 'inline-flex';
+
+    if(isArchived(currentWorker)){
+        btn.textContent = '✅ Unarchive';
+        btn.className = 'unarchive';
+        btn.title = 'Return this worker to active list';
+    } else {
+        var sel = _isT(currentWorker.Selected)||_isT(currentWorker.AcceptedByAdmin)||_isT(currentWorker.WorkerLocked);
+        btn.textContent = '🗄️ Archive';
+        btn.className = 'archive';
+        btn.disabled  = sel;
+        btn.style.opacity = sel ? '0.4' : '1';
+        btn.style.cursor  = sel ? 'not-allowed' : 'pointer';
+        btn.title = sel ? 'Cannot archive — worker already selected/accepted' : 'Archive this worker (hide from active lists)';
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 8. Patch showWorkerStatusBanner to show archived notice
+// ─────────────────────────────────────────────────────────────────
+var _origBanner = window.showWorkerStatusBanner;
+window.showWorkerStatusBanner = function(){
+    if(typeof _origBanner === 'function') _origBanner.apply(this, arguments);
+    // Add archived notice at top of banner
+    var banner = document.getElementById('workerStatusBanner');
+    if(!banner || !currentWorker || !isArchived(currentWorker)) return;
+    var notice = document.createElement('div');
+    notice.className = 'archived-notice';
+    var reason = (currentWorker.WorkerArchivedReason||'').trim();
+    notice.innerHTML = '🗄️ <strong>Archived by you</strong>'
+        + (reason ? ' — ' + reason : '')
+        + ' <button onclick="toggleArchive()" style="margin-left:auto;padding:4px 10px;background:#22c55e;color:white;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">✅ Unarchive</button>';
+    banner.insertBefore(notice, banner.firstChild);
+};
+
+// ─────────────────────────────────────────────────────────────────
+// 9. Patch selectWorker to update archive button
+// ─────────────────────────────────────────────────────────────────
+var _origSelectWorker = window.selectWorker;
+window.selectWorker = function(worker){
+    if(typeof _origSelectWorker === 'function') _origSelectWorker.apply(this, arguments);
+    setTimeout(updateArchiveButton, 150);
+};
+
+// ─────────────────────────────────────────────────────────────────
+// 10. Patch renderWorkerList to exclude archived from regular tabs
+//     (getTabWorkers already handles this — but WF filter render also needs it)
+// ─────────────────────────────────────────────────────────────────
+var _origRender = window.renderWorkerList;
+window.renderWorkerList = function(){
+    // If we're on the archived tab, re-render that
+    if(window._archiveTabActive === true){
+        // Archived tab is active — list is rendered directly by setListTab
+        return;
+    }
+    if(typeof _origRender === 'function') _origRender.apply(this, arguments);
+    updateArchiveButton();
+};
+
+// ─────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────
+function init(){
+    injectArchivedTab();
+    injectArchiveButton();
+    // Hide archive button initially — shown when worker selected
+    var btn = document.getElementById('archiveWorkerBtn');
+    if(btn) btn.style.display = 'none';
+    console.log('✅ Archive Patch (Supplier Portal) ready');
+}
+
+// Run after all other scripts
+setTimeout(init, 600);
+
+})();
+</script>
+
+</body>
+</html>
