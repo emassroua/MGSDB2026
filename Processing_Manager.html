@@ -1132,9 +1132,173 @@
             }).catch(function(e) { console.warn('☁️ Invoice cloud sync failed:', e); });
             
             closeInvoicePopup();
-            
+
+            // ── Supplier Credit (OutgoingPayments) ─────────────────────────────
+            var recruitFee = parseFloat(w.RecruitmentFee) || 0;
+            var feeWarning = '';
+            if (!w.RecruitmentFee || recruitFee === 0) {
+                feeWarning = '\n\n⚠️ No recruitment fee stamped for this supplier.\nSupplier credit created with $0.00 — update in Accountant → Payments.';
+            }
+
+            var wCodeStr = w.WorkerCode || ((w.SupplierCode || '') + '-' + String(w.WorkerID).padStart(4, '0'));
+            var workerNat = w.Nationality || '';
+            var suppName = w.SupplierCode || 'Unknown Supplier';
+            var voucherNum = 'VCH-0001';
+
+            try {
+                // 1. Lookup supplier name from cloud
+                var suppList = await CloudDB.loadSheet('Suppliers');
+                var suppObj = suppList.find(function(s) {
+                    return String(s.SupplierCODE) === String(w.SupplierCode);
+                });
+                if (suppObj) suppName = suppObj.SupplierBusinessName || suppObj.SupplierName || suppName;
+
+                // 2. Get next voucher number from cloud
+                var existingPayments = await CloudDB.loadSheet('OutgoingPayments');
+                var maxVch = 0;
+                existingPayments.forEach(function(p) {
+                    var m = String(p.voucherNumber || '').match(/VCH-(\d+)/i);
+                    if (m) { var n = parseInt(m[1]); if (n > maxVch) maxVch = n; }
+                });
+                voucherNum = 'VCH-' + String(maxVch + 1).padStart(4, '0');
+            } catch(e) {
+                console.warn('⚠️ Supplier credit prep failed:', e);
+            }
+
+            // 3. Build and save credit record to cloud
+            var creditRecord = {
+                voucherNumber: voucherNum,
+                category: 'supplier',
+                supplierCode: w.SupplierCode || '',
+                supplierName: suppName,
+                workerID: w.WorkerID,
+                workerCode: wCodeStr,
+                workerName: workerName,
+                workerNationality: workerNat,
+                employerCode: w.EmployerCode || '',
+                employerName: empName,
+                invoiceNumber: invNumber,
+                amount: recruitFee,
+                status: 'pending',
+                dueOn: 'arrived',
+                notes: 'Due on arrival | Worker: ' + wCodeStr + ' | Invoice: ' + invNumber,
+                createdDate: new Date().toISOString(),
+                source: 'preapproval'
+            };
+
+            CloudDB.saveRow('OutgoingPayments', creditRecord)
+                .then(function(res) { console.log('☁️ Supplier credit saved:', res); })
+                .catch(function(e) { console.warn('☁️ Supplier credit save failed:', e); });
+
+            // ── Generate Supplier Credit PDF → Employer Folder (type: PreAp) ──
+            (async function() {
+                try {
+                    var empFolderID2 = emp ? (emp.EmployerFolderID || '') : '';
+                    var empFolderName2 = emp ? (emp.EmployerFolderName || emp.EmployerFolder || '') : '';
+                    if (!empFolderName2 && emp) {
+                        var agCode2 = emp.AgencyCode || '';
+                        var eId2 = emp.EmployerID || '';
+                        var eName2 = emp.EFN || emp.EmployerName || '';
+                        empFolderName2 = agCode2
+                            ? agCode2 + ' (' + eId2 + ') ' + eName2
+                            : (emp.EmployerCode || 'Unknown') + ' (' + eId2 + ') ' + eName2;
+                    }
+                    if (!empFolderID2 && !empFolderName2) {
+                        console.warn('⚠️ No employer folder — supplier credit PDF skipped.');
+                        return;
+                    }
+
+                    var { jsPDF } = window.jspdf;
+                    var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                    var pageW = 210, margin = 20, col = margin, y = 0;
+
+                    // Purple header
+                    doc.setFillColor(156, 39, 176);
+                    doc.rect(0, 0, pageW, 34, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(16); doc.setFont(undefined, 'bold');
+                    doc.text('Supplier Credit Note', pageW / 2, 14, { align: 'center' });
+                    doc.setFontSize(10); doc.setFont(undefined, 'normal');
+                    doc.text('Pre-Approval — Recruitment Fee Payable on Arrival', pageW / 2, 22, { align: 'center' });
+                    doc.text('Date: ' + new Date(invDate).toLocaleDateString('en-GB'), pageW / 2, 30, { align: 'center' });
+                    y = 44;
+
+                    doc.setTextColor(50, 50, 50);
+
+                    // Worker box
+                    doc.setFillColor(243, 229, 245);
+                    doc.roundedRect(margin, y, pageW - margin * 2, 36, 3, 3, 'F');
+                    doc.setFontSize(11); doc.setFont(undefined, 'bold');
+                    doc.text('Worker', col + 4, y + 9);
+                    doc.setFontSize(10); doc.setFont(undefined, 'normal');
+                    doc.text('Name: ' + workerName, col + 4, y + 17);
+                    doc.text('Code: ' + wCodeStr, col + 4, y + 24);
+                    doc.text('Nationality: ' + workerNat, col + 4, y + 31);
+                    y += 44;
+
+                    // Employer box
+                    doc.setFillColor(232, 245, 233);
+                    doc.roundedRect(margin, y, pageW - margin * 2, 22, 3, 3, 'F');
+                    doc.setFontSize(11); doc.setFont(undefined, 'bold');
+                    doc.text('Employer', col + 4, y + 9);
+                    doc.setFontSize(10); doc.setFont(undefined, 'normal');
+                    doc.text(empName + ' (' + (w.EmployerCode || '') + ')', col + 4, y + 17);
+                    y += 30;
+
+                    // Supplier box
+                    doc.setFillColor(227, 242, 253);
+                    doc.roundedRect(margin, y, pageW - margin * 2, 22, 3, 3, 'F');
+                    doc.setFontSize(11); doc.setFont(undefined, 'bold');
+                    doc.text('Supplier', col + 4, y + 9);
+                    doc.setFontSize(10); doc.setFont(undefined, 'normal');
+                    doc.text(suppName + ' (' + (w.SupplierCode || '') + ')', col + 4, y + 17);
+                    y += 30;
+
+                    // Amount box
+                    doc.setFillColor(156, 39, 176);
+                    doc.roundedRect(margin, y, pageW - margin * 2, 30, 3, 3, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(12); doc.setFont(undefined, 'bold');
+                    doc.text('Recruitment Fee — Due on Arrival', pageW / 2, y + 12, { align: 'center' });
+                    doc.setFontSize(22);
+                    doc.text('$' + recruitFee.toFixed(2), pageW / 2, y + 25, { align: 'center' });
+                    y += 38;
+
+                    // Reference lines
+                    doc.setTextColor(80, 80, 80);
+                    doc.setFontSize(10); doc.setFont(undefined, 'normal');
+                    doc.text('Voucher: ' + voucherNum, col, y + 8);
+                    doc.text('Linked Invoice: ' + invNumber, col, y + 16);
+                    doc.text('Status: Pending — Payable upon worker arrival', col, y + 24);
+
+                    // Footer
+                    doc.setFontSize(9); doc.setTextColor(160, 160, 160);
+                    doc.text('Generated by MGSDB2026 — ' + new Date().toLocaleString(), pageW / 2, 285, { align: 'center' });
+
+                    // Upload to employer folder with type PreAp
+                    var pdfBlob = doc.output('blob');
+                    var fileName = 'PreAp_SupCredit_' + wCodeStr + '_' + voucherNum + '.pdf';
+                    var pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+                    var formData = new FormData();
+                    formData.append('file', pdfFile);
+                    formData.append('folderId', empFolderID2);
+                    formData.append('folderName', empFolderName2);
+                    formData.append('employerCode', w.EmployerCode || '');
+                    formData.append('fileType', 'PreAp');
+                    var PDF_UP = 'https://script.google.com/macros/s/AKfycbwI-2e6Zav1-AAdHOIV442lzSGkp1NxTayIbantWgLj-v2p2M4uwdMX3Vlhc_YoJSLH/exec';
+                    fetch(PDF_UP, { method: 'POST', body: formData })
+                        .then(function(r) { return r.json(); })
+                        .then(function(res) { console.log('☁️ Supplier credit PDF uploaded:', res); })
+                        .catch(function(e) { console.warn('☁️ Supplier credit PDF upload failed:', e); });
+
+                } catch(e) {
+                    console.warn('⚠️ Supplier credit PDF generation failed:', e);
+                }
+            })();
+            // ── End Supplier Credit ────────────────────────────────────────────
+
             var feesSummary = selectedFees.map(function(f) { return f.nameEN + ': $' + f.subtotal.toFixed(2); }).join('\n');
-            alert('✅ Invoice Issued & Sent to Accountant!\n\n📋 Invoice: ' + invNumber + '\n📅 Date: ' + invDate + '\n\n💲 Fee Items:\n' + feesSummary + '\n\n💰 Total: $' + totalAmount.toFixed(2) + '\n\n🔒 Worker LOCKED\n📋 ' + workerName + ' → Preapproval\n📊 Invoice copied to Accountant');
+            alert('✅ Invoice Issued & Sent to Accountant!\n\n📋 Invoice: ' + invNumber + '\n📅 Date: ' + invDate + '\n\n💲 Fee Items:\n' + feesSummary + '\n\n💰 Total: $' + totalAmount.toFixed(2) + '\n\n🧾 Supplier Credit: ' + voucherNum + ' ($' + recruitFee.toFixed(2) + ')\n👤 Supplier: ' + suppName + '\n\n🔒 Worker LOCKED\n📋 ' + workerName + ' → Preapproval\n📊 Invoice + Credit copied to Accountant' + feeWarning);
             updateCounts(); renderTab();
 
             // ── Auto-generate and upload invoice PDF to employer folder ──────
@@ -1192,6 +1356,7 @@
                         document.head.appendChild(s);
                     });
                 }
+                var { jsPDF } = window.jspdf;
                 var { jsPDF } = window.jspdf;
                 var doc  = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
                 var pageW = 210, margin = 15, rightX = pageW - margin;
