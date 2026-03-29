@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💲 Processing Cost & Fees - MGSDB2026</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 50%, #a5d6a7 100%);
+            min-height: 100vh; display: flex;
+        }
+        .sidebar {
+            width: 320px; background: white; border-right: 1px solid #e0e0e0;
+            display: flex; flex-direction: column; height: 100vh; position: fixed;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+        }
+        .sidebar-header {
+            background: linear-gradient(135deg, #2e7d32, #43a047);
+            color: white; padding: 20px; text-align: center;
+        }
+        .sidebar-header h2 { font-size: 18px; margin-bottom: 5px; }
+        .sidebar-header p { font-size: 12px; opacity: 0.8; }
+        .sidebar-actions {
+            padding: 10px; display: flex; gap: 8px; border-bottom: 1px solid #e0e0e0;
+        }
+        .sidebar-actions button {
+            flex: 1; padding: 10px; border: none; border-radius: 8px;
+            cursor: pointer; font-weight: 600; font-size: 13px;
+        }
+        .btn-new { background: #2e7d32; color: white; }
+        .btn-refresh { background: #e8f5e9; color: #2e7d32; }
+        .sidebar-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .fee-item {
+            padding: 12px; border-radius: 8px; cursor: pointer;
+            margin-bottom: 6px; border: 2px solid transparent;
+            transition: all 0.2s; background: #fafafa;
+        }
+        .fee-item:hover { background: #e8f5e9; border-color: #a5d6a7; }
+        .fee-item.active { background: #e8f5e9; border-color: #2e7d32; }
+        .fee-item .fee-id { font-size: 11px; color: #999; font-weight: 600; }
+        .fee-item .fee-name { font-weight: 700; color: #333; font-size: 14px; margin: 3px 0; }
+        .fee-item .fee-name-ar { font-size: 13px; color: #666; direction: rtl; }
+        .fee-item .fee-price {
+            display: inline-block; background: #2e7d32; color: white;
+            padding: 2px 10px; border-radius: 10px; font-size: 12px; font-weight: 700; margin-top: 4px;
+        }
+        .fee-item .fee-qty {
+            display: inline-block; background: #e3f2fd; color: #1565c0;
+            padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-left: 4px;
+        }
+        .sidebar-footer {
+            padding: 10px; border-top: 1px solid #e0e0e0; text-align: center;
+        }
+        .sidebar-footer span { font-size: 12px; color: #666; }
+        .main { margin-left: 320px; flex: 1; padding: 30px; }
+        .toolbar {
+            display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;
+        }
+        .toolbar button {
+            padding: 10px 20px; border: none; border-radius: 8px;
+            cursor: pointer; font-weight: 600; font-size: 14px;
+        }
+        .btn-dashboard { background: #667eea; color: white; }
+        .btn-admin { background: #dc3545; color: white; }
+        #cloudStatus {
+            padding: 6px 14px; border-radius: 20px; font-size: 12px;
+            font-weight: 600; margin-left: auto;
+        }
+        .form-card {
+            background: white; border-radius: 15px; padding: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08); max-width: 700px;
+        }
+        .form-title {
+            font-size: 20px; font-weight: 700; color: #2e7d32;
+            margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e8f5e9;
+        }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group.full-width { grid-column: 1 / -1; }
+        .form-group label {
+            font-weight: 600; font-size: 13px; color: #333; margin-bottom: 6px;
+        }
+        .form-group input, .form-group textarea {
+            padding: 11px 14px; border: 2px solid #e0e0e0; border-radius: 8px;
+            font-size: 14px; transition: border 0.3s;
+        }
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none; border-color: #2e7d32;
+        }
+        .form-group .hint { font-size: 11px; color: #999; margin-top: 4px; font-style: italic; }
+        .form-group input[dir="rtl"] { text-align: right; font-family: 'Segoe UI', Tahoma, 'Arial', sans-serif; }
+        .form-group input:read-only { background: #f5f5f5; cursor: not-allowed; }
+        .form-actions {
+            display: flex; gap: 10px; margin-top: 25px; padding-top: 20px;
+            border-top: 2px solid #e8f5e9;
+        }
+        .form-actions button {
+            padding: 12px 25px; border: none; border-radius: 8px;
+            cursor: pointer; font-weight: 700; font-size: 14px; transition: transform 0.2s;
+        }
+        .form-actions button:hover { transform: scale(1.02); }
+        .btn-save { background: linear-gradient(135deg, #2e7d32, #43a047); color: white; }
+        .btn-clear { background: #e0e0e0; color: #333; }
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.9); display: flex;
+            justify-content: center; align-items: center; z-index: 9999;
+            font-size: 18px; font-weight: 600; color: #2e7d32;
+        }
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+        .empty-state h2 { font-size: 22px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div id="loadingOverlay" class="loading-overlay">💲 Loading Fees Data...</div>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>💲 Processing Fees</h2>
+            <p>Cost items for worker processing invoices</p>
+        </div>
+        <div class="sidebar-actions">
+            <button class="btn-new" onclick="newFee()">➕ New Fee</button>
+            <button class="btn-refresh" onclick="refreshData()">🔄 Refresh</button>
+        </div>
+        <div class="sidebar-list" id="feeList">
+            <div class="empty-state"><p>No fees yet</p></div>
+        </div>
+        <div class="sidebar-footer">
+            <span id="feeCount">0 items</span>
+        </div>
+    </div>
+    <div class="main">
+        <div class="toolbar">
+            <button class="btn-dashboard" onclick="window.location.href='Dashboard.html'">🏠 Dashboard</button>
+            <button class="btn-admin" onclick="window.location.href='Admin_Dashboard.html'">🔐 Admin</button>
+            <span id="cloudStatus" style="background: #fff3cd; color: #856404;">⏳ Loading...</span>
+        </div>
+        <div class="form-card" id="formCard">
+            <div class="form-title" id="formTitle">➕ New Processing Fee</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Fee ID</label>
+                    <input type="text" id="FeeID" readonly placeholder="Auto-generated">
+                </div>
+                <div class="form-group">
+                    <label>Default Quantity</label>
+                    <input type="number" id="FeeQty" value="1" min="1" step="1">
+                    <span class="hint">Default qty (can be changed during invoicing)</span>
+                </div>
+                <div class="form-group">
+                    <label>Fee Name (English) <span style="color:red">*</span></label>
+                    <input type="text" id="FeeNameEN" placeholder="e.g. Visa Processing Fee">
+                </div>
+                <div class="form-group">
+                    <label>اسم الرسم (عربي) <span style="color:red">*</span></label>
+                    <input type="text" id="FeeNameAR" dir="rtl" placeholder="مثال: رسوم معالجة التأشيرة">
+                </div>
+                <div class="form-group">
+                    <label>Default Price ($) <span style="color:red">*</span></label>
+                    <input type="number" id="FeePrice" step="0.01" min="0" placeholder="0.00">
+                    <span class="hint">⚠️ This is the default price — it CAN be changed per worker during invoicing</span>
+                </div>
+                <div class="form-group">
+                    <label>Currency</label>
+                    <input type="text" id="FeeCurrency" value="USD" placeholder="USD">
+                </div>
+                <div class="form-group full-width">
+                    <label>Notes / Description</label>
+                    <textarea id="FeeNotes" rows="2" placeholder="Optional description or notes about this fee..."></textarea>
+                </div>
+                <div class="form-group full-width">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                        <input type="checkbox" id="FeeDiscontinued" style="width:20px;height:20px;cursor:pointer;">
+                        <span>🚫 Discontinued (Disabled)</span>
+                    </label>
+                    <span class="hint">Discontinued items will NOT appear in the invoice popup when sending workers to Preapproval. The item stays in the list for records but cannot be used for new invoices.</span>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="btn-save" onclick="saveFee()">💾 Save Fee</button>
+                <button class="btn-clear" onclick="newFee()">🧹 Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var allFees = [];
+        var currentFee = null;
+        var cloudReady = true;
+
+        var CloudDB = {
+            loadSheet: function(s) {
+                return new Promise(function(resolve) {
+                    google.script.run
+                        .withSuccessHandler(function(data) { resolve((data&&data.data)?data.data:(Array.isArray(data)?data:[])); })
+                        .withFailureHandler(function() { resolve([]); })
+                        .gsrGetAll(s);
+                });
+            },
+            saveRow: function(s, d) {
+                return new Promise(function(resolve) {
+                    google.script.run
+                        .withSuccessHandler(function(r) { resolve(r); })
+                        .withFailureHandler(function() { resolve(null); })
+                        .gsrSaveRow(s, d);
+                });
+            }
+        };
+
+        async function init() {
+            renderList();
+            document.getElementById('loadingOverlay').style.display = 'none';
+            CloudDB.loadSheet('Processing_Costs').then(function(data) {
+                if (data && data.length > 0) {
+                    allFees = data;
+                    document.getElementById('cloudStatus').textContent = '☁️ Cloud';
+                    document.getElementById('cloudStatus').style.background = '#d4edda';
+                    document.getElementById('cloudStatus').style.color = '#155724';
+                    renderList();
+                }
+            });
+        }
+
+        function renderList() {
+            var list = document.getElementById('feeList');
+            document.getElementById('feeCount').textContent = allFees.filter(function(f) { return !(f.Discontinued === true || f.Discontinued === 'true'); }).length + ' active / ' + allFees.length + ' total';
+            if (allFees.length === 0) {
+                list.innerHTML = '<div class="empty-state"><h2>💲</h2><p>No fees added yet.<br>Click "➕ New Fee" to create one.</p></div>';
+                return;
+            }
+            var html = '';
+            allFees.forEach(function(fee, i) {
+                var isActive = currentFee && currentFee.FeeID === fee.FeeID;
+                var isDisc = fee.Discontinued === true || fee.Discontinued === 'true';
+                html += '<div class="fee-item ' + (isActive ? 'active' : '') + '" onclick="selectFee(' + i + ')" style="' + (isDisc ? 'opacity:0.5;' : '') + '">';
+                html += '<div class="fee-id">ID: ' + (fee.FeeID || 'N/A') + (isDisc ? ' <span style="background:#dc3545;color:white;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;">🚫 Disabled</span>' : ' <span style="background:#2e7d32;color:white;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;">✅ Active</span>') + '</div>';
+                html += '<div class="fee-name">' + (fee.FeeNameEN || 'Unnamed') + '</div>';
+                if (fee.FeeNameAR) html += '<div class="fee-name-ar">' + fee.FeeNameAR + '</div>';
+                html += '<div>';
+                html += '<span class="fee-price"' + (isDisc ? ' style="background:#999;"' : '') + '>$' + (fee.FeePrice || '0') + '</span>';
+                html += '<span class="fee-qty">Qty: ' + (fee.FeeQty || 1) + '</span>';
+                if (fee.FeeCurrency && fee.FeeCurrency !== 'USD') html += '<span class="fee-qty">' + fee.FeeCurrency + '</span>';
+                html += '</div></div>';
+            });
+            list.innerHTML = html;
+        }
+
+        function selectFee(index) {
+            currentFee = allFees[index];
+            document.getElementById('formTitle').textContent = '✏️ Edit Fee: ' + (currentFee.FeeNameEN || '');
+            document.getElementById('FeeID').value = currentFee.FeeID || '';
+            document.getElementById('FeeNameEN').value = currentFee.FeeNameEN || '';
+            document.getElementById('FeeNameAR').value = currentFee.FeeNameAR || '';
+            document.getElementById('FeeQty').value = currentFee.FeeQty || 1;
+            document.getElementById('FeePrice').value = currentFee.FeePrice || '';
+            document.getElementById('FeeCurrency').value = currentFee.FeeCurrency || 'USD';
+            document.getElementById('FeeNotes').value = currentFee.FeeNotes || '';
+            document.getElementById('FeeDiscontinued').checked = currentFee.Discontinued === true || currentFee.Discontinued === 'true';
+            renderList();
+        }
+
+        function newFee() {
+            currentFee = null;
+            document.getElementById('formTitle').textContent = '➕ New Processing Fee';
+            document.getElementById('FeeID').value = '';
+            document.getElementById('FeeNameEN').value = '';
+            document.getElementById('FeeNameAR').value = '';
+            document.getElementById('FeeQty').value = 1;
+            document.getElementById('FeePrice').value = '';
+            document.getElementById('FeeCurrency').value = 'USD';
+            document.getElementById('FeeNotes').value = '';
+            document.getElementById('FeeDiscontinued').checked = false;
+            renderList();
+        }
+
+        function getNextID() {
+            var max = 0;
+            allFees.forEach(function(f) {
+                var num = parseInt(String(f.FeeID).replace(/\D/g, '')) || 0;
+                if (num > max) max = num;
+            });
+            return 'FEE-' + String(max + 1).padStart(3, '0');
+        }
+
+        async function saveFee() {
+            var nameEN = document.getElementById('FeeNameEN').value.trim();
+            var nameAR = document.getElementById('FeeNameAR').value.trim();
+            var price = document.getElementById('FeePrice').value;
+            if (!nameEN) { alert('❌ Fee Name (English) is required!'); return; }
+            if (!nameAR) { alert('❌ Fee Name (Arabic) is required!'); return; }
+            if (!price || parseFloat(price) < 0) { alert('❌ Default Price is required!'); return; }
+            var fee;
+            if (currentFee) {
+                fee = currentFee;
+            } else {
+                fee = { FeeID: getNextID() };
+                allFees.push(fee);
+            }
+            fee.FeeNameEN = nameEN;
+            fee.FeeNameAR = nameAR;
+            fee.FeeQty = parseInt(document.getElementById('FeeQty').value) || 1;
+            fee.FeePrice = parseFloat(price);
+            fee.FeeCurrency = document.getElementById('FeeCurrency').value.trim() || 'USD';
+            fee.FeeNotes = document.getElementById('FeeNotes').value.trim();
+            fee.Discontinued = document.getElementById('FeeDiscontinued').checked;
+            await CloudDB.saveRow('Processing_Costs', fee);
+            alert('✅ Fee Saved!\n\n💲 ' + fee.FeeNameEN + '\n🆔 ' + fee.FeeID + '\n💰 $' + fee.FeePrice + (fee.Discontinued ? '\n🚫 Status: Disabled' : '\n✅ Status: Active'));
+            currentFee = fee;
+            document.getElementById('FeeID').value = fee.FeeID;
+            document.getElementById('formTitle').textContent = '✏️ Edit Fee: ' + fee.FeeNameEN;
+            renderList();
+        }
+
+        // Delete is blocked — use Discontinued checkbox instead
+        function deleteFee() {
+            alert('🚫 Delete is disabled.\n\nUse the "Discontinued" checkbox to disable a fee.\nDiscontinued fees will not appear in invoices.');
+        }
+
+        async function refreshData() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            await init();
+        }
+
+        init();
+    </script>
+</body>
+</html>
