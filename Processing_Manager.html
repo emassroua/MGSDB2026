@@ -1133,11 +1133,10 @@
             
             closeInvoicePopup();
 
-            // ── Supplier Credit (OutgoingPayments) ─────────────────────────────
-            var recruitFee = parseFloat(w.RecruitmentFee) || 0;
+            /var recruitFee = parseFloat(w.RecruitmentFee) || totalAmount;
             var feeWarning = '';
-            if (!w.RecruitmentFee || recruitFee === 0) {
-                feeWarning = '\n\n⚠️ No recruitment fee stamped for this supplier.\nSupplier credit created with $0.00 — update in Accountant → Payments.';
+            if (!w.RecruitmentFee || parseFloat(w.RecruitmentFee) === 0) {
+                feeWarning = '\n\n⚠️ No recruitment fee stamped — using invoice total ($' + totalAmount.toFixed(2) + ') as supplier credit amount.';
             }
 
             var wCodeStr = w.WorkerCode || ((w.SupplierCode || '') + '-' + String(w.WorkerID).padStart(4, '0'));
