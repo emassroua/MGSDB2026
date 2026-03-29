@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cleanup Unlinked Employers</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        
+        .danger-box {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-right: 10px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .employer-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .employer-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #dc3545;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .employer-info {
+            flex: 1;
+        }
+        
+        .employer-id {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 16px;
+        }
+        
+        .employer-name {
+            color: #333;
+            margin-top: 3px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Cleanup Unlinked Employers</h1>
+        <p class="subtitle">Find and remove employers not linked to any local agency</p>
+        
+        <div class="info-box">
+            <strong>ℹ️ What are unlinked employers?</strong><br>
+            These are employers that were created before the Local Agencies system was implemented. They don't have an AgencyID or AgencyCode, which means they're not linked to any recruitment agency.
+        </div>
+        
+        <div class="stats" id="statsSection">
+            <div class="stat-box">
+                <div class="stat-number" id="totalEmployers">-</div>
+                <div class="stat-label">Total Employers</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="unlinkedCount">-</div>
+                <div class="stat-label">Unlinked Employers</div>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <button class="btn btn-primary" id="scanBtn" onclick="scanEmployers()">🔍 Scan for Unlinked Employers</button>
+        </div>
+        
+        <div id="resultsSection" style="display: none;">
+            <div class="warning-box" id="warningBox" style="display: none;">
+                <strong>⚠️ Found unlinked employers!</strong><br>
+                The following employers are not linked to any local agency and should be removed:
+            </div>
+            
+            <div class="employer-list" id="unlinkedList"></div>
+            
+            <div class="danger-box">
+                <strong>⚠️ WARNING!</strong><br>
+                This action will permanently delete all unlinked employers from the database. This cannot be undone!
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-danger" id="deleteBtn" onclick="deleteUnlinked()">🗑️ Delete All Unlinked Employers</button>
+                <button class="btn btn-success" onclick="location.reload()">🔄 Refresh</button>
+            </div>
+        </div>
+        
+        <div id="successSection" style="display: none; text-align: center;">
+            <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                <h2 style="color: #28a745; margin-bottom: 10px;">✅ Cleanup Complete!</h2>
+                <p style="color: #155724;">Successfully deleted <strong id="deletedCount">0</strong> unlinked employers from Google Sheets.</p>
+            </div>
+            <button class="btn btn-primary" onclick="location.reload()">🔄 Scan Again</button>
+        </div>
+    </div>
+    
+    <script>
+        let employers = [];
+        let unlinkedEmployers = [];
+
+        // ── Cloud load ────────────────────────────────────────────────
+        function loadEmployers() {
+            document.getElementById('scanBtn').disabled = true;
+            document.getElementById('scanBtn').textContent = '⏳ Loading from Cloud...';
+            google.script.run
+                .withSuccessHandler(function(data) {
+    console.log('RAW DATA:', JSON.stringify(data));
+    employers = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+    console.log('☁️ Employers loaded:', employers.length);
+                    document.getElementById('totalEmployers').textContent = employers.length;
+                    const unlinked = employers.filter(e =>
+                        !e.AgencyID || !e.AgencyCode || String(e.AgencyID).trim() === '' || String(e.AgencyCode).trim() === ''
+                    );
+                    document.getElementById('unlinkedCount').textContent = unlinked.length;
+                    document.getElementById('scanBtn').disabled = false;
+                    document.getElementById('scanBtn').textContent = '🔍 Scan for Unlinked Employers';
+                })
+                .withFailureHandler(function(err) {
+                    alert('❌ Failed to load employers: ' + err.message);
+                    document.getElementById('scanBtn').disabled = false;
+                    document.getElementById('scanBtn').textContent = '🔍 Scan for Unlinked Employers';
+                })
+                .gsrGetAll('Employers');
+        }
+
+        function scanEmployers() {
+            // Find unlinked employers (no AgencyID or AgencyCode)
+            unlinkedEmployers = employers.filter(e =>
+                !e.AgencyID || !e.AgencyCode || String(e.AgencyID).trim() === '' || String(e.AgencyCode).trim() === ''
+            );
+
+            document.getElementById('totalEmployers').textContent = employers.length;
+            document.getElementById('unlinkedCount').textContent = unlinkedEmployers.length;
+
+            if (unlinkedEmployers.length === 0) {
+                alert('✅ All employers are properly linked!\n\nNo unlinked employers found.');
+                return;
+            }
+
+            // Show results
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('warningBox').style.display = 'block';
+
+            // Render unlinked list
+            const listContainer = document.getElementById('unlinkedList');
+            listContainer.innerHTML = '';
+            unlinkedEmployers.forEach(emp => {
+                const div = document.createElement('div');
+                div.className = 'employer-item';
+                div.innerHTML = `
+                    <div class="employer-info">
+                        <div class="employer-id">ID: ${emp.EmployerID} | Code: ${emp.EmployerCode || 'N/A'}</div>
+                        <div class="employer-name">Name: ${emp.EmployerName || emp.EFN || 'Unknown'}</div>
+                        <div style="font-size:12px;color:#666;margin-top:5px;">
+                            AgencyID: ${emp.AgencyID || '❌ Missing'} |
+                            AgencyCode: ${emp.AgencyCode || '❌ Missing'}
+                        </div>
+                    </div>
+                    <div style="color:#dc3545;font-size:24px;">🗑️</div>
+                `;
+                listContainer.appendChild(div);
+            });
+        }
+
+        function deleteUnlinked() {
+            if (unlinkedEmployers.length === 0) {
+                alert('No unlinked employers to delete!');
+                return;
+            }
+
+            const confirmMessage = `⚠️ DELETE ${unlinkedEmployers.length} UNLINKED EMPLOYER${unlinkedEmployers.length > 1 ? 'S' : ''}?\n\n` +
+                `This will permanently delete:\n` +
+                unlinkedEmployers.map(e => `- ${e.EmployerCode || 'ID:' + e.EmployerID} (${e.EmployerName || e.EFN || 'Unknown'})`).join('\n') +
+                `\n\nThis action CANNOT be undone!\n\nAre you sure?`;
+
+            if (!confirm(confirmMessage)) return;
+            if (!confirm(`🚨 FINAL CONFIRMATION\n\nDelete ${unlinkedEmployers.length} employer(s) from Google Sheets?\n\nThis is your last chance to cancel!`)) return;
+
+            const deleteBtn = document.getElementById('deleteBtn');
+            deleteBtn.disabled = true;
+            deleteBtn.textContent = '⏳ Deleting...';
+
+            let deleted = 0;
+            let errors  = 0;
+            const total = unlinkedEmployers.length;
+
+            function deleteNext(index) {
+                if (index >= total) {
+                    // All done
+                    if (errors === 0) {
+                        document.getElementById('resultsSection').style.display = 'none';
+                        document.getElementById('successSection').style.display = 'block';
+                        document.getElementById('deletedCount').textContent = deleted;
+                    } else {
+                        alert(`⚠️ Completed with ${errors} error(s). ${deleted} deleted successfully.`);
+                        deleteBtn.disabled = false;
+                        deleteBtn.textContent = '🗑️ Delete All Unlinked Employers';
+                    }
+                    return;
+                }
+                const emp = unlinkedEmployers[index];
+                deleteBtn.textContent = `⏳ Deleting ${index+1}/${total}...`;
+                google.script.run
+                    .withSuccessHandler(function() {
+                        deleted++;
+                        deleteNext(index + 1);
+                    })
+                    .withFailureHandler(function(err) {
+                        console.error('Delete failed for', emp.EmployerID, err);
+                        errors++;
+                        deleteNext(index + 1);
+                    })
+                    .gsrDeleteRow('Employers', emp.EmployerID);
+            }
+
+            deleteNext(0);
+        }
+
+        // Auto-load on page open
+        window.onload = function() {
+            loadEmployers();
+        };
+    </script>
+</body>
+</html>
