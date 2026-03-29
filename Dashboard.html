@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGSDB2026 - Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .dashboard-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .dashboard-header h1 { font-size: 42px; margin-bottom: 10px; font-weight: 700; }
+        .dashboard-header p  { font-size: 18px; opacity: 0.95; }
+        .dashboard-content   { padding: 50px 40px; }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 18px;
+            margin-bottom: 40px;
+        }
+        @media (max-width: 1200px) { .modules-grid { grid-template-columns: repeat(4, 1fr); } }
+        @media (max-width: 900px)  { .modules-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 600px)  { .modules-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        a.module-link { text-decoration: none; color: inherit; display: block; }
+
+        .module-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            padding: 20px 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .module-card:hover { transform: translateY(-10px); box-shadow: 0 15px 35px rgba(0,0,0,0.2); }
+        .module-card.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .module-card.locked { background: linear-gradient(135deg, #dc3545 0%, #6c1d2e 100%); color: white; }
+        .module-icon        { font-size: 36px; margin-bottom: 10px; }
+        .module-title       { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+        .module-description { font-size: 11px; opacity: 0.8; margin-bottom: 10px; }
+        .module-status      { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,0.3); }
+
+        /* Stats */
+        .stats-section {
+            background: linear-gradient(135deg, #f0f2ff 0%, #f5f0ff 100%);
+            border-radius: 16px;
+            padding: 22px 24px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(102,126,234,0.12);
+        }
+        .stats-section h2 {
+            font-size: 13px; font-weight: 700; color: #667eea; margin-bottom: 14px;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+        .stat-card {
+            border-radius: 12px; padding: 14px 10px 12px;
+            text-align: center; position: relative; overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        .stat-card::before { content:''; position:absolute; top:-18px; right:-18px; width:55px; height:55px; border-radius:50%; background:rgba(255,255,255,0.15); }
+        .stat-card-1  { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .stat-card-2  { background: linear-gradient(135deg, #f093fb, #c471ed); }
+        .stat-card-3  { background: linear-gradient(135deg, #4facfe, #00c6fb); }
+        .stat-card-4  { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+        .stat-card-5  { background: linear-gradient(135deg, #fa709a, #fee140); }
+        .stat-card-6  { background: linear-gradient(135deg, #a18cd1, #fbc2eb); }
+        .stat-card-7  { background: linear-gradient(135deg, #f7971e, #ffd200); }
+        .stat-card-8  { background: linear-gradient(135deg, #11998e, #38ef7d); }
+        .stat-card-9  { background: linear-gradient(135deg, #ee0979, #ff6a00); }
+        .stat-card-10 { background: linear-gradient(135deg, #2193b0, #6dd5ed); }
+        .stat-card-11 { background: linear-gradient(135deg, #c94b4b, #4b134f); }
+        .stat-card-12 { background: linear-gradient(135deg, #544a7d, #ffd452); }
+        .stat-card-13 { background: linear-gradient(135deg, #1d976c, #93f9b9); }
+        .proc-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+        .stat-icon   { font-size: 20px; margin-bottom: 6px; display: block; }
+        .stat-number { font-size: 28px; font-weight: 800; color: white; margin-bottom: 3px; line-height: 1; text-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .stat-number.empty { font-size: 22px; opacity: 0.4; }
+        .stat-label  { font-size: 10px; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+
+        /* Processing panel */
+        .pm-employer-card   { background: white; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); overflow: hidden; }
+        .pm-employer-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: white; }
+        .pm-employer-header h3 { font-size: 16px; }
+        .pm-employer-badge  { background: rgba(255,255,255,0.3); padding: 4px 12px; border-radius: 15px; font-size: 13px; font-weight: 600; }
+        .pm-workers-body    { padding: 15px 20px; }
+        .pm-worker-row      { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #ff9800; background: #fafafa; }
+        .pm-worker-info     { flex: 1; min-width: 0; }
+        .pm-worker-name     { font-weight: 700; color: #333; font-size: 15px; }
+        .pm-worker-details  { font-size: 12px; color: #666; margin-top: 4px; }
+        .pm-worker-details span { font-weight: 600; color: #667eea; }
+        .pm-status-badge    { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; margin-left: 8px; }
+        .pm-outcome-bar     { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; align-items: center; }
+        .pm-outcome-label   { font-size: 10px; color: #bbb; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; margin-right: 2px; white-space: nowrap; }
+        .pm-obtn            { padding: 3px 11px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1.5px solid #ddd; background: #f4f4f4; color: #888; }
+        .pm-obtn.on         { background: #9c27b0; color: #fff; border-color: #9c27b0; }
+        .pm-obtn.on::before { content: '✓ '; font-weight: 900; }
+
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; border-top: 1px solid #e9ecef; }
+
+        /* Login Modal */
+        .modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.show { display: flex; }
+        .login-modal {
+            background: white; border-radius: 16px; padding: 28px 30px 24px;
+            width: 320px; max-width: 90%;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.28);
+            text-align: center; position: relative;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .login-modal h2      { font-size: 18px; color: #333; margin-bottom: 5px; }
+        .login-modal p       { color: #999; font-size: 12px; margin-bottom: 18px; }
+        .login-modal .modal-icon { font-size: 36px; margin-bottom: 10px; }
+        .form-group          { margin-bottom: 14px; text-align: left; }
+        .form-group label    { display: block; font-size: 11px; font-weight: 700; color: #777; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input    { width: 100%; padding: 10px 13px; border: 2px solid #e8e8e8; border-radius: 9px; font-size: 14px; transition: border-color 0.3s; outline: none; }
+        .form-group input:focus { border-color: #667eea; }
+        .login-submit-btn    { width: 100%; padding: 11px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.3s; margin-top: 4px; letter-spacing: 0.5px; }
+        .login-submit-btn:hover { opacity: 0.88; transform: scale(1.02); }
+        .login-error         { color: #e74c3c; font-size: 12px; margin-top: 10px; display: none; background:#fff0f0; padding:7px 10px; border-radius:7px; border-left:3px solid #e74c3c; }
+        .modal-close         { position: absolute; top: 15px; right: 20px; font-size: 24px; color: #aaa; cursor: pointer; background: none; border: none; line-height: 1; }
+        .modal-close:hover   { color: #333; }
+    </style>
+</head>
+<body>
+<div class="dashboard-container">
+
+    <!-- HEADER -->
+    <div class="dashboard-header">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:15px;">
+            <button onclick="openModuleLogin('Admin Dashboard','admin','admin_dashboard')"
+                style="background:rgba(255,255,255,0.2);color:white;border:2px solid rgba(255,255,255,0.5);padding:10px 24px;border-radius:30px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                <span>&#128272;</span> Admin Login
+            </button>
+        </div>
+        <h1>&#127970; MGS - Massroua General Services</h1>
+        <p>Management System Dashboard</p>
+    </div>
+
+    <!-- LOGIN MODAL -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="login-modal">
+            <button class="modal-close" onclick="closeLoginModal()">&times;</button>
+            <div class="modal-icon">&#128274;</div>
+            <h2 id="loginTitle">Access Required</h2>
+            <p id="loginDescription">Enter the password to continue</p>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="adminPassword" placeholder="Enter password" onkeydown="if(event.key==='Enter') adminLogin()">
+            </div>
+            <button class="login-submit-btn" onclick="adminLogin()">Unlock &amp; Enter</button>
+            <div class="login-error" id="loginError">&#10060; Invalid password</div>
+        </div>
+    </div>
+
+    <div class="dashboard-content">
+
+        <!-- QUICK STATISTICS -->
+        <div class="stats-section">
+            <h2>📊 Quick Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card stat-card-1"><span class="stat-icon">🏗️</span><div class="stat-number" id="supplierCount">0</div><div class="stat-label">Suppliers</div></div>
+                <div class="stat-card stat-card-2"><span class="stat-icon">👷</span><div class="stat-number" id="workerCount">0</div><div class="stat-label">Workers</div></div>
+                <div class="stat-card stat-card-3"><span class="stat-icon">👔</span><div class="stat-number" id="employerCount">0</div><div class="stat-label">Employers</div></div>
+                <div class="stat-card stat-card-4"><span class="stat-icon">🏛️</span><div class="stat-number" id="agencyCount">0</div><div class="stat-label">Agencies</div></div>
+                <div class="stat-card stat-card-5"><span class="stat-icon">🌍</span><div class="stat-number" id="nationalityCount">0</div><div class="stat-label">Countries</div></div>
+                <div class="stat-card stat-card-6"><span class="stat-icon">✅</span><div class="stat-number" id="activeNationalityCount">0</div><div class="stat-label">Active</div></div>
+            </div>
+        </div>
+
+        <!-- WORKER PROCESSING STATISTICS -->
+        <div class="stats-section" style="margin-top:30px;">
+            <h2>📊 Worker Processing Statistics</h2>
+            <div class="proc-stats-grid">
+                <div class="stat-card stat-card-1"  onclick="toggleProcPanel('processing')"    style="cursor:pointer;" title="Click to view workers"><span class="stat-icon">⚙️</span><div class="stat-number" id="ps-processing">0</div><div class="stat-label">Processing</div></div>
+                <div class="stat-card stat-card-3"  onclick="toggleProcPanel('preapproval')"   style="cursor:pointer;" title="Click to view workers"><span class="stat-icon">📋</span><div class="stat-number" id="ps-preapproval">0</div><div class="stat-label">Pre-Approval</div></div>
+                <div class="stat-card stat-card-7"  onclick="toggleProcPanel('immigration')"   style="cursor:pointer;" title="Click to view workers"><span class="stat-icon">🛂</span><div class="stat-number" id="ps-immigration">0</div><div class="stat-label">Immigration</div></div>
+                <div class="stat-card stat-card-8"  onclick="toggleProcPanel('waitingvisa')"   style="cursor:pointer;" title="Click to view workers"><span class="stat-icon">⏳</span><div class="stat-number" id="ps-waitingvisa">0</div><div class="stat-label">Waiting Visa</div></div>
+                <div class="stat-card stat-card-10" onclick="toggleProcPanel('waitingticket')" style="cursor:pointer;" title="Click to view workers"><span class="stat-icon">🎫</span><div class="stat-number" id="ps-waitingticket">0</div><div class="stat-label">Waiting Ticket</div></div>
+                <div class="stat-card stat-card-9"  onclick="toggleProcPanel('cancelled')"     style="cursor:pointer;" title="Click to view workers"><span class="stat-icon">❌</span><div class="stat-number" id="ps-cancelled">0</div><div class="stat-label">Cancelled</div></div>
+                <div class="stat-card stat-card-13" onclick="toggleProcPanel('arrived')"       style="cursor:pointer;" title="Click to view workers"><span class="stat-icon">✈️</span><div class="stat-number" id="ps-arrived">0</div><div class="stat-label">Arrived</div></div>
+                <div class="stat-card stat-card-4"  onclick="toggleProcPanel('local')"         style="cursor:pointer;" title="Click to view workers"><span class="stat-icon">🏠</span><div class="stat-number" id="ps-local">0</div><div class="stat-label">Local</div></div>
+                <div class="stat-card stat-card-12" onclick="toggleProcPanel('moved')"         style="cursor:pointer;" title="Click to view workers"><span class="stat-icon">🔀</span><div class="stat-number" id="ps-moved">0</div><div class="stat-label">Moved</div></div>
+                <div class="stat-card stat-card-11" onclick="toggleProcPanel('unfit')"         style="cursor:pointer;" title="Click to view workers"><span class="stat-icon">🚫</span><div class="stat-number" id="ps-unfit">0</div><div class="stat-label">Unfit</div></div>
+                <div class="stat-card stat-card-9"  onclick="toggleProcPanel('runaway')"       style="cursor:pointer;" title="Click to view workers"><span class="stat-icon">🏃</span><div class="stat-number" id="ps-runaway">0</div><div class="stat-label">RunAway</div></div>
+                <div class="stat-card stat-card-11" onclick="toggleProcPanel('senthome')"      style="cursor:pointer;" title="Click to view workers"><span class="stat-icon">🛫</span><div class="stat-number" id="ps-senthome">0</div><div class="stat-label">Sent Home</div></div>
+            </div>
+            <!-- Expandable workers panel -->
+            <div id="proc-panel" style="display:none;margin-top:18px;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+                <div id="proc-panel-header" style="padding:12px 18px;display:flex;justify-content:space-between;align-items:center;color:white;font-weight:700;font-size:15px;">
+                    <span id="proc-panel-title">Workers</span>
+                    <button onclick="closeProcPanel()" style="background:rgba(255,255,255,0.25);border:none;color:white;border-radius:6px;padding:4px 12px;cursor:pointer;font-weight:700;font-size:13px;">✕ Close</button>
+                </div>
+                <div id="proc-panel-body" style="background:white;padding:16px;max-height:500px;overflow-y:auto;"></div>
+            </div>
+        </div>
+
+        <!-- MODULES GRID -->
+        <div class="modules-grid">
+
+            <!-- Workers Manager -->
+            <div data-module-id="workers" data-module-url="Workers_Manager" data-module-title="Workers Manager"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">&#128101;</div>
+                <div class="module-title">Workers Management</div>
+                <div class="module-description">Track workers, documents, and employment status</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Employers Manager -->
+            <div data-module-id="employers" data-module-url="Employers_Manager" data-module-title="Employers Manager"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">&#128084;</div>
+                <div class="module-title">Employers Management</div>
+                <div class="module-description">Manage employer contracts and relationships</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Suppliers Manager -->
+            <div data-module-id="supplier_manager" data-module-url="Supplier_Manager_FINAL" data-module-title="Suppliers Manager"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">&#127970;</div>
+                <div class="module-title">Suppliers Management</div>
+                <div class="module-description">Manage supplier information, contacts, and details</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Local Agencies -->
+            <div data-module-id="agencies" data-module-url="Local_Agencies_Manager" data-module-title="Local Agencies"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">&#127963;&#65039;</div>
+                <div class="module-title">Local Agencies</div>
+                <div class="module-description">Track local agency partnerships</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Processing -->
+            <div data-module-id="processing_manager" data-module-url="Processing_Manager" data-module-title="Processing"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">🔄</div>
+                <div class="module-title">Processing</div>
+                <div class="module-description">Track workers being processed for employers</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Worker Approval — NEW -->
+            <div data-module-id="worker_approval" data-module-url="Worker_Approval" data-module-title="Worker Approval"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">✅</div>
+                <div class="module-title">Worker Approval</div>
+                <div class="module-description">Review and approve worker applications</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Nationalities -->
+            <div data-module-id="nationalities" data-module-url="Nationalities_Manager" data-module-title="Nationalities"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">&#127757;</div>
+                <div class="module-title">Nationalities</div>
+                <div class="module-description">Manage countries and nationalities database</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Processing Costs -->
+            <div data-module-id="processing_costs" data-module-url="Processing_Costs" data-module-title="Processing Costs"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">💲</div>
+                <div class="module-title">Processing Costs</div>
+                <div class="module-description">Track and manage processing costs</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Messaging Manager — NEW -->
+            <div data-module-id="messaging" data-module-url="Messaging_Manager" data-module-title="Messaging Manager"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">💬</div>
+                <div class="module-title">Messaging Manager</div>
+                <div class="module-description">Send WhatsApp messages to employers</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Message Templates — NEW -->
+            <div data-module-id="message_templates" data-module-url="Message_Templates" data-module-title="Message Templates"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">📝</div>
+                <div class="module-title">Message Templates</div>
+                <div class="module-description">Create and manage WhatsApp message templates</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Rules Review — NEW -->
+            <div data-module-id="rules_review" data-module-url="Rules_Review" data-module-title="Rules Review"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">⚙️</div>
+                <div class="module-title">Rules Review</div>
+                <div class="module-description">Review and modify auto-send rule configurations</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Accountant -->
+            <div data-module-id="accountant" data-module-url="Accountant" data-module-title="Accountant"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">💰</div>
+                <div class="module-title">Accountant</div>
+                <div class="module-description">Invoicing and financial management</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Reports & Analytics -->
+            <div data-module-id="reports" data-module-url="Reports" data-module-title="Reports &amp; Analytics"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">&#128202;</div>
+                <div class="module-title">Reports &amp; Analytics</div>
+                <div class="module-description">Generate reports and view analytics</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Reports Manager — NEW -->
+            <div data-module-id="reports_manager" data-module-url="Reports_Manager" data-module-title="Reports Manager"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">📈</div>
+                <div class="module-title">Reports Manager</div>
+                <div class="module-description">Manage and configure system reports</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Reports Fresh — NEW -->
+            <div data-module-id="reports_fresh" data-module-url="Reports_FRESH" data-module-title="Reports Fresh"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">🆕</div>
+                <div class="module-title">Reports Fresh</div>
+                <div class="module-description">Fresh reports view with latest data</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Documents Manager -->
+            <div data-module-id="documents_manager" data-module-url="Documents_Manager" data-module-title="Documents Manager"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">📋</div>
+                <div class="module-title">Documents Manager</div>
+                <div class="module-description">Central document management hub</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Local Agencies Portal -->
+            <div data-module-id="agencies_portal" data-module-url="local_Agencies_Portal" data-module-title="Local Agencies Portal"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">🌐</div>
+                <div class="module-title">Local Agencies Portal</div>
+                <div class="module-description">Portal view for local agencies</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Supplier Portal -->
+            <div data-module-id="supplier_portal" data-module-url="Supplier_Portal" data-module-title="Supplier Portal"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">🛒</div>
+                <div class="module-title">Supplier Portal</div>
+                <div class="module-description">Supplier-facing portal view</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Visas Manager -->
+            <div data-module-id="visas" data-module-url="Visas_Manager" data-module-title="Visas Manager"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">&#128196;</div>
+                <div class="module-title">Visas Management</div>
+                <div class="module-description">Track visa applications and renewals</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Insurance Manager -->
+            <div data-module-id="insurance" data-module-url="Insurance_Manager" data-module-title="Insurance Manager"
+                 class="module-card active" onclick="goToModule(this)">
+                <div class="module-icon">&#128737;&#65039;</div>
+                <div class="module-title">Insurance Management</div>
+                <div class="module-description">Manage insurance policies and coverage</div>
+                <div class="module-status">&#10003; Active</div>
+            </div>
+
+            <!-- Employer Documents -->
+            <div data-module-id="employer_documents" data-module-url="Employer_Documents" data-module-title="Employer Documents"
+                 class="module-card locked" onclick="goToModule(this)">
+                <div class="module-icon">&#128203;</div>
+                <div class="module-title">Employer Documents</div>
+                <div class="module-description">Manage employer required documents database</div>
+                <div class="module-status">&#128272; Password Required</div>
+            </div>
+
+            <!-- Worker Documents -->
+            <div data-module-id="worker_documents" data-module-url="Worker_Documents" data-module-title="Worker Documents"
+                 class="module-card locked" onclick="goToModule(this)">
+                <div class="module-icon">&#128203;</div>
+                <div class="module-title">Worker Documents</div>
+                <div class="module-description">Manage worker required documents database</div>
+                <div class="module-status">&#128272; Password Required</div>
+            </div>
+
+            <!-- Database Reset -->
+            <div data-module-id="database_reset" data-module-url="Database_Reset_Manager" data-module-title="Database Reset"
+                 class="module-card locked" onclick="goToModule(this)">
+                <div class="module-icon">🗑️</div>
+                <div class="module-title">Database Reset</div>
+                <div class="module-description">Clear tables or reset entire database</div>
+                <div class="module-status">&#128272; Password Required</div>
+            </div>
+
+            <!-- Cleanup Employers -->
+            <div data-module-id="cleanup_unlinked" data-module-url="Cleanup_Unlinked_Employers" data-module-title="Cleanup Employers"
+                 class="module-card locked" onclick="goToModule(this)">
+                <div class="module-icon">🧹</div>
+                <div class="module-title">Cleanup Employers</div>
+                <div class="module-description">Find and remove unlinked employers</div>
+                <div class="module-status">&#128272; Password Required</div>
+            </div>
+
+            <!-- Admin Dashboard -->
+            <div data-module-id="admin_dashboard" data-module-url="admin" data-module-title="Admin Dashboard"
+                 class="module-card locked" onclick="goToModule(this)">
+                <div class="module-icon">&#128274;</div>
+                <div class="module-title">Admin Dashboard</div>
+                <div class="module-description">Admin settings, system configuration &amp; management</div>
+                <div class="module-status">&#128272; Password Required</div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>MGS - Massroua General Services &copy; 2026 | Management System v1.0</p>
+    </div>
+</div>
+
+<script>
+var APP_URL  = 'https://script.google.com/macros/s/AKfycbxEbNo287tvEezLwy8vYHrNWxPXELlzzsGVg9yeA6XXDIkXdR0ILEKOTWbG88PxHiIf/exec';
+var BASE_URL = 'https://script.google.com/macros/s/AKfycbwYCnfqcqPkVax5E2nd9-CCiKb9gNRrgWIMMrPZ-lSpMuEpRTSiHKg9rZxcfeP8fjCM/exec';
+
+// ── Cloud cache ──────────────────────────────────────
+var _cache = { suppliers:[], workers:[], employers:[], agencies:[], nationalities:[] };
+
+function loadAllFromCloud() {
+    google.script.run
+        .withSuccessHandler(function(data) {
+            _cache.workers       = (data.workers       && data.workers.data)       ? data.workers.data       : [];
+            _cache.employers     = (data.employers     && data.employers.data)     ? data.employers.data     : [];
+            _cache.agencies      = (data.agencies      && data.agencies.data)      ? data.agencies.data      : [];
+            _cache.suppliers     = (data.suppliers     && data.suppliers.data)     ? data.suppliers.data     : [];
+            _cache.nationalities = (data.nationalities && data.nationalities.data) ? data.nationalities.data : [];
+            updateStats();
+        })
+        .withFailureHandler(function(err) { console.error('Dashboard load failed:', err); })
+        .gsrGetAllDashboard();
+}
+
+function updateStats() {
+    var suppliers     = _cache.suppliers;
+    var workers       = _cache.workers;
+    var employers     = _cache.employers;
+    var agencies      = _cache.agencies;
+    var nationalities = _cache.nationalities;
+    var activeNats    = nationalities.filter(function(n){ return n.Active; });
+    document.getElementById('supplierCount').textContent          = suppliers.length;
+    document.getElementById('workerCount').textContent            = workers.length;
+    document.getElementById('employerCount').textContent          = employers.length;
+    document.getElementById('agencyCount').textContent            = agencies.length;
+    document.getElementById('nationalityCount').textContent       = nationalities.length || 195;
+    document.getElementById('activeNationalityCount').textContent  = activeNats.length;
+
+    var procWorkers = workers.filter(function(w){ return w.Processing === 'Yes' || w.Processing === true || w.Processing === 'yes'; });
+    var counts = { selected:0, preapproval:0, immigration:0, waitingvisa:0, waitingticket:0, cancelled:0, arrived:0, local:0, moved:0, unfit:0, runaway:0, senthome:0 };
+    procWorkers.forEach(function(w) {
+        var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+        var isCancelled = outs.indexOf('cancelled') >= 0;
+        var isUnfit     = outs.indexOf('unfit')     >= 0;
+        var isRunaway   = outs.indexOf('runaway')   >= 0;
+        var isSentHome  = outs.indexOf('senthome')  >= 0;
+        var isTerminal  = isCancelled || isUnfit || isRunaway || isSentHome;
+        if (isCancelled) counts.cancelled++;
+        if (isUnfit)     counts.unfit++;
+        if (isRunaway)   counts.runaway++;
+        if (isSentHome)  counts.senthome++;
+        if (isTerminal)  return;
+        if (outs.indexOf('arrived')      >= 0)                                            { counts.arrived++;       return; }
+        if (outs.indexOf('waitingticket')>= 0 && outs.indexOf('arrived')      < 0)       { counts.waitingticket++; return; }
+        if (outs.indexOf('waitingvisa')  >= 0 && outs.indexOf('waitingticket')< 0)       { counts.waitingvisa++;   return; }
+        if (outs.indexOf('immigration')  >= 0 && outs.indexOf('waitingvisa')  < 0)       { counts.immigration++;   return; }
+        if (outs.indexOf('preapproval')  >= 0 && outs.indexOf('immigration')  < 0)       { counts.preapproval++;   return; }
+        if (outs.indexOf('selected')     >= 0 && outs.indexOf('preapproval')  < 0)       { counts.selected++;      return; }
+        if (outs.indexOf('local') >= 0) counts.local++;
+        if (outs.indexOf('moved') >= 0) counts.moved++;
+    });
+    document.getElementById('ps-processing').textContent = procWorkers.length;
+    setStatVal('ps-preapproval',   counts.preapproval);
+    setStatVal('ps-immigration',   counts.immigration);
+    setStatVal('ps-waitingvisa',   counts.waitingvisa);
+    setStatVal('ps-waitingticket', counts.waitingticket);
+    setStatVal('ps-cancelled',     counts.cancelled);
+    setStatVal('ps-arrived',       counts.arrived);
+    setStatVal('ps-local',         counts.local);
+    setStatVal('ps-moved',         counts.moved);
+    setStatVal('ps-unfit',         counts.unfit);
+    setStatVal('ps-runaway',       counts.runaway);
+    setStatVal('ps-senthome',      counts.senthome);
+}
+
+loadAllFromCloud();
+
+function setStatVal(id, val) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (val === 0) { el.textContent = '—'; el.classList.add('empty'); }
+    else           { el.textContent = val; el.classList.remove('empty'); }
+}
+
+// ── MODULE NAVIGATION ────────────────────────────────
+// These modules open via BASE_URL (Admin GAS)
+var ADMIN_MODULES = ['admin_dashboard','database_reset','cleanup_unlinked'];
+
+function goToModule(card) {
+    var moduleId    = card.getAttribute('data-module-id');
+    var modulePage  = card.getAttribute('data-module-url');
+    var moduleTitle = card.getAttribute('data-module-title');
+    var isLocked    = card.classList.contains('locked');
+
+    if (isLocked) {
+        // Open password modal — pass module key for per-module password check
+        openModuleLogin(moduleTitle, modulePage, moduleId);
+    } else {
+        // Open directly
+        navigateTo(modulePage);
+    }
+}
+
+function navigateTo(page) {
+    if (page === 'admin') {
+        window.open(BASE_URL, '_blank');
+        return;
+    }
+    var isAdminPage = ['Database_Reset_Manager','Cleanup_Unlinked_Employers'].indexOf(page) >= 0;
+    var base = isAdminPage ? BASE_URL : APP_URL;
+    window.open(base + '?page=' + page, '_blank');
+}
+
+// ── SECURITY — apply locked state from Admin Dashboard settings ──
+function applyModuleSecurity() {
+    var security = JSON.parse(localStorage.getItem('mgsdb_module_security') || '{}');
+    Object.keys(security).forEach(function(key) {
+        if (!security[key]) return;
+        var card = document.querySelector('[data-module-id="'+key+'"]');
+        if (!card) return;
+        // Make sure it has locked class
+        card.classList.remove('active');
+        card.classList.add('locked');
+        var statusEl = card.querySelector('.module-status');
+        if (statusEl) statusEl.innerHTML = '&#128272; Password Required';
+    });
+}
+applyModuleSecurity();
+
+// ── MODULE VISIBILITY ─────────────────────────────────
+function applyModuleVisibility() {
+    var saved = JSON.parse(localStorage.getItem('mgsdb_module_visibility') || '{}');
+    document.querySelectorAll('[data-module-id]').forEach(function(el) {
+        var moduleId = el.getAttribute('data-module-id');
+        el.style.display = (saved[moduleId] === false) ? 'none' : '';
+    });
+}
+applyModuleVisibility();
+
+// ── LOGIN MODAL ───────────────────────────────────────
+function openModuleLogin(title, page, moduleKey) {
+    document.getElementById('loginTitle').textContent       = title || 'Access Required';
+    document.getElementById('loginDescription').textContent = 'Enter password to access this module';
+    document.getElementById('adminPassword').value          = '';
+    document.getElementById('loginError').style.display     = 'none';
+    document.getElementById('loginModal').setAttribute('data-target',     page      || '');
+    document.getElementById('loginModal').setAttribute('data-module-key', moduleKey || '');
+    document.getElementById('loginModal').classList.add('show');
+    setTimeout(function(){ document.getElementById('adminPassword').focus(); }, 200);
+}
+
+function closeLoginModal() {
+    document.getElementById('loginModal').classList.remove('show');
+}
+
+document.getElementById('loginModal').addEventListener('click', function(e) {
+    if (e.target === this) closeLoginModal();
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeLoginModal();
+});
+
+function adminLogin() {
+    var password  = document.getElementById('adminPassword').value;
+    var target    = document.getElementById('loginModal').getAttribute('data-target')     || '';
+    var moduleKey = document.getElementById('loginModal').getAttribute('data-module-key') || '';
+
+    // Per-module password first, fall back to global
+    var globalPw   = localStorage.getItem('mgsdb_security_password') || 'masr3434';
+    var modulePws  = JSON.parse(localStorage.getItem('mgsdb_module_passwords') || '{}');
+    var required   = (moduleKey && modulePws[moduleKey]) ? modulePws[moduleKey] : globalPw;
+
+    if (password === required) {
+        closeLoginModal();
+        navigateTo(target);
+    } else {
+        document.getElementById('loginError').style.display = 'block';
+        document.getElementById('adminPassword').value      = '';
+        document.getElementById('adminPassword').focus();
+    }
+}
+
+// ── PROCESSING PANEL ──────────────────────────────────
+var _currentProcTab = null;
+var PROC_COLORS = {
+    processing:   'linear-gradient(135deg,#667eea,#764ba2)',
+    preapproval:  'linear-gradient(135deg,#9c27b0,#7b1fa2)',
+    immigration:  'linear-gradient(135deg,#f7971e,#ffd200)',
+    waitingvisa:  'linear-gradient(135deg,#11998e,#38ef7d)',
+    waitingticket:'linear-gradient(135deg,#2193b0,#6dd5ed)',
+    cancelled:    'linear-gradient(135deg,#ee0979,#ff6a00)',
+    arrived:      'linear-gradient(135deg,#1d976c,#93f9b9)',
+    local:        'linear-gradient(135deg,#43e97b,#38f9d7)',
+    moved:        'linear-gradient(135deg,#544a7d,#ffd452)',
+    unfit:        'linear-gradient(135deg,#c94b4b,#4b134f)',
+    runaway:      'linear-gradient(135deg,#c94b4b,#4b134f)',
+    senthome:     'linear-gradient(135deg,#546e7a,#90a4ae)'
+};
+var PROC_LABELS = {
+    processing:'⚙️ All Processing', preapproval:'📋 Pre-Approval', immigration:'🛂 Sent To Immigration',
+    waitingvisa:'⏳ Waiting Visa', waitingticket:'🎫 Waiting Ticket', cancelled:'❌ Cancelled',
+    arrived:'✈️ Arrived', local:'🏠 Local', moved:'🔀 Moved',
+    unfit:'🚫 Unfit', runaway:'🏃 RunAway', senthome:'🛫 Sent Back Home'
+};
+var OUTCOMES_PM = [
+    { key:'selected',     icon:'✅', label:'1. Selected' },
+    { key:'preapproval',  icon:'📋', label:'2. Ready Pre-Approval' },
+    { key:'immigration',  icon:'🛂', label:'3. Sent To Immigration' },
+    { key:'waitingvisa',  icon:'⏳', label:'4. Waiting Visa' },
+    { key:'waitingticket',icon:'🎫', label:'5. Waiting Ticket' },
+    { key:'cancelled',    icon:'❌', label:'6. Cancelled' },
+    { key:'arrived',      icon:'✈️', label:'7. Arrived' },
+    { key:'local',        icon:'🏠', label:'8. Local' },
+    { key:'moved',        icon:'🔀', label:'9. Moved to Other Employer' },
+    { key:'unfit',        icon:'🚫', label:'10. Unfit' },
+    { key:'runaway',      icon:'🏃', label:'11. RunAway' },
+    { key:'senthome',     icon:'🛫', label:'12. Send Back Home' }
+];
+var STAGES_PM = {
+    processing:     { label:'Processing',    icon:'⚙️',  color:'#ff9800' },
+    preapproval:    { label:'Preapproval',   icon:'📋',  color:'#9c27b0' },
+    waiting_visa:   { label:'Waiting Visa',  icon:'⏳',  color:'#2196f3' },
+    ready_visa:     { label:'Ready Visa',    icon:'✅',  color:'#4caf50' },
+    waiting_ticket: { label:'Waiting Ticket',icon:'🎫',  color:'#00bcd4' }
+};
+
+function toggleProcPanel(key) {
+    if (_currentProcTab === key) { closeProcPanel(); return; }
+    _currentProcTab = key;
+    renderProcPanel(key);
+}
+
+function closeProcPanel() {
+    _currentProcTab = null;
+    document.getElementById('proc-panel').style.display = 'none';
+}
+
+function renderProcPanel(key) {
+    var workers   = _cache.workers;
+    var employers = _cache.employers;
+    var agencies  = _cache.agencies;
+    var procWorkers = workers.filter(function(w){ return w.Processing === 'Yes' || w.Processing === true || w.Processing === 'yes'; });
+
+    var filtered = procWorkers.filter(function(w) {
+        var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+        var isCancelled = outs.indexOf('cancelled') >= 0;
+        var isUnfit     = outs.indexOf('unfit')     >= 0;
+        var isRunaway   = outs.indexOf('runaway')   >= 0;
+        var isSentHome  = outs.indexOf('senthome')  >= 0;
+        var isTerminal  = isCancelled || isUnfit || isRunaway || isSentHome;
+        if (key === 'cancelled')     return isCancelled;
+        if (key === 'unfit')         return isUnfit;
+        if (key === 'runaway')       return isRunaway;
+        if (key === 'senthome')      return isSentHome;
+        if (isTerminal) return false;
+        if (key === 'processing')    return true;
+        if (key === 'arrived')       return outs.indexOf('arrived') >= 0;
+        if (key === 'waitingticket') return outs.indexOf('waitingticket') >= 0 && outs.indexOf('arrived') < 0;
+        if (key === 'waitingvisa')   return outs.indexOf('waitingvisa') >= 0 && outs.indexOf('waitingticket') < 0;
+        if (key === 'immigration')   return outs.indexOf('immigration') >= 0 && outs.indexOf('waitingvisa') < 0;
+        if (key === 'preapproval')   return outs.indexOf('preapproval') >= 0 && outs.indexOf('immigration') < 0;
+        if (key === 'local')         return outs.indexOf('local') >= 0;
+        if (key === 'moved')         return outs.indexOf('moved') >= 0;
+        return false;
+    });
+
+    var groups = {};
+    filtered.forEach(function(w) {
+        var k = w.EmployerCode || w.EmployerID || 'unassigned';
+        if (!groups[k]) groups[k] = [];
+        groups[k].push(w);
+    });
+
+    var bannerColor = PROC_COLORS[key] || 'linear-gradient(135deg,#667eea,#764ba2)';
+    var html = '';
+
+    if (filtered.length === 0) {
+        html = '<div style="text-align:center;padding:30px;color:#aaa;font-size:15px;">No workers in this category.</div>';
+    } else {
+        Object.keys(groups).forEach(function(empKey) {
+            var ew  = groups[empKey];
+            var emp = employers.find(function(e){ return String(e.EmployerCode) === empKey || String(e.EmployerID) === empKey; });
+            var empName = emp ? (emp.EmployerName || emp.EFN || empKey) : empKey;
+            var empCode = emp ? emp.EmployerCode : empKey;
+            var ag      = emp && emp.AgencyCode ? agencies.find(function(a){ return String(a.AgencyCode) === String(emp.AgencyCode); }) : null;
+            var agName  = ag ? ag.AgencyName : '';
+            var hasMoved    = ew.some(function(w){ return !!w.MovedEmployerHistory; });
+            var headerBg    = hasMoved ? 'linear-gradient(135deg,#6a1b9a,#9c27b0)' : bannerColor;
+            var movedFrom   = '';
+            if (hasMoved) {
+                var prevCodes = {};
+                ew.forEach(function(w){ if (w.MovedEmployerHistory) w.MovedEmployerHistory.split(' → ').forEach(function(c){ prevCodes[c.trim()]=true; }); });
+                var prevLabels = Object.keys(prevCodes).map(function(c){
+                    var pe = employers.find(function(e){ return String(e.EmployerCode)===c||String(e.EmployerID)===c; });
+                    return pe ? (pe.EmployerName||pe.EFN||c)+' ('+c+')' : c;
+                });
+                movedFrom = ' <span style="font-size:13px;font-weight:700;opacity:0.95;">🔀 from: '+prevLabels.join(', ')+'</span>';
+            }
+            var panelId = 'dpanel-'+empKey.replace(/[^a-zA-Z0-9]/g,'_');
+            html += '<div class="pm-employer-card">';
+            html += '<div class="pm-employer-header" style="background:'+headerBg+';" onclick="var b=document.getElementById(\''+panelId+'\');b.style.display=b.style.display===\'none\'?\'block\':\'none\';">';
+            html += '<h3>💼 '+empName+(agName?' <span style="font-size:12px;opacity:0.8">(🏛️ '+agName+')</span>':'')+movedFrom+'</h3>';
+            html += '<div><span class="pm-employer-badge">'+empCode+'</span> <span class="pm-employer-badge">👷 '+ew.length+'</span></div>';
+            html += '</div>';
+            html += '<div class="pm-workers-body" id="'+panelId+'">';
+
+            ew.forEach(function(w, i) {
+                var name   = w.WFullName || w.WorkerFirstName || 'Unnamed';
+                var wCode  = w.WorkerCode || ((w.SupplierCode && w.WorkerID) ? w.SupplierCode+'-'+String(w.WorkerID).padStart(4,'0') : 'N/A');
+                var nat    = w.Nationality || 'N/A';
+                var pp     = w.PassportNumber || 'N/A';
+                var id     = w.IDNumber || '';
+                var wStage = w.ProcessingStage || 'processing';
+                var si     = STAGES_PM[wStage] || STAGES_PM.processing;
+                var isLocked  = w.Locked === true || w.Locked === 'true';
+                var lockIcon  = isLocked ? ' 🔒' : '';
+                var invBadge  = w.InvoiceNumber ? ' <span class="pm-status-badge" style="background:#7b1fa2;color:white">📄 '+w.InvoiceNumber+'</span>' : '';
+                var activeOuts = []; try { activeOuts = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+
+                var outHtml = '<div class="pm-outcome-bar"><span class="pm-outcome-label">Status:</span>';
+                OUTCOMES_PM.forEach(function(o) {
+                    var isOn = activeOuts.indexOf(o.key) >= 0;
+                    outHtml += '<span class="pm-obtn'+(isOn?' on':'')+'">'+o.icon+' '+o.label+'</span>';
+                });
+                outHtml += '</div>';
+
+                var outDates = {}; try { outDates = JSON.parse(w.WorkerOutcomeDates || '{}'); } catch(e) {}
+                var detailPanelId = 'dwp-'+w.WorkerID;
+                var detailHtml = '<div id="'+detailPanelId+'" style="display:none;margin:6px 0 2px;background:white;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;">';
+                OUTCOMES_PM.forEach(function(o) {
+                    var isOn  = activeOuts.indexOf(o.key) >= 0;
+                    var on    = isOn ? ' on' : '';
+                    var ts    = outDates[o.key] || null;
+                    var extra = '';
+                    if (isOn) {
+                        if (ts) {
+                            var d = new Date(ts);
+                            var stamp = d.toLocaleDateString('en-GB')+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+                            extra = '<span style="font-size:12px;font-weight:600;color:#888;white-space:nowrap;">📅 '+stamp+'</span>';
+                        } else {
+                            extra = '<span style="font-size:12px;font-weight:600;color:#bbb;white-space:nowrap;">📅 —</span>';
+                        }
+                        var countMap = { preapproval:'PreApprovalCount', immigration:'ImmigrationCount', waitingvisa:'VisaCount', waitingticket:'TicketCount', unfit:'UnfitCount', runaway:'RunAwayCount', senthome:'ReturnTicketCount', moved:'ReleasePaperCount' };
+                        if (countMap[o.key] && w[countMap[o.key]] > 0) {
+                            extra += ' <span style="background:#e0e0e0;color:#555;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700;">📎 '+w[countMap[o.key]]+' file'+(w[countMap[o.key]]!==1?'s':'')+'</span>';
+                        }
+                    }
+                    detailHtml += '<div style="margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="pm-obtn'+on+'" style="font-size:16px;min-width:220px;">'+o.icon+' '+o.label+'</span>'+extra+'</div>';
+                });
+                detailHtml += '</div>';
+
+                var curEmpObj  = employers.find(function(e){ return String(e.EmployerCode)===String(w.EmployerCode)||String(e.EmployerID)===String(w.EmployerID); });
+                var curEmpName = curEmpObj ? (curEmpObj.EmployerName||curEmpObj.EFN||w.EmployerCode) : w.EmployerCode;
+                var curAgCode  = curEmpObj ? (curEmpObj.AgencyCode||'') : '';
+                var curAg      = curAgCode ? agencies.find(function(a){ return a.AgencyCode===curAgCode||a.Code===curAgCode; }) : null;
+                var curAgName  = curAg ? (curAg.AgencyName||curAg.Name||curAgCode) : curAgCode;
+
+                html += '<div>';
+                html += '<div class="pm-worker-row" style="border-left-color:'+si.color+(isLocked?';background:#f5f0f7;':'')+'">';
+                html += '<div class="pm-worker-info">';
+                html += '<div class="pm-worker-name">'+(i+1)+'. '+name+lockIcon+' <span class="pm-status-badge" style="background:'+si.color+';color:white">'+si.icon+' '+si.label+'</span>'+invBadge+'</div>';
+                html += '<div style="font-size:13px;font-weight:700;color:#333;margin-bottom:2px;">💼 '+curEmpName+(curAgName?' <span style="font-size:11px;font-weight:400;color:#888;">(🏛️ '+curAgName+')</span>':'')+' <span style="font-size:11px;font-weight:600;color:#7b1fa2;">('+w.EmployerCode+')</span></div>';
+                if (w.MovedEmployerHistory) html += '<div style="font-size:11px;color:#aaa;">🔀 Previously: '+w.MovedEmployerHistory+'</div>';
+                html += '<div class="pm-worker-details">Code: <span>'+wCode+'</span> | Nationality: '+nat+' | Passport: '+pp;
+                if (id) html += ' | ID: '+id;
+                html += '</div>';
+                html += outHtml;
+                html += '<div style="margin-top:6px;">';
+                html += '<button onclick="(function(){var p=document.getElementById(\''+detailPanelId+'\');var b=document.getElementById(\'dbtn-'+w.WorkerID+'\');var open=p.style.display===\'block\';p.style.display=open?\'none\':\'block\';b.textContent=open?\'+\':\'-\';})()" id="dbtn-'+w.WorkerID+'" style="width:26px;height:26px;border-radius:50%;border:2px solid #ff9800;background:white;color:#ff9800;font-size:16px;font-weight:900;cursor:pointer;line-height:1;padding:0;">+</button>';
+                html += '</div>';
+                html += '</div>';
+                html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:12px;">';
+                html += '<a href="#" onclick="window.open(\''+APP_URL+'?page=Workers_Manager&worker='+w.WorkerID+'\',\'_blank\');return false;" style="padding:6px 12px;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;text-decoration:none;">👁️ View</a>';
+                html += '<a href="#" onclick="window.open(\''+APP_URL+'?page=Processing_Manager\',\'_blank\');return false;" style="padding:6px 12px;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;background:#ff9800;color:white;text-decoration:none;">🔄 Open</a>';
+                html += '</div>';
+                html += '</div>';
+                html += detailHtml;
+                html += '</div>';
+            });
+            html += '</div></div>';
+        });
+    }
+
+    var panel  = document.getElementById('proc-panel');
+    var header = document.getElementById('proc-panel-header');
+    var body   = document.getElementById('proc-panel-body');
+    header.style.background = bannerColor;
+    document.getElementById('proc-panel-title').textContent = (PROC_LABELS[key]||key)+' — '+filtered.length+' worker'+(filtered.length !== 1 ? 's' : '');
+    body.innerHTML  = html;
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+</body>
+</html>
