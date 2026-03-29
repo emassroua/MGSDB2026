@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGS - Documents from Workers</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #0ea5e9; --accent-dark: #0284c7; --accent-light: #e0f2fe;
+            --accent-glow: rgba(14,165,233,0.15);
+            --sidebar-bg: #0f172a; --sidebar-hover: #1e293b;
+            --sidebar-active: rgba(14,165,233,0.15);
+            --page-bg: #f1f5f9; --card-bg: #ffffff;
+            --border: #e2e8f0; --border-light: #f1f5f9;
+            --text: #1e293b; --text-muted: #64748b; --text-light: #94a3b8;
+            --success: #10b981; --danger: #ef4444; --warning: #f59e0b;
+            --radius: 10px; --radius-sm: 6px;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+            --shadow-lg: 0 10px 25px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04);
+            --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+            background: var(--page-bg); padding: 16px; min-height: 100vh;
+            color: var(--text); -webkit-font-smoothing: antialiased;
+        }
+        .container {
+            max-width: 1500px; margin: 0 auto;
+            display: grid; grid-template-columns: 300px 1fr;
+            gap: 16px; height: calc(100vh - 32px);
+        }
+        .nav-panel {
+            background: var(--sidebar-bg); border-radius: var(--radius);
+            padding: 20px 16px; overflow-y: auto;
+            display: flex; flex-direction: column; box-shadow: var(--shadow-lg);
+        }
+        .nav-panel::-webkit-scrollbar { width: 4px; }
+        .nav-panel::-webkit-scrollbar-track { background: transparent; }
+        .nav-panel::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .nav-header {
+            padding: 18px 16px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+            color: white; border-radius: 8px; margin-bottom: 18px;
+            position: relative; overflow: hidden;
+        }
+        .nav-header::after {
+            content: ''; position: absolute; top: -50%; right: -30%;
+            width: 100px; height: 100px;
+            background: rgba(255,255,255,0.08); border-radius: 50%;
+        }
+        .nav-header h2 { font-size: 17px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.3px; }
+        .nav-header p { font-size: 12px; opacity: 0.85; font-weight: 500; }
+        .info-box {
+            background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2);
+            color: #6ee7b7; padding: 10px 14px; border-radius: var(--radius-sm);
+            margin-bottom: 14px; font-size: 12px;
+        }
+        .info-box strong { color: #34d399; }
+        .search-box {
+            padding: 10px 14px; border: 1px solid #334155; border-radius: var(--radius-sm);
+            font-size: 13px; width: 100%; margin-bottom: 14px;
+            background: var(--sidebar-hover); color: #e2e8f0; font-family: inherit;
+            transition: border-color var(--transition);
+        }
+        .search-box::placeholder { color: #64748b; }
+        .search-box:focus { outline: none; border-color: var(--accent); background: #1e293b; }
+        .record-list { list-style: none; flex: 1; overflow-y: auto; }
+        .record-list::-webkit-scrollbar { width: 4px; }
+        .record-list::-webkit-scrollbar-track { background: transparent; }
+        .record-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .record-item {
+            padding: 10px 14px; margin-bottom: 4px; background: transparent;
+            border-radius: var(--radius-sm); cursor: pointer;
+            transition: all var(--transition); border-left: 3px solid transparent;
+        }
+        .record-item:hover { background: var(--sidebar-hover); border-left-color: var(--accent); }
+        .record-item.active { background: var(--sidebar-active); border-left-color: var(--accent); }
+        .record-item .id { color: var(--accent); font-weight: 600; font-size: 11px; letter-spacing: 0.3px; }
+        .record-item .name { color: #e2e8f0; font-size: 13px; margin-top: 2px; font-weight: 500; }
+        .record-item .arabic { color: #94a3b8; font-size: 12px; margin-top: 2px; direction: rtl; text-align: right; }
+        .back-link {
+            margin-top: auto; padding-top: 14px; border-top: 1px solid #1e293b; text-align: center;
+        }
+        .back-link a { color: var(--accent); text-decoration: none; font-size: 12px; font-weight: 600; transition: opacity var(--transition); }
+        .back-link a:hover { opacity: 0.8; }
+        .main-content {
+            background: var(--card-bg); border-radius: var(--radius);
+            box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden;
+        }
+        .toolbar {
+            padding: 16px 28px; border-bottom: 1px solid var(--border);
+            display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+        }
+        .btn {
+            padding: 9px 18px; border: none; border-radius: var(--radius-sm);
+            cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit;
+            transition: all var(--transition); display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .btn:active:not(:disabled) { transform: translateY(0); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover:not(:disabled) { background: #059669; }
+        .btn-light { background: var(--border-light); color: var(--text); border: 1px solid var(--border); }
+        .btn-light:hover:not(:disabled) { background: var(--border); }
+        .form-container { flex: 1; overflow-y: auto; padding: 36px 28px; }
+        .form-container::-webkit-scrollbar { width: 6px; }
+        .form-container::-webkit-scrollbar-track { background: transparent; }
+        .form-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .page-title {
+            font-size: 22px; font-weight: 800; color: var(--accent);
+            margin-bottom: 28px; padding-bottom: 14px;
+            border-bottom: 1px solid var(--border); letter-spacing: -0.5px;
+        }
+        .form-grid { display: grid; grid-template-columns: 1fr; gap: 22px; max-width: 800px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-weight: 600; margin-bottom: 6px; color: var(--text); font-size: 13px; }
+        .form-group input, .form-group textarea {
+            padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            font-size: 14px; font-family: inherit; color: var(--text); transition: all var(--transition);
+        }
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .form-group textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+        .form-group.arabic textarea { direction: rtl; text-align: right; }
+        .status-bar {
+            padding: 12px 28px; background: var(--border-light);
+            border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .status-text { color: var(--text-muted); font-size: 12px; }
+        .record-counter { color: var(--accent); font-weight: 700; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-panel">
+            <div class="nav-header">
+                <h2>📄 Documents from Workers</h2>
+                <p>MGS - Massroua General Services</p>
+            </div>
+            <div class="info-box">
+                ℹ️ <strong>Auto-Save Active!</strong><br>
+                Changes are saved automatically. No records can be deleted.
+            </div>
+            <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search documents..." oninput="renderDocumentList()">
+            <ul class="record-list" id="recordList"></ul>
+            <div class="back-link">
+                <a href="Dashboard.html">← Back to Dashboard</a>
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="toolbar">
+                <button class="btn btn-success" onclick="newDocument()">➕ New Document</button>
+                <button class="btn btn-light" onclick="loadDocuments()">🔄 Refresh</button>
+            </div>
+            <div class="form-container">
+                <div class="page-title">📋 Worker Document Information</div>
+                <form id="documentForm" onsubmit="return false;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Document ID</label>
+                            <input type="text" id="DocumentID" readonly style="background: var(--border-light); cursor: not-allowed; font-weight: 700; color: var(--accent);">
+                        </div>
+                        <div class="form-group">
+                            <label>Document Name (English) *</label>
+                            <textarea id="DocumentNameEN" required placeholder="Enter document name in English..."></textarea>
+                        </div>
+                        <div class="form-group arabic">
+                            <label>اسم المستند (عربي) *</label>
+                            <textarea id="DocumentNameAR" required placeholder="أدخل اسم المستند بالعربية..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <div style="display:flex; align-items:center; gap:10px; padding:10px 0;">
+                                <input type="checkbox" id="DocumentActive" checked style="width:20px; height:20px; cursor:pointer; accent-color:var(--accent);">
+                                <label for="DocumentActive" style="margin:0; cursor:pointer; font-weight:600; color:var(--success); font-size:14px;">✅ Active</label>
+                                <span style="font-size:11px; color:var(--text-muted); margin-left:8px;">Uncheck to disable this document type</span>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="status-bar">
+                <span class="status-text" id="statusText">Ready</span>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span class="record-counter" id="recordCounter">0 Documents</span>
+                    <button class="btn btn-success" id="saveBtn" onclick="saveDocument()" style="padding: 8px 16px;">💾 Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Copyable Message Modal -->
+    <div id="msgModal" style="display:none; position:fixed; z-index:99999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:12px; padding:0; max-width:520px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.3); overflow:hidden;">
+            <div id="msgHeader" style="background:linear-gradient(135deg,#667eea,#764ba2); color:white; padding:14px 20px; font-weight:700; font-size:15px; display:flex; align-items:center; gap:8px;">
+                <span id="msgIcon">ℹ️</span> <span id="msgTitle">Message</span>
+            </div>
+            <div style="padding:20px;">
+                <pre id="msgText" style="white-space:pre-wrap; word-wrap:break-word; font-family:'Plus Jakarta Sans',sans-serif; font-size:13px; line-height:1.6; color:#333; max-height:400px; overflow-y:auto; margin:0; user-select:text;"></pre>
+            </div>
+            <div id="msgButtons" style="padding:12px 20px; border-top:1px solid #e9ecef; display:flex; justify-content:flex-end; gap:8px; background:#f8f9fa;"></div>
+        </div>
+    </div>
+
+    <script>
+        let _msgResolve = null;
+        window.alert = function(msg) {
+            var text = String(msg || '');
+            document.getElementById('msgText').textContent = text;
+            var h = document.getElementById('msgHeader');
+            if (text.startsWith('✅')) { document.getElementById('msgIcon').textContent='✅'; document.getElementById('msgTitle').textContent='Success'; h.style.background='linear-gradient(135deg,#10b981,#059669)'; }
+            else if (text.startsWith('❌')) { document.getElementById('msgIcon').textContent='❌'; document.getElementById('msgTitle').textContent='Error'; h.style.background='linear-gradient(135deg,#ef4444,#dc2626)'; }
+            else if (text.startsWith('⚠️')) { document.getElementById('msgIcon').textContent='⚠️'; document.getElementById('msgTitle').textContent='Warning'; h.style.background='linear-gradient(135deg,#f59e0b,#d97706)'; }
+            else { document.getElementById('msgIcon').textContent='ℹ️'; document.getElementById('msgTitle').textContent='Message'; h.style.background='linear-gradient(135deg,#667eea,#764ba2)'; }
+            document.getElementById('msgButtons').innerHTML = '<button onclick="copyMsg()" style="padding:8px 16px;background:#667eea;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;">📋 Copy</button><button onclick="closeMsg(true)" style="padding:8px 20px;background:#4facfe;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">OK</button>';
+            document.getElementById('msgModal').style.display = 'flex';
+        };
+        function copyMsg() {
+            navigator.clipboard.writeText(document.getElementById('msgText').textContent).then(function() {
+                var b=document.querySelector('#msgButtons button:first-child'); if(b){b.textContent='✅ Copied!';setTimeout(function(){b.textContent='📋 Copy';},1500);}
+            }).catch(function() { document.execCommand('copy'); });
+        }
+        function closeMsg(val) { document.getElementById('msgModal').style.display='none'; if(_msgResolve){var r=_msgResolve;_msgResolve=null;r(val);} }
+        document.addEventListener('keydown', function(e) {
+            if (document.getElementById('msgModal').style.display === 'flex') {
+                if (e.key==='Escape') { closeMsg(_msgResolve?null:true); e.preventDefault(); }
+                else if (e.key==='Enter') { closeMsg(true); e.preventDefault(); }
+            }
+        });
+
+        function syncDocToCloud(doc) {
+            google.script.run
+                .withSuccessHandler(function(r) { console.log('✅ Worker doc synced:', doc.DocumentID); })
+                .withFailureHandler(function(e) { console.warn('⚠️ Cloud sync failed:', e); })
+                .gsrSaveRow('Worker_Documents', doc);
+        }
+
+        let documents = [];
+        let currentDocument = null;
+        let filteredDocuments = [];
+
+        function init() {
+            loadDocuments();
+            google.script.run
+                .withSuccessHandler(function(data) {
+                    var arr = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+                    if (arr.length > 0) {
+                        documents = arr;
+                        documents.forEach(function(d) { d.DocumentID = parseInt(d.DocumentID) || 0; });
+                        loadDocuments();
+                    }
+                })
+                .withFailureHandler(function(e) { console.warn('Cloud load failed:', e); })
+                .gsrGetAll('Worker_Documents');
+        }
+
+        function loadDocuments() {
+            renderDocumentList();
+            updateCounter();
+            if (documents.length > 0 && !currentDocument) selectDocument(documents[0]);
+        }
+
+        function renderDocumentList() {
+            var searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            filteredDocuments = documents.filter(function(d) {
+                if (!searchTerm) return true;
+                return [String(d.DocumentID), d.DocumentNameEN, d.DocumentNameAR].join(' ').toLowerCase().indexOf(searchTerm) >= 0;
+            });
+            var list = document.getElementById('recordList');
+            list.innerHTML = '';
+            filteredDocuments.forEach(function(doc) {
+                var isActive = doc.Active !== false && doc.Active !== 'false' && doc.Active !== 'FALSE';
+                var item = document.createElement('li');
+                item.className = 'record-item';
+                if (currentDocument && parseInt(currentDocument.DocumentID) === parseInt(doc.DocumentID)) item.classList.add('active');
+                if (!isActive) item.style.opacity = '0.5';
+                var badge = isActive
+                    ? '<span style="background:#10b981;color:white;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;margin-left:6px;">ACTIVE</span>'
+                    : '<span style="background:#ef4444;color:white;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;margin-left:6px;">DISABLED</span>';
+                item.innerHTML = '<div class="id">#' + doc.DocumentID + '</div><div class="name">' + (doc.DocumentNameEN || 'Unnamed') + badge + '</div><div class="arabic">' + (doc.DocumentNameAR || 'بدون اسم') + '</div>';
+                item.onclick = function() { selectDocument(doc); };
+                list.appendChild(item);
+            });
+            updateCounter();
+        }
+
+        function selectDocument(doc) {
+            currentDocument = doc;
+            document.getElementById('DocumentID').value = doc.DocumentID || '';
+            document.getElementById('DocumentNameEN').value = doc.DocumentNameEN || '';
+            document.getElementById('DocumentNameAR').value = doc.DocumentNameAR || '';
+            var chk = document.getElementById('DocumentActive');
+            if (chk) chk.checked = doc.Active !== false && doc.Active !== 'false' && doc.Active !== 'FALSE';
+            renderDocumentList();
+            document.getElementById('statusText').textContent = 'Viewing: ' + (doc.DocumentNameEN || doc.DocumentNameAR);
+        }
+
+        function newDocument() {
+            currentDocument = null;
+            var nextId = 1;
+            if (documents.length > 0) {
+                var ids = documents.map(function(d) { return parseInt(d.DocumentID) || 0; });
+                var maxId = Math.max.apply(null, ids);
+                if (maxId > 0 && isFinite(maxId)) nextId = maxId + 1;
+            }
+            document.getElementById('DocumentID').value = nextId;
+            document.getElementById('DocumentNameEN').value = '';
+            document.getElementById('DocumentNameAR').value = '';
+            document.getElementById('DocumentActive').checked = true;
+            document.getElementById('statusText').textContent = 'Creating new document...';
+            document.getElementById('DocumentNameEN').focus();
+        }
+
+        function saveDocument() {
+            var docId = parseInt(document.getElementById('DocumentID').value);
+            var nameEN = document.getElementById('DocumentNameEN').value.trim();
+            var nameAR = document.getElementById('DocumentNameAR').value.trim();
+            if (!docId || isNaN(docId)) { alert('⚠️ Invalid Document ID!'); return; }
+            if (!nameEN) { alert('⚠️ Document Name (English) is required!'); document.getElementById('DocumentNameEN').focus(); return; }
+            if (!nameAR) { alert('⚠️ اسم المستند (عربي) مطلوب!\n\nDocument Name (Arabic) is required!'); document.getElementById('DocumentNameAR').focus(); return; }
+            var documentData = {
+                DocumentID: docId,
+                DocumentNameEN: nameEN,
+                DocumentNameAR: nameAR,
+                Active: document.getElementById('DocumentActive').checked
+            };
+            var existingIndex = documents.findIndex(function(d) { return parseInt(d.DocumentID) === docId; });
+            if (existingIndex >= 0) { documents[existingIndex] = documentData; }
+            else { documents.push(documentData); }
+            syncDocToCloud(documentData);
+            currentDocument = documentData;
+            renderDocumentList();
+            document.getElementById('statusText').textContent = '✅ Document saved!';
+            setTimeout(function() { document.getElementById('statusText').textContent = 'Viewing: ' + documentData.DocumentNameEN; }, 2000);
+        }
+
+        // Delete is blocked
+        function deleteDocument() {
+            alert('🚫 Delete is disabled.\n\nUse the "Active" checkbox to disable a document.\nDisabled documents will not appear in worker forms.');
+        }
+
+        function updateCounter() {
+            var active = filteredDocuments.filter(function(d) { return d.Active !== false && d.Active !== 'false'; }).length;
+            document.getElementById('recordCounter').textContent = active + ' active / ' + filteredDocuments.length + ' total';
+        }
+
+        init();
+    </script>
+</body>
+</html>
