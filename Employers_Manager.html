@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGS - Employers Manager</title>
+    <?!= HtmlService.createHtmlOutputFromFile("Employers_Manager_CSS").getContent(); ?>
+    <style>
+        .panel-tabs { display:flex; border-bottom:2px solid #e9ecef; background:#f8f9fa; }
+        .panel-tab { flex:1; padding:9px 6px; font-size:11px; font-weight:700; border:none; background:transparent; cursor:pointer; color:#6c757d; border-bottom:3px solid transparent; transition:all 0.2s; text-align:center; }
+        .panel-tab.active { color:#667eea; border-bottom-color:#667eea; background:white; }
+        .panel-tab.disabled-tab.active { color:#dc3545; border-bottom-color:#dc3545; }
+        .panel-section { display:none; }
+        .panel-section.active { display:block; }
+        .employer-item { position:relative; }
+        .disable-chk-wrap { position:absolute; top:8px; right:8px; z-index:10; }
+        .disable-chk-wrap input[type=checkbox] { width:15px; height:15px; cursor:pointer; accent-color:#dc3545; }
+        .employer-item.disabled-item { opacity:0.55; background:#fff5f5 !important; border-left:3px solid #dc3545; }
+        .disabled-badge { display:inline-block; background:#dc3545; color:white; font-size:9px; font-weight:700; padding:1px 6px; border-radius:8px; margin-left:4px; vertical-align:middle; }
+        .instant-sync-row { display:flex; align-items:center; gap:8px; padding:8px 0 4px; flex-wrap:wrap; }
+        .instant-sync-input { flex:1; min-width:160px; padding:7px 12px; border:1.5px solid #20c997; border-radius:6px; font-size:13px; outline:none; }
+        .instant-sync-input:focus { border-color:#00b4d8; box-shadow:0 0 0 3px rgba(32,201,151,0.15); }
+        .instant-sync-btn { padding:7px 14px; background:linear-gradient(135deg,#20c997,#00b4d8); color:white; border:none; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
+        .instant-sync-btn:hover { filter:brightness(1.1); }
+        .instant-sync-btn:disabled { opacity:0.6; cursor:not-allowed; }
+        .instant-sync-status { font-size:11px; color:#6c757d; font-family:monospace; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- ══════════════ LEFT PANEL ══════════════ -->
+    <div class="nav-panel">
+        <div class="nav-header">
+            <h2>💼 Employers</h2>
+            <p id="counter">0 Employers</p>
+            <p style="font-size:10px;margin-top:5px;">
+                <span id="cloudStatus" style="padding:2px 8px;border-radius:10px;font-weight:600;background:#fff3cd;color:#856404;">⏳ Loading...</span>
+                <span id="autoSaveStatus" style="color:#6c757d;"></span> v4.5
+            </p>
+        </div>
+
+        <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search employers..." oninput="onSearch()">
+
+        <div class="panel-tabs">
+            <button class="panel-tab active" id="ptab-active" onclick="switchPanelTab('active')">✅ Active</button>
+            <button class="panel-tab disabled-tab" id="ptab-disabled" onclick="switchPanelTab('disabled')">🚫 Disabled <span id="disabledCount" style="background:#dc3545;color:white;border-radius:8px;padding:1px 5px;font-size:9px;margin-left:2px;">0</span></button>
+        </div>
+
+        <div class="panel-section active" id="psection-active">
+            <ul class="employer-list" id="employerList"></ul>
+            <div class="pagination-wrap" id="paginationWrap" style="display:none;">
+                <div class="pagination-info" id="paginationInfo"></div>
+                <div class="pagination" id="paginationControls"></div>
+            </div>
+        </div>
+
+        <div class="panel-section" id="psection-disabled">
+            <ul class="employer-list" id="disabledList"></ul>
+            <div style="padding:8px 12px;font-size:11px;color:#6c757d;border-top:1px solid #e9ecef;">
+                Check the box again to re-enable an employer.
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ RIGHT PANEL ══════════════ -->
+    <div class="main-content">
+        <div class="toolbar">
+            <button class="btn btn-success" onclick="showAddEmployerWarning()" style="opacity:0.5;cursor:not-allowed;">➕ New Employer (Disabled)</button>
+            <button class="btn btn-light" onclick="loadEmployers()">🔄 Refresh</button>
+            <button class="btn btn-light" onclick="showAllFiles()">📂 All Files</button>
+            <button class="btn" onclick="manualBackup()" style="background:#17a2b8;color:white;">☁️ Backup</button>
+            <button class="btn" onclick="restoreFromBackup()" style="background:#6f42c1;color:white;">☁️ Restore</button>
+            <button class="btn" id="syncBtn" onclick="syncContacts()" style="background:linear-gradient(135deg,#20c997,#00b4d8);color:white;font-weight:700;box-shadow:0 3px 10px rgba(32,201,151,0.3);">
+                🔁 Sync Contacts
+            </button>
+            <div class="instant-sync-row" style="width:100%;">
+                <input type="text" class="instant-sync-input" id="instantSyncInput"
+                    placeholder="⚡ Type name to instant sync..."
+                    onkeydown="if(event.key==='Enter') instantSyncContact()"/>
+                <button class="instant-sync-btn" id="instantSyncBtn" onclick="instantSyncContact()">⚡ Sync Contact</button>
+                <span class="instant-sync-status" id="instantSyncStatus"></span>
+            </div>
+            <div style="width:100%;font-size:11px;text-align:right;margin-top:4px;">
+                <span id="backupStatus" style="color:#6c757d;">☁️ Last backup: Never</span>
+                &nbsp;&nbsp;
+                <span id="lastSyncStatus" style="color:#20c997;font-weight:600;"></span>
+            </div>
+        </div>
+
+        <div id="syncProgressWrap">
+            <div class="sync-title">
+                <span class="spin" id="syncSpinIcon"></span>
+                <span id="syncTitleText">🔁 Syncing Google Contacts...</span>
+            </div>
+            <div id="syncBar"><div id="syncBarFill"></div></div>
+            <div id="syncStatusText">
+                <span id="syncStatusLeft">Connecting...</span>
+                <span id="syncStatusRight">0%</span>
+            </div>
+        </div>
+
+        <div id="employerProfileBanner" style="display:none;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 4px 15px rgba(102,126,234,0.3);">
+            <div style="display:flex;align-items:center;gap:15px;">
+                <div style="font-size:48px;">👤</div>
+                <div style="flex:1;">
+                    <div style="color:white;font-size:14px;font-weight:600;opacity:0.9;margin-bottom:5px;">📋 You are working on this employer profile:</div>
+                    <div style="color:white;font-size:24px;font-weight:700;margin-bottom:5px;" id="employerProfileName">Employer Name</div>
+                    <div style="color:white;font-size:14px;opacity:0.8;" id="employerProfileCode">Code: XXX-X</div>
+                </div>
+                <button onclick="closeEmployerProfileBanner()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:8px 16px;border-radius:5px;cursor:pointer;font-weight:600;font-size:14px;">✕ Close</button>
+            </div>
+        </div>
+
+        <div style="background:#fff3cd;border:2px solid #ffc107;border-radius:8px;padding:15px;margin-bottom:20px;display:flex;align-items:center;gap:12px;">
+            <div style="font-size:32px;">⚠️</div>
+            <div>
+                <div style="font-weight:700;color:#856404;margin-bottom:5px;">Employer Creation Disabled</div>
+                <div style="color:#856404;font-size:14px;">
+                    Employers are added automatically via <strong>🔁 Sync Contacts</strong> or manually through <strong>Local Agencies Manager</strong>.
+                </div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('info')">💼 Employer Info</button>
+            <button class="tab" onclick="switchTab('docs')">📄 Required Documents</button>
+            <button class="tab" onclick="switchTab('upload')">📤 Upload Files</button>
+        </div>
+
+        <div id="tab-info" class="tab-content active">
+            <div class="form-grid">
+                <div class="form-group"><label>Employer ID</label><input type="text" id="EmployerID" readonly></div>
+                <div class="form-group"><label>Employer Code</label><input type="text" id="EmployerCode" readonly></div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>Full Name *</label>
+                    <input type="text" id="EFN" placeholder="e.g., Elias Jean Massroua" readonly style="background:#e9ecef;cursor:not-allowed;font-weight:600;">
+                </div>
+                <div class="form-group"><label>City</label><input type="text" id="City" readonly style="background:#e9ecef;cursor:not-allowed;"></div>
+                <div class="form-group"><label>Mobile Number</label><input type="text" id="MobileNumber" readonly style="background:#e9ecef;cursor:not-allowed;"></div>
+                <div class="form-group"><label>Sync Status</label><input type="text" id="SyncStatusField" readonly style="background:#e9ecef;cursor:not-allowed;font-weight:600;"></div>
+                <div class="form-group"><label>Last Sync Date</label><input type="text" id="LastSyncDateField" readonly style="background:#e9ecef;cursor:not-allowed;"></div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>📁 Google Drive Folder Name</label>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <input type="text" id="EmployerFolderName" placeholder="e.g. MGS(1) - John Trading Co - 2026-03-09" style="font-family:monospace;flex:1;" oninput="updateFolderLink()">
+                        <a id="employerFolderLink" href="#" target="_blank"
+                           style="display:none;padding:8px 14px;background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;border-radius:6px;font-weight:700;font-size:12px;text-decoration:none;white-space:nowrap;box-shadow:0 2px 8px rgba(79,172,254,0.3);"
+                           title="Open folder in Google Drive">📂 Open Folder</a>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <button class="btn btn-success" onclick="saveEmployer()">💾 Save</button>
+                <button class="btn" id="syncSingleBtn" onclick="syncSingleContact()" style="background:linear-gradient(135deg,#20c997,#00b4d8);color:white;font-weight:700;box-shadow:0 2px 8px rgba(32,201,151,0.3);">🔄 Sync This Contact</button>
+                <div id="syncSingleStatus" style="font-size:12px;color:#6c757d;font-family:monospace;"></div>
+            </div>
+            <div id="syncPreviewBox" style="display:none;margin-top:16px;background:#f0fff4;border:2px solid #28a745;border-radius:10px;padding:16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <div style="font-weight:700;color:#155724;font-size:14px;">🔄 Changes found in Google Contacts</div>
+                    <button onclick="dismissSyncPreview()" style="background:none;border:none;color:#999;cursor:pointer;font-size:18px;">✕</button>
+                </div>
+                <div id="syncPreviewFields" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="applySyncChanges()" style="background:#28a745;color:white;border:none;padding:8px 20px;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;">✅ Apply Changes</button>
+                    <button onclick="dismissSyncPreview()" style="background:#6c757d;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-docs" class="tab-content">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <h3 style="margin:0;">Select Required Documents</h3>
+                <button onclick="reloadAndRenderDocs()" style="padding:5px 12px;background:#667eea;color:white;border:none;border-radius:5px;cursor:pointer;font-size:12px;">🔄 Refresh List</button>
+            </div>
+            <div id="docsList"></div>
+            <button class="btn btn-success" onclick="saveRequiredDocs()" style="margin-top:20px;">💾 Save Requirements</button>
+            <div style="margin-top:30px;padding:20px;background:#f8f9fa;border-radius:8px;border-left:4px solid #667eea;">
+                <h4 style="color:#667eea;margin-bottom:15px;">📄 Add More Copies</h4>
+                <div style="display:flex;gap:10px;align-items:flex-end;">
+                    <div style="flex:1;">
+                        <label style="font-weight:600;font-size:14px;margin-bottom:5px;display:block;">Select Document:</label>
+                        <select id="addMoreCopiesDropdown" style="width:100%;padding:10px;border:2px solid #667eea;border-radius:5px;font-size:14px;">
+                            <option value="">-- Select Document --</option>
+                        </select>
+                    </div>
+                    <button onclick="addMoreCopy()" class="btn" style="background:#667eea;color:white;white-space:nowrap;">➕ Add Copy</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-upload" class="tab-content">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <h3 style="margin:0;">Upload Document Files</h3>
+                <button onclick="loadUploadList()" style="padding:5px 12px;background:#667eea;color:white;border:none;border-radius:5px;cursor:pointer;font-size:12px;">🔄 Refresh</button>
+            </div>
+            <div id="uploadList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- All Files Modal -->
+<div id="allFilesModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:1000;overflow:auto;" onclick="if(event.target.id==='allFilesModal')closeAllFiles()">
+    <div style="background:white;max-width:1100px;margin:40px auto;border-radius:12px;padding:28px;max-height:88vh;overflow-y:auto;box-shadow:0 12px 50px rgba(0,0,0,0.35);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:2px solid #f5576c;padding-bottom:14px;flex-wrap:wrap;gap:10px;">
+            <h2 style="color:#f5576c;margin:0;">📂 All Uploaded Files</h2>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="openAllFilesInTabs()" style="background:#007bff;color:white;border:none;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">📂 Open Selected</button>
+                <button onclick="printAllFiles()" style="background:#28a745;color:white;border:none;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">🖨️ Print Selected</button>
+                <button onclick="printToPDF()" style="background:#dc3545;color:white;border:none;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">📄 Save PDF</button>
+                <button onclick="closeAllFiles()" style="background:#6c757d;color:white;border:none;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">✕ Close</button>
+            </div>
+        </div>
+        <div id="allFilesContent"></div>
+    </div>
+</div>
+
+<!-- Message Modal -->
+<div id="msgModal" style="display:none;position:fixed;z-index:99999;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:12px;padding:0;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;">
+        <div id="msgHeader" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:14px 20px;font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;">
+            <span id="msgIcon">ℹ️</span> <span id="msgTitle">Message</span>
+        </div>
+        <div style="padding:20px;">
+            <pre id="msgText" style="white-space:pre-wrap;word-wrap:break-word;font-family:'Segoe UI',sans-serif;font-size:13px;line-height:1.6;color:#333;max-height:400px;overflow-y:auto;margin:0;"></pre>
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid #e9ecef;display:flex;justify-content:flex-end;gap:8px;background:#f8f9fa;">
+            <button onclick="copyMsg()" id="msgCopyBtn" style="padding:8px 16px;background:#667eea;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;">📋 Copy</button>
+            <button onclick="closeMsg()" style="padding:8px 20px;background:#4facfe;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Modal -->
+<div id="confirmModal" style="display:none;position:fixed;z-index:99999;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:12px;padding:0;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:14px 20px;font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;">
+            <span>⚠️</span> <span>Confirm</span>
+        </div>
+        <div style="padding:20px;">
+            <pre id="confirmText" style="white-space:pre-wrap;word-wrap:break-word;font-family:'Segoe UI',sans-serif;font-size:13px;line-height:1.6;color:#333;max-height:400px;overflow-y:auto;margin:0;"></pre>
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid #e9ecef;display:flex;justify-content:flex-end;gap:8px;background:#f8f9fa;">
+            <button onclick="confirmCopy()" id="confirmCopyBtn" style="padding:8px 16px;background:#667eea;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;">📋 Copy</button>
+            <button onclick="confirmNo()" style="padding:8px 20px;background:#6c757d;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Cancel</button>
+            <button onclick="confirmYes()" style="padding:8px 20px;background:#dc3545;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Yes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Overlay -->
+<div id="uploadOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;justify-content:center;align-items:center;flex-direction:column;">
+    <div style="background:white;border-radius:16px;padding:40px 50px;text-align:center;min-width:350px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div id="uploadSpinner" style="width:60px;height:60px;border:5px solid #e0e0e0;border-top:5px solid #667eea;border-radius:50%;animation:uploadSpin 1s linear infinite;margin:0 auto 20px;"></div>
+        <h3 id="uploadTitle" style="margin:0 0 10px;color:#333;font-size:18px;">📤 Uploading...</h3>
+        <p id="uploadDetail" style="margin:0 0 15px;color:#666;font-size:14px;">Preparing file...</p>
+        <div style="width:100%;background:#e9ecef;border-radius:10px;height:8px;overflow:hidden;">
+            <div id="uploadProgressBar" style="width:0%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:10px;transition:width 0.3s;"></div>
+        </div>
+        <p id="uploadPercent" style="margin:8px 0 0;color:#888;font-size:13px;font-weight:600;">0%</p>
+    </div>
+</div>
+
+<script>
+// ==========================================
+// MESSAGE SYSTEM
+// ==========================================
+let _msgResolve = null;
+window.alert = function(msg) { showMsg(msg); };
+
+function showMsg(text, title) {
+    var cleanText = String(text || '');
+    document.getElementById('msgText').textContent = cleanText;
+    var hdr = document.getElementById('msgHeader');
+    var icon = document.getElementById('msgIcon');
+    var ttl = document.getElementById('msgTitle');
+    if (cleanText.startsWith('✅')||cleanText.includes('SUCCESS')) { icon.textContent='✅'; ttl.textContent=title||'Success'; hdr.style.background='linear-gradient(135deg,#10b981,#059669)'; }
+    else if (cleanText.startsWith('❌')||cleanText.includes('ERROR')||cleanText.includes('failed')) { icon.textContent='❌'; ttl.textContent=title||'Error'; hdr.style.background='linear-gradient(135deg,#ef4444,#dc2626)'; }
+    else if (cleanText.startsWith('⚠️')||cleanText.includes('WARNING')) { icon.textContent='⚠️'; ttl.textContent=title||'Warning'; hdr.style.background='linear-gradient(135deg,#f59e0b,#d97706)'; }
+    else { icon.textContent='ℹ️'; ttl.textContent=title||'Message'; hdr.style.background='linear-gradient(135deg,#667eea,#764ba2)'; }
+    document.getElementById('msgCopyBtn').textContent = '📋 Copy';
+    document.getElementById('msgModal').style.display = 'flex';
+}
+function copyMsg() { navigator.clipboard.writeText(document.getElementById('msgText').textContent).then(function(){ document.getElementById('msgCopyBtn').textContent='✅ Copied!'; setTimeout(function(){ document.getElementById('msgCopyBtn').textContent='📋 Copy'; },1500); }); }
+function closeMsg() { document.getElementById('msgModal').style.display='none'; if(_msgResolve){_msgResolve();_msgResolve=null;} }
+
+// ==========================================
+// CONFIRM SYSTEM
+// ==========================================
+let _confirmResolve = null;
+function showConfirm(text) {
+    return new Promise(function(resolve) {
+        _confirmResolve = resolve;
+        document.getElementById('confirmText').textContent = String(text||'');
+        document.getElementById('confirmCopyBtn').textContent = '📋 Copy';
+        document.getElementById('confirmModal').style.display = 'flex';
+    });
+}
+var _promptResolve = null;
+function showPrompt(text) {
+    return new Promise(function(resolve) {
+        _promptResolve = resolve;
+        document.getElementById('confirmText').textContent = String(text||'');
+        var existing = document.getElementById('promptInput');
+        if (!existing) {
+            var inp = document.createElement('input'); inp.id='promptInput'; inp.type='password'; inp.placeholder='Enter password...';
+            inp.style.cssText='width:100%;padding:10px;border:2px solid #dc3545;border-radius:6px;font-size:14px;margin-top:12px;text-align:center;';
+            document.getElementById('confirmText').insertAdjacentElement('afterend', inp);
+        } else { existing.style.display='block'; existing.value=''; }
+        document.getElementById('confirmModal').style.display = 'flex';
+        setTimeout(function() {
+            var inp=document.getElementById('promptInput'); if(inp)inp.focus();
+            var yesBtn=document.querySelector('#confirmModal button[onclick="confirmYes()"]');
+            if(yesBtn){yesBtn.onclick=function(){var val=document.getElementById('promptInput').value;document.getElementById('promptInput').style.display='none';document.getElementById('confirmModal').style.display='none';yesBtn.onclick=confirmYes;if(_promptResolve){var r=_promptResolve;_promptResolve=null;r(val);}};}
+            var noBtn=document.querySelector('#confirmModal button[onclick="confirmNo()"]');
+            if(noBtn){noBtn.onclick=function(){document.getElementById('promptInput').style.display='none';document.getElementById('confirmModal').style.display='none';noBtn.onclick=confirmNo;if(_promptResolve){var r=_promptResolve;_promptResolve=null;r(null);}};}
+        }, 50);
+    });
+}
+function confirmCopy() { navigator.clipboard.writeText(document.getElementById('confirmText').textContent).then(function(){ document.getElementById('confirmCopyBtn').textContent='✅ Copied!'; setTimeout(function(){ document.getElementById('confirmCopyBtn').textContent='📋 Copy'; },1500); }); }
+function confirmYes() { document.getElementById('confirmModal').style.display='none'; if(_confirmResolve){_confirmResolve(true);_confirmResolve=null;} }
+function confirmNo()  { document.getElementById('confirmModal').style.display='none'; if(_confirmResolve){_confirmResolve(false);_confirmResolve=null;} }
+document.addEventListener('keydown', function(e) { if(document.getElementById('msgModal').style.display==='flex'){if(e.key==='Escape'||e.key==='Enter'){closeMsg();e.preventDefault();}} });
+
+// ==========================================
+// CLOUD DATABASE
+// ==========================================
+var CloudDB = {
+    ready: true,
+    loadSheet: function(sheetName, callback) {
+        google.script.run
+            .withSuccessHandler(function(data){ callback((data&&data.data)?data.data:(Array.isArray(data)?data:[])); })
+            .withFailureHandler(function(e){ console.warn('loadSheet failed:',sheetName,e.message); callback(null); })
+            .gsrGetAll(sheetName);
+    },
+    saveRow: function(sheetName, rowData) {
+        return new Promise(function(resolve) {
+            google.script.run
+                .withSuccessHandler(function(r){ resolve(r); })
+                .withFailureHandler(function(e){ resolve(null); })
+                .gsrSaveRow(sheetName, rowData);
+        });
+    },
+    deleteRow: function(sheetName, id) {
+        return new Promise(function(resolve) {
+            google.script.run
+                .withSuccessHandler(function(r){ resolve(r); })
+                .withFailureHandler(function(e){ resolve(null); })
+                .gsrDeleteRow(sheetName, id);
+        });
+    },
+    post: function(data) {
+        return new Promise(function(resolve) {
+            if (data.action==='getAll') {
+                google.script.run
+                    .withSuccessHandler(function(result){ resolve({success:true,data:(result&&result.data)?result.data:(Array.isArray(result)?result:[])}); })
+                    .withFailureHandler(function(e){ resolve({success:false,data:[]}); })
+                    .gsrGetAll(data.sheet);
+            } else if (data.action==='saveRow') {
+                google.script.run
+                    .withSuccessHandler(function(r){ resolve(r); })
+                    .withFailureHandler(function(e){ resolve(null); })
+                    .gsrSaveRow(data.sheet, data.data||data.row);
+            } else {
+                google.script.run
+                    .withSuccessHandler(function(r){ resolve(r); })
+                    .withFailureHandler(function(e){ resolve({success:false,error:e.message}); })
+                    .gsrPost(JSON.stringify(data));
+            }
+        });
+    },
+    loadAll: function() {
+        return new Promise(function(resolve) {
+            var results={employers:null,employer_documents:null}; var done=0;
+            function check(){ if(++done===2)resolve(results); }
+            google.script.run
+                .withSuccessHandler(function(data){ results.employers=(data&&data.data)?data.data:(Array.isArray(data)?data:[]); check(); })
+                .withFailureHandler(function(){ check(); })
+                .gsrGetAll('Employers');
+            google.script.run
+                .withSuccessHandler(function(data){ results.employer_documents=(data&&data.data)?data.data:(Array.isArray(data)?data:[]); check(); })
+                .withFailureHandler(function(){ check(); })
+                .gsrGetAll('Employer_Documents');
+        });
+    }
+};
+
+// ==========================================
+// SAVE PROTECTION
+// ==========================================
+var _hasUnsavedChanges = false;
+document.addEventListener('input', function(e) {
+    if(e.target.closest&&e.target.closest('.form-panel')){ _hasUnsavedChanges=true; var el=document.getElementById('autoSaveStatus'); if(el)el.textContent='⚠️ Unsaved'; }
+});
+window.addEventListener('beforeunload', function(e) {
+    if(_hasUnsavedChanges){ e.preventDefault(); e.returnValue='⚠️ You have unsaved changes!'; return e.returnValue; }
+});
+function markAsSaved() { _hasUnsavedChanges=false; var el=document.getElementById('autoSaveStatus'); if(el)el.textContent='✅ '+new Date().toLocaleTimeString(); }
+setInterval(function(){ if(_hasUnsavedChanges&&currentEmployer)saveEmployer(); },30000);
+
+// ==========================================
+// UPLOAD OVERLAY
+// ==========================================
+function showUploadOverlay(title, detail) {
+    var ov=document.getElementById('uploadOverlay'); if(!ov)return;
+    ov.style.display='flex';
+    document.getElementById('uploadTitle').textContent=title||'📤 Uploading...';
+    document.getElementById('uploadDetail').textContent=detail||'Preparing file...';
+    document.getElementById('uploadProgressBar').style.width='0%';
+    document.getElementById('uploadPercent').textContent='0%';
+    var s=document.getElementById('uploadSpinner'); s.innerHTML=''; s.style.animation='uploadSpin 1s linear infinite'; s.style.border='5px solid #e0e0e0'; s.style.borderTop='5px solid #667eea';
+}
+function updateUploadOverlay(detail, percent) { document.getElementById('uploadDetail').textContent=detail; document.getElementById('uploadProgressBar').style.width=percent+'%'; document.getElementById('uploadPercent').textContent=percent+'%'; }
+function hideUploadOverlay(success, msg) {
+    var s=document.getElementById('uploadSpinner'); s.style.animation='none'; s.style.border='none';
+    s.innerHTML='<div style="font-size:50px;line-height:60px">'+(success?'✅':'❌')+'</div>';
+    document.getElementById('uploadTitle').textContent=success?'✅ Upload Complete':'❌ Upload Failed';
+    document.getElementById('uploadTitle').style.color=success?'#28a745':'#dc3545';
+    document.getElementById('uploadDetail').textContent=msg||'';
+    document.getElementById('uploadProgressBar').style.width='100%'; document.getElementById('uploadPercent').textContent='100%';
+    setTimeout(function(){
+        document.getElementById('uploadOverlay').style.display='none'; s.innerHTML=''; s.style.animation='uploadSpin 1s linear infinite'; s.style.border='5px solid #e0e0e0'; s.style.borderTop='5px solid #667eea'; document.getElementById('uploadTitle').style.color='#333';
+    },1500);
+}
+
+// ==========================================
+// STATE
+// ==========================================
+var employers = [];
+var currentEmployer = null;
+var PAGE_SIZE = 20;
+var currentPage = 1;
+var filteredEmployers = [];
+var DEFAULT_SHOW = 9999;
+var currentPanelTab = 'active';
+
+// ==========================================
+// PANEL TAB SWITCH
+// ==========================================
+function switchPanelTab(tab) {
+    currentPanelTab = tab;
+    document.querySelectorAll('.panel-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelectorAll('.panel-section').forEach(function(s){ s.classList.remove('active'); });
+    document.getElementById('ptab-'+tab).classList.add('active');
+    document.getElementById('psection-'+tab).classList.add('active');
+    if (tab==='disabled') renderDisabledList();
+}
+
+// ==========================================
+// PARSE EMPLOYER FIELDS
+// ==========================================
+function parseEmployerFields(arr) {
+    arr.forEach(function(emp) {
+        if (typeof emp.UploadedDocuments==='string'){ try{ emp.UploadedDocuments=JSON.parse(emp.UploadedDocuments); }catch(e){ emp.UploadedDocuments={}; } }
+        if (typeof emp.RequiredDocuments==='string'){ try{ emp.RequiredDocuments=JSON.parse(emp.RequiredDocuments); }catch(e){ emp.RequiredDocuments=[]; } }
+        emp.Disabled = emp.Disabled===true || emp.Disabled==='TRUE' || emp.Disabled==='true' || emp.Disabled==='1';
+    });
+}
+
+// ==========================================
+// INIT
+// ==========================================
+async function init() {
+    console.log('🚀 EMPLOYERS MANAGER v4.5');
+    document.getElementById('allFilesModal').style.display='none';
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape')closeAllFiles(); });
+
+    showUploadOverlay('☁️ Loading from Cloud...','Connecting to Google Sheets...');
+    updateUploadOverlay('Connecting...',20);
+
+    var cloudData = await CloudDB.loadAll();
+    updateUploadOverlay('Processing data...',80);
+
+    if (cloudData.employers) {
+        employers = cloudData.employers;
+        parseEmployerFields(employers);
+    }
+    if (cloudData.employer_documents) {
+        localStorage.setItem('mgsdb_employer_documents', JSON.stringify(cloudData.employer_documents));
+    }
+
+    employers.forEach(function(emp) {
+        if (!emp.EFN && (emp.EmployerName||emp.EmployerFatherName||emp.EmployerFamilyName)) {
+            emp.EFN = [emp.EmployerName,emp.EmployerFatherName,emp.EmployerFamilyName].filter(Boolean).join(' ');
+        }
+        if (!emp.EFN && emp.EmployerCode) emp.EFN = emp.EmployerCode;
+    });
+
+    loadEmployers();
+
+    var selectedEmployerId = localStorage.getItem('selected_employer_id');
+    var openDocsTab = localStorage.getItem('open_documents_tab');
+    if (selectedEmployerId && openDocsTab==='true') {
+        localStorage.removeItem('selected_employer_id');
+        localStorage.removeItem('open_documents_tab');
+        var employer = employers.find(function(e){ return String(e.EmployerID)===String(selectedEmployerId); });
+        if (employer) {
+            document.getElementById('searchBox').value = employer.EFN||employer.EmployerCode||String(selectedEmployerId);
+            loadEmployers();
+            setTimeout(function(){ selectEmployer(employer); switchTab('docs'); showEmployerProfileBanner(employer); },100);
+        }
+    }
+
+    var s=document.getElementById('uploadSpinner'); s.style.animation='none'; s.style.border='none';
+    s.innerHTML='<div style="font-size:50px;line-height:60px">☁️</div>';
+    document.getElementById('uploadTitle').textContent='☁️ Cloud Connected';
+    document.getElementById('uploadTitle').style.color='#28a745';
+    document.getElementById('uploadDetail').textContent='Data loaded from Google Sheets';
+    document.getElementById('uploadProgressBar').style.width='100%';
+    document.getElementById('uploadPercent').textContent='100%';
+    setTimeout(function(){
+        document.getElementById('uploadOverlay').style.display='none'; s.innerHTML=''; s.style.animation='uploadSpin 1s linear infinite'; s.style.border='5px solid #e0e0e0'; s.style.borderTop='5px solid #667eea'; document.getElementById('uploadTitle').style.color='#333';
+    },500);
+
+    var cloudBadge=document.getElementById('cloudStatus');
+    if(cloudBadge){ cloudBadge.textContent='☁️ Cloud'; cloudBadge.style.background='#d4edda'; cloudBadge.style.color='#155724'; }
+
+    var lastSync=localStorage.getItem('mgsdb_lastContactsSync');
+    if(lastSync){ var el=document.getElementById('lastSyncStatus'); if(el)el.textContent='🔁 Last sync: '+lastSync; }
+}
+
+// ==========================================
+// SEARCH + LOAD
+// ==========================================
+function onSearch(){ currentPage=1; loadEmployers(); }
+function filterEmployers(){ onSearch(); }
+
+function loadEmployers() {
+    var searchTerm=(document.getElementById('searchBox').value||'').toLowerCase().trim();
+    var activeEmployers   = employers.filter(function(e){ return !e.Disabled; });
+    var disabledEmployers = employers.filter(function(e){ return !!e.Disabled; });
+    var dcEl=document.getElementById('disabledCount'); if(dcEl)dcEl.textContent=disabledEmployers.length;
+    document.getElementById('counter').textContent = activeEmployers.length + ' Employers';
+
+    filteredEmployers = activeEmployers.filter(function(emp){
+        if(!searchTerm) return true;
+        var haystack = Object.keys(emp).map(function(k){
+            var v = emp[k];
+            if (v === null || v === undefined) return '';
+            if (typeof v === 'object') return '';
+            return String(v);
+        }).join(' ').toLowerCase();
+        return haystack.includes(searchTerm);
+    });
+
+    if (!searchTerm) {
+        var sorted=filteredEmployers.slice().sort(function(a,b){ return parseInt(b.EmployerID||0)-parseInt(a.EmployerID||0); });
+        filteredEmployers=sorted.slice(0,DEFAULT_SHOW);
+    }
+
+    var total=filteredEmployers.length;
+    var totalPages=Math.max(1,Math.ceil(total/PAGE_SIZE));
+    if(currentPage<1)currentPage=1; if(currentPage>totalPages)currentPage=totalPages;
+    var start=(currentPage-1)*PAGE_SIZE; var end=Math.min(start+PAGE_SIZE,total);
+    var pageItems=filteredEmployers.slice(start,end);
+
+    var list=document.getElementById('employerList'); list.innerHTML='';
+    if(total===0){
+        list.innerHTML='<li style="padding:20px;text-align:center;color:#999;">'+(searchTerm?'🔍 No results for "'+searchTerm+'"':'No employers yet.')+'</li>';
+    } else {
+        pageItems.forEach(function(emp){ list.appendChild(renderEmployerItem(emp,false)); });
+    }
+
+    renderPagination(total,totalPages,start,end);
+    if(currentPanelTab==='disabled')renderDisabledList();
+}
+
+function renderDisabledList() {
+    var disabledEmployers=employers.filter(function(e){ return !!e.Disabled; });
+    var list=document.getElementById('disabledList'); list.innerHTML='';
+    if(disabledEmployers.length===0){ list.innerHTML='<li style="padding:20px;text-align:center;color:#999;">No disabled employers.</li>'; return; }
+    disabledEmployers.forEach(function(emp){ list.appendChild(renderEmployerItem(emp,true)); });
+}
+
+function renderEmployerItem(emp, isDisabled) {
+    var li=document.createElement('li');
+    li.className='employer-item'+(isDisabled?' disabled-item':'');
+    li.setAttribute('data-employer-id',emp.EmployerID);
+    var syncStatus=emp.SyncStatus||emp.syncStatus||'manual';
+    var badgeClass=syncStatus==='Active'?'active':syncStatus==='Inactive'?'inactive':syncStatus==='Synced'?'synced':'manual';
+    var badgeLabel=syncStatus==='Active'?'🟢 Active':syncStatus==='Inactive'?'🔴 Inactive':syncStatus==='Synced'?'🔵 Synced':'🟡 Manual';
+    var disabledBadge=isDisabled?'<span class="disabled-badge">🚫 Disabled</span>':'';
+    li.innerHTML=
+        '<div style="font-size:12px;color:#f5576c;font-weight:700;">'+(emp.EmployerCode||computeEmployerCode(emp))+'<span class="sync-badge '+badgeClass+'">'+badgeLabel+'</span>'+disabledBadge+'</div>'
+        +'<div style="font-size:13px;color:#333;margin-top:2px;padding-right:24px;">'+(emp.EFN||emp.EmployerName||'Unknown')+'</div>'
+        +(emp.City?'<div style="font-size:11px;color:#999;">📍 '+emp.City+'</div>':'')
+        +'<div class="disable-chk-wrap"><input type="checkbox" title="'+(isDisabled?'Re-enable':'Disable')+'" '+(isDisabled?'checked':'')
+        +' onchange="toggleDisableEmployer(event,\''+emp.EmployerID+'\')"></div>';
+    if(currentEmployer&&String(emp.EmployerID)===String(currentEmployer.EmployerID))li.classList.add('active');
+    li.addEventListener('click',function(e){ if(e.target.type==='checkbox')return; selectEmployer(emp); });
+    return li;
+}
+
+async function toggleDisableEmployer(event, employerID) {
+    event.stopPropagation();
+    var chk=event.target; var isNowDisabled=chk.checked;
+    var emp=employers.find(function(e){ return String(e.EmployerID)===String(employerID); });
+    if(!emp){ chk.checked=!isNowDisabled; return; }
+    var yes=await showConfirm(
+        (isNowDisabled?'🚫 Disable this employer?\n\n':'✅ Re-enable this employer?\n\n')
+        +(emp.EFN||emp.EmployerCode||'')+'\n\n'
+        +(isNowDisabled?'They will be moved to the Disabled tab.':'They will return to the Active list.')
+    );
+    if(!yes){ chk.checked=!isNowDisabled; return; }
+    emp.Disabled=isNowDisabled; emp.DisabledAt=isNowDisabled?new Date().toISOString():null;
+    var idx=employers.findIndex(function(e){ return String(e.EmployerID)===String(employerID); });
+    if(idx>=0)employers[idx]=emp;
+    var saveBtn=chk; saveBtn.disabled=true;
+    var result=await CloudDB.saveRow('Employers', emp);
+    saveBtn.disabled=false;
+    if(!result||!result.success){
+        emp.Disabled=!isNowDisabled; if(idx>=0)employers[idx]=emp; chk.checked=!isNowDisabled;
+        showMsg('❌ Failed to save to cloud.'); return;
+    }
+    if(currentEmployer&&String(currentEmployer.EmployerID)===String(employerID)&&isNowDisabled){
+        currentEmployer=null; closeEmployerProfileBanner();
+    }
+    loadEmployers();
+    if(isNowDisabled) switchPanelTab('disabled');
+    showMsg((isNowDisabled?'🚫 Employer disabled.\n\n':'✅ Employer re-enabled.\n\n')+(emp.EFN||emp.EmployerCode||''));
+}
+
+function renderPagination(total,totalPages,start,end) {
+    var wrap=document.getElementById('paginationWrap'); var info=document.getElementById('paginationInfo'); var controls=document.getElementById('paginationControls');
+    if(total===0||totalPages<=1){wrap.style.display='none';return;}
+    wrap.style.display='block'; info.textContent='Showing '+(start+1)+'–'+end+' of '+total; controls.innerHTML='';
+    function makeBtn(label,page,isActive,isDisabled){
+        var btn=document.createElement('button'); btn.textContent=label;
+        if(isActive)btn.classList.add('pg-active'); if(isDisabled)btn.disabled=true;
+        if(!isDisabled&&!isActive)btn.onclick=(function(p){ return function(){ currentPage=p; loadEmployers(); document.getElementById('employerList').scrollTop=0; }; })(page);
+        return btn;
+    }
+    controls.appendChild(makeBtn('◀',currentPage-1,false,currentPage===1));
+    var pages=[1]; if(currentPage>3)pages.push('…');
+    for(var p=Math.max(2,currentPage-1);p<=Math.min(totalPages-1,currentPage+1);p++)pages.push(p);
+    if(currentPage<totalPages-2)pages.push('…'); if(totalPages>1)pages.push(totalPages);
+    pages.forEach(function(p){ if(p==='…'){var s=document.createElement('span');s.className='pg-ellipsis';s.textContent='…';controls.appendChild(s);}else{controls.appendChild(makeBtn(p,p,p===currentPage,false));} });
+    controls.appendChild(makeBtn('▶',currentPage+1,false,currentPage===totalPages));
+}
+
+// ==========================================
+// SYNC CONTACTS
+// ==========================================
+var _syncInProgress=false;
+function syncContacts() {
+    if(_syncInProgress){showMsg('⚠️ Sync already in progress!');return;}
+    _syncInProgress=true;
+    var syncBtn=document.getElementById('syncBtn'); if(syncBtn){syncBtn.disabled=true;syncBtn.textContent='⏳ Syncing...';}
+    var wrap=document.getElementById('syncProgressWrap'); wrap.style.display='block'; wrap.scrollIntoView({behavior:'smooth',block:'nearest'});
+    setSyncProgress(5,'Connecting to Google Contacts...','5%');
+    document.getElementById('syncTitleText').textContent='🔁 Syncing Google Contacts...';
+    document.getElementById('syncSpinIcon').style.display='inline-block';
+    var fakeProgress=5;
+    var fakeTimer=setInterval(function(){ if(fakeProgress<80){fakeProgress+=Math.random()*8;if(fakeProgress>80)fakeProgress=80;setSyncProgress(fakeProgress,'Reading MGSC contacts...',Math.round(fakeProgress)+'%');} },800);
+    google.script.run
+        .withSuccessHandler(function(result){
+            clearInterval(fakeTimer); _syncInProgress=false;
+            if(syncBtn){syncBtn.disabled=false;syncBtn.textContent='🔁 Sync Contacts';}
+            if(result&&result.success){
+                setSyncProgress(100,'✅ Sync complete!','100%');
+                document.getElementById('syncSpinIcon').style.display='none';
+                document.getElementById('syncTitleText').textContent='✅ Sync Completed!';
+                wrap.style.background='#f0fff4'; wrap.style.borderColor='#28a745';
+                var now=new Date().toLocaleString(); localStorage.setItem('mgsdb_lastContactsSync',now);
+                var el=document.getElementById('lastSyncStatus'); if(el)el.textContent='🔁 Last sync: '+now;
+                setTimeout(function(){
+                    CloudDB.loadSheet('Employers',function(data){ if(data){ employers=data; parseEmployerFields(employers); currentPage=1; loadEmployers(); } });
+                },500);
+                setTimeout(function(){
+                    showMsg('✅ Sync Completed!\n\n📋 Total: '+(result.total||0)+'\n➕ Inserted: '+(result.inserted||0)+'\n✏️ Updated: '+(result.updated||0)+'\n🔴 Inactive: '+(result.inactive||0)+'\n📁 Folders: '+(result.folders||0)+'\n❌ Errors: '+(result.errors||0));
+                    setTimeout(function(){wrap.style.display='none';},3000);
+                },600);
+            } else {
+                setSyncProgress(0,'❌ Sync failed!','0%'); document.getElementById('syncSpinIcon').style.display='none';
+                document.getElementById('syncTitleText').textContent='❌ Sync Failed'; wrap.style.background='#fff5f5'; wrap.style.borderColor='#dc3545';
+                setTimeout(function(){showMsg('❌ Sync Failed!\n\n'+(result&&result.error?result.error:'Unknown error.'));},300);
+            }
+        })
+        .withFailureHandler(function(err){
+            clearInterval(fakeTimer); _syncInProgress=false;
+            if(syncBtn){syncBtn.disabled=false;syncBtn.textContent='🔁 Sync Contacts';}
+            setSyncProgress(0,'❌ Connection failed!','0%'); document.getElementById('syncSpinIcon').style.display='none';
+            document.getElementById('syncTitleText').textContent='❌ Sync Failed'; wrap.style.background='#fff5f5'; wrap.style.borderColor='#dc3545';
+            showMsg('❌ Sync Failed!\n\n'+(err.message||String(err)));
+        })
+        .gsrPost(JSON.stringify({action:'syncContacts'}));
+}
+function setSyncProgress(percent,leftText,rightText){ document.getElementById('syncBarFill').style.width=percent+'%'; document.getElementById('syncStatusLeft').textContent=leftText||''; document.getElementById('syncStatusRight').textContent=rightText||''; }
+
+// ==========================================
+// INSTANT SYNC
+// ==========================================
+function instantSyncContact() {
+    var name = (document.getElementById('instantSyncInput').value || '').trim();
+    if (!name) { showMsg('⚠️ Please enter a name to search.'); return; }
+    var btn = document.getElementById('instantSyncBtn');
+    var statusEl = document.getElementById('instantSyncStatus');
+    btn.disabled = true; btn.textContent = '⏳ Searching...';
+    statusEl.textContent = 'Searching Google Contacts...'; statusEl.style.color = '#6c757d';
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false; btn.textContent = '⚡ Sync Contact';
+            if (!result || !result.success || !result.contacts || result.contacts.length === 0) {
+                statusEl.textContent = '❌ Not found: ' + name; statusEl.style.color = '#dc3545';
+                showMsg('❌ No contact found matching "' + name + '"');
+                return;
+            }
+            var contacts = result.contacts;
+            if (contacts.length === 1) { doInstantSync(contacts[0], statusEl, btn); }
+            else { showInstantSyncPicker(contacts, statusEl, btn); }
+        })
+        .withFailureHandler(function(e) {
+            btn.disabled = false; btn.textContent = '⚡ Sync Contact';
+            statusEl.textContent = '❌ ' + e.message; statusEl.style.color = '#dc3545';
+        })
+        .searchContactsByName(name);
+}
+function doInstantSync(contact, statusEl, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing...'; }
+    if (statusEl) { statusEl.textContent = 'Syncing ' + contact.name + '...'; statusEl.style.color = '#6c757d'; }
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (btn) { btn.disabled = false; btn.textContent = '⚡ Sync Contact'; }
+            if (!result || !result.success) {
+                if (statusEl) { statusEl.textContent = '❌ Sync failed'; statusEl.style.color = '#dc3545'; }
+                showMsg('❌ Sync failed: ' + (result && result.error ? result.error : 'Unknown error'));
+                return;
+            }
+            var msg = result.inserted > 0 ? '➕ Added to Employers' : '✏️ Updated in Employers';
+            if (statusEl) { statusEl.textContent = '✅ ' + msg; statusEl.style.color = '#28a745'; }
+            document.getElementById('instantSyncInput').value = '';
+            setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 4000);
+            CloudDB.loadSheet('Employers', function(data) {
+                if (data) { employers = data; parseEmployerFields(employers); loadEmployers(); }
+            });
+            showMsg('✅ ' + contact.name + '\n\n' + msg + '\n➕ Inserted: ' + (result.inserted||0) + '\n✏️ Updated: ' + (result.updated||0) + '\n📁 Folders: ' + (result.folders||0));
+        })
+        .withFailureHandler(function(e) {
+            if (btn) { btn.disabled = false; btn.textContent = '⚡ Sync Contact'; }
+            if (statusEl) { statusEl.textContent = '❌ ' + e.message; statusEl.style.color = '#dc3545'; }
+        })
+        .syncContactByResourceName(contact.resourceName);
+}
+function showInstantSyncPicker(contacts, statusEl, btn) {
+    var listHtml = contacts.map(function(c, i) {
+        return '<div onclick="window._instantPickChoice='+i+';closeMsg();doInstantSync(window._instantPickContacts['+i+'],document.getElementById(\'instantSyncStatus\'),document.getElementById(\'instantSyncBtn\'));" '
+            + 'style="padding:10px 14px;border:1.5px solid #e0e0e0;border-radius:7px;margin-bottom:7px;cursor:pointer;display:flex;align-items:center;gap:10px;" '
+            + 'onmouseover="this.style.borderColor=\'#20c997\'" onmouseout="this.style.borderColor=\'#e0e0e0\'">'
+            + '<div style="width:28px;height:28px;background:#e8f5ff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1a73e8;">'+(i+1)+'</div>'
+            + '<div><div style="font-weight:600;font-size:13px;">'+c.name+'</div>'
+            + (c.phone ? '<div style="font-size:11px;color:#999;">'+c.phone+'</div>' : '')
+            + '</div></div>';
+    }).join('');
+    window._instantPickContacts = contacts;
+    document.getElementById('msgText').innerHTML = '<div style="font-weight:700;margin-bottom:12px;">🔍 Multiple matches — select one:</div>' + listHtml;
+    document.getElementById('msgIcon').textContent = '🔍';
+    document.getElementById('msgTitle').textContent = 'Select Contact';
+    document.getElementById('msgHeader').style.background = 'linear-gradient(135deg,#20c997,#00b4d8)';
+    document.getElementById('msgModal').style.display = 'flex';
+}
+
+// ==========================================
+// SELECT EMPLOYER
+// ==========================================
+function selectEmployer(emp) {
+    currentEmployer=JSON.parse(JSON.stringify(emp));
+    if(emp.EmployerID){
+        emp.EmployerCode = computeEmployerCode(emp);
+        currentEmployer.EmployerCode = emp.EmployerCode;
+    }
+    document.getElementById('EmployerID').value        = emp.EmployerID    || '';
+    document.getElementById('EmployerCode').value      = emp.EmployerCode  || '';
+    document.getElementById('EFN').value               = emp.EFN           || '';
+    document.getElementById('City').value              = emp.City          || '';
+    document.getElementById('MobileNumber').value      = emp.MobileNumber  || emp.ContactNumber || '';
+    document.getElementById('SyncStatusField').value  = emp.SyncStatus    || emp.syncStatus    || 'Manual';
+    document.getElementById('LastSyncDateField').value= emp.LastSyncDate  || emp.lastSyncDate  || '';
+    var folderName=emp.EmployerFolderName||emp.EmployerFolder||'';
+    if(!folderName&&emp.AgencyCode&&emp.EmployerID) folderName=emp.AgencyCode+'('+emp.EmployerID+') - '+(emp.EFN||emp.EmployerName||'')+' - '+new Date().toISOString().slice(0,10);
+    document.getElementById('EmployerFolderName').value=folderName;
+    // Update Drive folder link
+    (function(){
+        var link = document.getElementById('employerFolderLink');
+        if(!link) return;
+        var fid  = emp.EmployerFolderID || '';
+        var fname = folderName || '';
+        if(fid){
+            link.href = 'https://drive.google.com/drive/folders/' + fid;
+            link.style.display = 'inline-block';
+        } else if(fname){
+            // Fallback: Drive search by folder name
+            link.href = 'https://drive.google.com/drive/search?q=' + encodeURIComponent(fname);
+            link.style.display = 'inline-block';
+            link.title = 'Search Drive for: ' + fname;
+        } else {
+            link.style.display = 'none';
+        }
+    })();
+    document.querySelectorAll('.employer-item').forEach(function(item){item.classList.remove('active');});
+    var sel=document.querySelector('.employer-item[data-employer-id="'+emp.EmployerID+'"]'); if(sel)sel.classList.add('active');
+    loadDocsList(); loadUploadList();
+}
+function showEmployerProfileBanner(emp){ document.getElementById('employerProfileBanner').style.display='block'; document.getElementById('employerProfileName').textContent=emp.EFN||emp.EmployerName||''; document.getElementById('employerProfileCode').textContent='Code: '+(emp.EmployerCode||computeEmployerCode(emp)||''); }
+function closeEmployerProfileBanner(){ document.getElementById('employerProfileBanner').style.display='none'; }
+function showAddEmployerWarning(){ alert('⚠️ EMPLOYER CREATION DISABLED\n\n1️⃣  Click 🔁 Sync Contacts\n2️⃣  Local Agencies Manager → Add New Employer'); }
+
+function saveEmployer() {
+    if(!currentEmployer){showAddEmployerWarning();return;}
+    var fullName=document.getElementById('EFN').value.trim();
+    if(!fullName){alert('Please enter Full Name!');return;}
+    var nameParts=fullName.split(' ').filter(function(p){return p.length>0;});
+    if(nameParts.length<2){alert('Please enter at least First and Last name');return;}
+    var id=parseInt(document.getElementById('EmployerID').value);
+    var existingIndex=employers.findIndex(function(e){return e.EmployerID===id;});
+    if(existingIndex===-1){alert('⚠️ Cannot create new employer!');return;}
+    var employer=Object.assign({},currentEmployer,{
+        EmployerID:id, EmployerCode:currentEmployer.EmployerCode,
+        EFN:fullName, City:document.getElementById('City').value.trim(),
+        MobileNumber:document.getElementById('MobileNumber').value.trim(),
+        EmployerFolderName:document.getElementById('EmployerFolderName').value.trim()||currentEmployer.EmployerFolderName||''
+    });
+    document.getElementById('EmployerCode').value=employer.EmployerCode;
+    currentEmployer=employer; employers[existingIndex]=employer;
+    CloudDB.saveRow('Employers', employer); markAsSaved(); loadEmployers();
+    alert('✅ Employer updated successfully!');
+}
+
+async function deleteEmployer() {
+    if(!currentEmployer)return;
+    var yes=await showConfirm('🗑️ Delete this employer?\n\n'+(currentEmployer.EFN||currentEmployer.EmployerCode||'')+'\n\nThis cannot be undone!');
+    if(!yes)return;
+    var deletedId=currentEmployer.EmployerID;
+    employers=employers.filter(function(e){return e.EmployerID!==currentEmployer.EmployerID;});
+    if(CloudDB.ready)CloudDB.deleteRow('Employers',deletedId);
+    currentEmployer=null; currentPage=1; loadEmployers();
+}
+
+// ==========================================
+// TAB SWITCHING
+// ==========================================
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active');});
+    document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+    document.getElementById('tab-'+tabName).classList.add('active');
+    document.querySelectorAll('.tab').forEach(function(t){ if((t.getAttribute('onclick')||'').indexOf("'"+tabName+"'")!==-1)t.classList.add('active'); });
+    if(tabName==='docs')reloadAndRenderDocs();
+    if(tabName==='upload')loadUploadList();
+}
+
+// ==========================================
+// DOCUMENTS TAB
+// ==========================================
+function loadDocsList() {
+    if(!currentEmployer){document.getElementById('docsList').innerHTML='<p style="padding:20px;text-align:center;color:#999;">⚠️ Please select an employer first!</p>';return;}
+    CloudDB.post({action:'getAll',sheet:'Employer_Documents'}).then(function(res){
+        if(res&&res.data&&res.data.length>0){
+            // Deduplicate by DocumentID
+            var seen={};
+            var docs=res.data.filter(function(doc){
+                var id=parseInt(doc.DocumentID);
+                if(seen[id])return false;
+                seen[id]=true;
+                return true;
+            });
+            localStorage.setItem('mgsdb_employer_documents',JSON.stringify(docs));
+        }
+        renderDocsList();
+    }).catch(function(){renderDocsList();});
+}
+async function reloadAndRenderDocs() {
+    try{ var res=await CloudDB.post({action:'getAll',sheet:'Employer_Documents'}); if(res&&res.data&&res.data.length>0)localStorage.setItem('mgsdb_employer_documents',JSON.stringify(res.data)); }catch(e){}
+    renderDocsList();
+}
+function renderDocsList() {
+    var allDocs=JSON.parse(localStorage.getItem('mgsdb_employer_documents')||'[]');
+    var required=(currentEmployer&&currentEmployer.RequiredDocuments)||[];
+    if(typeof required==='string'){try{required=JSON.parse(required);}catch(e){required=[];}}
+    if(!Array.isArray(required))required=[];
+    var container=document.getElementById('docsList'); container.innerHTML='';
+    if(allDocs.length===0){container.innerHTML='<div style="padding:30px;text-align:center;color:#999;">No documents found.</div>';return;}
+    container.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:15px;';
+    allDocs.forEach(function(doc){
+        var copyCount=required.filter(function(id){return id===parseInt(doc.DocumentID);}).length;
+        var isRequired=copyCount>0;
+        var div=document.createElement('div'); div.className='doc-card';
+        div.style.cssText='background:white;border:2px solid '+(isRequired?'#28a745':'#e0e0e0')+';border-radius:8px;padding:10px;cursor:pointer;transition:all 0.2s;';
+        div.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;"><span style="font-size:10px;color:#999;">#'+doc.DocumentID+'</span><input type="checkbox" id="req-'+doc.DocumentID+'" '+(isRequired?'checked':'')+' style="width:16px;height:16px;cursor:pointer;accent-color:#28a745;" onchange="this.closest(\'.doc-card\').style.borderColor=this.checked?\'#28a745\':\'#e0e0e0\'"></div><div style="font-weight:600;font-size:12px;color:#333;margin-bottom:3px;">'+(doc.DocumentNameEN||'—')+'</div><div style="font-size:11px;color:#888;direction:rtl;text-align:right;">'+(doc.DocumentNameAR||'—')+'</div>'+(copyCount>1?'<div style="margin-top:5px;"><span style="background:#667eea;color:white;padding:1px 7px;border-radius:10px;font-size:10px;">×'+copyCount+' copies</span></div>':'');
+        container.appendChild(div);
+    });
+    var dropdown=document.getElementById('addMoreCopiesDropdown');
+    if(dropdown){ dropdown.innerHTML='<option value="">-- Select Document --</option>'; allDocs.forEach(function(doc){ var o=document.createElement('option'); o.value=doc.DocumentID; o.textContent=doc.DocumentNameEN+(doc.DocumentNameAR?' | '+doc.DocumentNameAR:''); dropdown.appendChild(o); }); }
+}
+function saveRequiredDocs() {
+    if(!currentEmployer){alert('Select an employer first!');return;}
+    var allDocs=JSON.parse(localStorage.getItem('mgsdb_employer_documents')||'[]');
+    var required=[];
+    allDocs.forEach(function(doc){ var cb=document.getElementById('req-'+doc.DocumentID); if(cb&&cb.checked)required.push(parseInt(doc.DocumentID)); });
+    currentEmployer.RequiredDocuments=required;
+    var index=employers.findIndex(function(e){return e.EmployerID===currentEmployer.EmployerID;});
+    if(index>=0)employers[index].RequiredDocuments=required;
+    CloudDB.saveRow('Employers',currentEmployer); alert('✅ Saved! '+required.length+' document(s) required.'); switchTab('upload');
+}
+async function addMoreCopy() {
+    if(!currentEmployer){alert('⚠️ Please select an employer first!');return;}
+    var dropdown=document.getElementById('addMoreCopiesDropdown'); var selectedDocId=dropdown.value;
+    if(!selectedDocId){alert('⚠️ Please select a document!');return;}
+    var allDocs=JSON.parse(localStorage.getItem('mgsdb_employer_documents')||'[]');
+    var selectedDoc=allDocs.find(function(d){return d.DocumentID==selectedDocId;});
+    if(!selectedDoc){alert('❌ Document not found!');return;}
+    if(!currentEmployer.RequiredDocuments)currentEmployer.RequiredDocuments=[];
+    var existingCopies=currentEmployer.RequiredDocuments.filter(function(id){return id===parseInt(selectedDocId);}).length;
+    if(existingCopies>0){ var confirmed=await showConfirm('📄 Add Another Copy?\n\n"'+selectedDoc.DocumentNameEN+'"\nCurrent copies: '+existingCopies+'\n\nAdd copy #'+(existingCopies+1)+'?'); if(!confirmed){dropdown.value='';return;} }
+    currentEmployer.RequiredDocuments.push(parseInt(selectedDocId));
+    var index=employers.findIndex(function(e){return e.EmployerID===currentEmployer.EmployerID;});
+    if(index>=0)employers[index].RequiredDocuments=currentEmployer.RequiredDocuments;
+    CloudDB.saveRow('Employers',currentEmployer); renderDocsList();
+    alert('✅ Copy Added!\n\n"'+selectedDoc.DocumentNameEN+'"\nTotal: '+currentEmployer.RequiredDocuments.length);
+    dropdown.value='';
+}
+
+// ==========================================
+// UPLOAD TAB
+// ==========================================
+function loadUploadList() {
+    if(!currentEmployer){document.getElementById('uploadList').innerHTML='<p style="padding:20px;text-align:center;color:#999;">⚠️ Please select an employer first!</p>';return;}
+    var allDocs=JSON.parse(localStorage.getItem('mgsdb_employer_documents')||'[]');
+    var required=currentEmployer.RequiredDocuments||[];
+    if(typeof required==='string'){try{required=JSON.parse(required);}catch(e){required=[];}}
+    if(!Array.isArray(required))required=[];
+    var uploaded=currentEmployer.UploadedDocuments||{};
+    if(typeof uploaded==='string'){try{uploaded=JSON.parse(uploaded);}catch(e){uploaded={};}}
+    var container=document.getElementById('uploadList'); container.innerHTML='';
+    if(required.length===0){container.innerHTML='<p style="padding:20px;text-align:center;color:#999;">No documents required.<br>Go to "📄 Required Documents" tab first.</p>';return;}
+    var seen={},unique=[];
+    required.forEach(function(docId){var key=String(docId);if(!seen[key]){seen[key]=true;unique.push(docId);}});
+    var cleanupDiv=document.createElement('div'); cleanupDiv.style.cssText='text-align:right;margin-bottom:12px;';
+    cleanupDiv.innerHTML='<button onclick="cleanupAllFiles()" style="padding:6px 14px;background:#dc3545;color:white;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;">🗑️ Clear All Uploaded Files</button>';
+    container.appendChild(cleanupDiv);
+    unique.forEach(function(docId){
+        var doc=allDocs.find(function(d){return parseInt(d.DocumentID)===parseInt(docId);}); if(!doc)return;
+        var uploadedData=uploaded[String(docId)]||uploaded[docId];
+        var filesArray=[];
+        if(Array.isArray(uploadedData))filesArray=uploadedData;
+        else if(uploadedData&&typeof uploadedData==='object')filesArray=[uploadedData];
+        var filesHTML='';
+        if(filesArray.length>0){
+            filesHTML+='<div style="margin-top:10px;border-top:1px solid #f0f0f0;padding-top:8px;"><div style="font-size:11px;color:#999;font-weight:600;margin-bottom:6px;">📎 '+filesArray.length+' FILE(S):</div>';
+            filesArray.forEach(function(fileData,idx){ filesHTML+='<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f8fff8;border:1px solid #c3e6cb;border-radius:5px;margin-bottom:5px;"><span style="background:#28a745;color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">'+(idx+1)+'</span><span style="flex:1;font-size:12px;color:#333;word-break:break-all;">'+(fileData.fileName||'File '+(idx+1))+'</span>'+(fileData.uploadedAt?'<span style="font-size:10px;color:#999;white-space:nowrap;">'+new Date(fileData.uploadedAt).toLocaleString()+'</span>':'')+(fileData.fileUrl?'<a href="'+fileData.fileUrl+'" target="_blank" style="padding:4px 10px;background:#1a73e8;color:white;text-decoration:none;border-radius:4px;font-size:11px;">📂 Open</a>':'')+'</div>'; });
+            filesHTML+='</div>';
+        } else { filesHTML='<div style="font-size:12px;color:#999;margin-top:8px;">No files uploaded yet</div>'; }
+        var docNameSafe=(doc.DocumentNameEN||String(docId)).replace(/'/g,'');
+        var div=document.createElement('div'); div.className='doc-card';
+        div.style.cssText='border:2px solid '+(filesArray.length>0?'#c3e6cb':'#e0e0e0')+';border-radius:8px;padding:15px;margin-bottom:12px;background:white;';
+        div.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div><div style="font-weight:700;font-size:14px;color:#333;">'+doc.DocumentNameEN+'</div><div style="font-size:12px;color:#888;direction:rtl;">'+(doc.DocumentNameAR||'')+'</div></div><span style="background:'+(filesArray.length>0?'#d4edda;color:#155724':'#f8d7da;color:#721c24')+';padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">'+(filesArray.length>0?'✅ '+filesArray.length+' file(s)':'⏳ Pending')+'</span></div><button onclick="uploadFileForDoc(\''+docId+'\',\''+docNameSafe+'\')" style="padding:7px 16px;background:#1a73e8;color:white;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;">📤 '+(filesArray.length>0?'Add More Files':'Upload Files')+'</button>'+filesHTML;
+        container.appendChild(div);
+    });
+}
+
+async function cleanupAllFiles() {
+    if(!currentEmployer)return;
+    var adminPassword=await showPrompt('🔐 Admin Password Required\n\nEnter password to delete all files:');
+    if(adminPassword===null)return;
+    var correctPassword=localStorage.getItem('mgsdb_security_password')||'masr3434';
+    if(adminPassword!==correctPassword){showMsg('❌ Wrong password!');return;}
+    var yes=await showConfirm('🗑️ Delete ALL uploaded files for:\n\n'+(currentEmployer.EFN||currentEmployer.EmployerCode)+'\n\nCannot be undone!');
+    if(!yes)return;
+    showUploadOverlay('🗑️ Cleaning up...','Deleting files from Drive...');
+    CloudDB.post({action:'cleanupEmployerFiles',employerId:currentEmployer.EmployerID}).then(function(res){
+        hideUploadOverlay(res&&res.success,res&&res.message?res.message:'Done');
+        if(res&&res.success){
+            showMsg('✅ Cleanup done!\n\nDeleted '+(res.deleted||0)+' files.');
+            currentEmployer.UploadedDocuments={};
+            var idx=employers.findIndex(function(e){return String(e.EmployerID)===String(currentEmployer.EmployerID);});
+            if(idx>=0)employers[idx].UploadedDocuments={};
+            loadUploadList();
+        } else {showMsg('❌ Cleanup failed: '+(res&&res.message?res.message:'Unknown error'));}
+    }).catch(function(err){hideUploadOverlay(false,String(err));showMsg('❌ Cleanup error: '+err);});
+}
+
+function uploadFileForDoc(docId,docName) {
+    if(!currentEmployer){showMsg('Please select an employer first.');return;}
+    var input=document.createElement('input'); input.type='file'; input.accept='*/*'; input.multiple=true;
+    input.onchange=function(e){
+        var files=Array.from(e.target.files); if(!files.length)return;
+        var total=files.length,uploaded=0,failed=0;
+        showUploadOverlay('📤 Uploading 0 of '+total+'...','Starting...');
+        function uploadNext(index){
+            if(index>=files.length){
+                hideUploadOverlay(failed===0,uploaded+' of '+total+' file(s) uploaded');
+                showMsg(failed===0?'✅ '+uploaded+' file(s) uploaded!':'⚠️ '+uploaded+' uploaded, '+failed+' failed.');
+                CloudDB.loadSheet('Employers',function(data){
+                    if(data){ employers=data; parseEmployerFields(employers); var fresh=employers.find(function(emp){return String(emp.EmployerID)===String(currentEmployer.EmployerID);}); if(fresh)currentEmployer=fresh; loadUploadList(); loadEmployers(); }
+                });
+                return;
+            }
+            var file=files[index];
+            updateUploadOverlay('Uploading '+(index+1)+' of '+total+': '+file.name,Math.round((index/total)*100));
+            var reader=new FileReader();
+            reader.onload=function(ev){
+                var base64=ev.target.result.split(',')[1];
+                CloudDB.post({action:'uploadEmployerFile',employerId:currentEmployer.EmployerID,documentId:docId,documentName:docName||docId,fileName:file.name,mimeType:file.type,fileData:base64})
+                .then(function(res){if(res&&res.success){uploaded++;}else{failed++;}uploadNext(index+1);})
+                .catch(function(){failed++;uploadNext(index+1);});
+            };
+            reader.readAsDataURL(file);
+        }
+        uploadNext(0);
+    };
+    input.click();
+}
+
+// ==========================================
+// MISC
+// ==========================================
+function manualBackup(){ if(!confirm('Create a backup now?'))return; google.script.run.withSuccessHandler(function(){alert('✅ Backup created!');}).withFailureHandler(function(e){alert('❌ Backup failed: '+(e.message||e));}).createBackup(); }
+function restoreFromBackup(){ alert('ℹ️ Coming soon.'); }
+function closeAllFiles(){ document.getElementById('allFilesModal').style.display='none'; }
+
+// ── EmployerCode — same format as Reports page ────────────────────
+// AgencyCode + EmployerID + first letter of each name word (uppercase)
+// e.g. MGSC + 1312 + E + J + M = MGSC1312EJM
+function computeEmployerCode(emp) {
+    var agC      = (emp.AgencyCode  || '').toUpperCase().trim();
+    var id       = String(emp.EmployerID || '').trim();
+    var fullName = (emp.EFN || emp.EmployerName || emp.ContactName || '').trim();
+    var initials = fullName.split(/\s+/).filter(Boolean).map(function(w){ return w[0].toUpperCase(); }).join('');
+    return agC + id + initials;
+}
+
+// ── Folder resolution — identical logic to Reports page ───────────
+// Priority: EmployerFolderID (Drive ID) > EmployerFolderName > computed fallback
+function empFolderInfo(emp) {
+    var folderId   = emp.EmployerFolderID   || '';
+    var folderName = emp.EmployerFolderName || emp.EmployerFolder || '';
+    if (!folderName) {
+        var agC = emp.AgencyCode || '';
+        folderName = agC
+            ? agC + ' (' + emp.EmployerID + ') ' + (emp.EmployerName || emp.EFN || '')
+            : computeEmployerCode(emp) + '_' + (emp.EmployerName || emp.EFN || '');
+    }
+    return { folderId: folderId, folderName: folderName };
+}
+
+// ── Promise wrapper for google.script.run ─────────────────────────
+function gsrP(fn, args) {
+    return new Promise(function(resolve, reject) {
+        google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            [fn].apply(google.script.run, args || []);
+    });
+}
+
+// ── ALL UPLOADED FILES — real Drive viewer ────────────────────────
+var _allFilesData = [];
+
+async function showAllFiles() {
+    if (!currentEmployer) { showMsg('⚠️ Please select an employer first.'); return; }
+    var modal   = document.getElementById('allFilesModal');
+    var content = document.getElementById('allFilesContent');
+    modal.style.display = 'block';
+
+    var emp     = currentEmployer;
+    var empName = emp.EFN || emp.EmployerName || '';
+    var empCode = computeEmployerCode(emp);
+    var fi      = empFolderInfo(emp);
+
+    content.innerHTML =
+        '<div style="text-align:center;padding:50px;color:#888;">'
+        + '<div style="font-size:42px;margin-bottom:12px">⏳</div>'
+        + '<div style="font-size:15px;font-weight:700;color:#333">Loading files...</div>'
+        + '<div style="font-size:12px;margin-top:8px;color:#aaa">' + empName + ' (' + empCode + ')</div>'
+        + '<div style="font-size:11px;margin-top:6px;color:#bbb">📁 ' + (fi.folderName || 'No folder set') + '</div>'
+        + '</div>';
+
+    var files = [];
+    try {
+        var r = await gsrP('listFilesForEmployer', [fi.folderId, fi.folderName]);
+        if (r && r.success) files = r.files || [];
+        else throw new Error(r && r.error ? r.error : 'listFilesForEmployer returned no success');
+    } catch(e) {
+        content.innerHTML =
+            '<div style="padding:40px;text-align:center;">'
+            + '<div style="font-size:40px;margin-bottom:10px">❌</div>'
+            + '<div style="color:#dc3545;font-weight:700;font-size:15px;">Could not load files</div>'
+            + '<div style="color:#888;font-size:13px;margin-top:10px;">' + e.message + '</div>'
+            + '<div style="color:#bbb;font-size:11px;margin-top:8px;">Folder: ' + (fi.folderName || '—') + '</div>'
+            + '<div style="color:#bbb;font-size:11px;">Folder ID: ' + (fi.folderId || '(not set)') + '</div>'
+            + '</div>';
+        return;
+    }
+
+    _allFilesData = files;
+    renderAllFilesModal(files, empName, empCode);
+}
+
+function renderAllFilesModal(files, empName, empCode) {
+    var content = document.getElementById('allFilesContent');
+
+    if (!files.length) {
+        content.innerHTML =
+            '<div style="padding:50px;text-align:center;color:#999;">'
+            + '<div style="font-size:42px;margin-bottom:12px">📂</div>'
+            + '<div style="font-size:15px;font-weight:600;">No files found in this employer\'s Drive folder.</div>'
+            + '<div style="font-size:12px;margin-top:10px;color:#bbb;">Make sure EmployerFolderName is correct and the folder exists in Drive.</div>'
+            + '</div>';
+        return;
+    }
+
+    var isPdfMt = function(mt){ return mt === 'application/pdf'; };
+    var isImgMt = function(mt){ return String(mt||'').indexOf('image/') === 0; };
+    var isRptNm = function(n) { return /^Report_/i.test(String(n||'')); };
+    var fmtSz   = function(sz){ return sz>0?(sz>1048576?(sz/1048576).toFixed(1)+' MB':(sz/1024).toFixed(0)+' KB'):'-'; };
+    var fmtDt   = function(d) { return d ? new Date(d).toLocaleDateString('en-GB') : '-'; };
+
+    // Group by subfolder
+    var groups = {};
+    files.forEach(function(f) {
+        var g = f.subfolder || 'General';
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(f);
+    });
+
+    var html =
+        '<div style="display:flex;align-items:center;justify-content:space-between;background:#fff5f5;'
+        + 'border-radius:8px;padding:10px 16px;margin-bottom:16px;flex-wrap:wrap;gap:8px;">'
+        + '<label style="font-weight:700;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;">'
+        + '<input type="checkbox" id="afSelectAll" onchange="afToggleAll(this.checked)" '
+        + 'style="width:16px;height:16px;accent-color:#f5576c;"> Select All</label>'
+        + '<div style="display:flex;align-items:center;gap:14px;">'
+        + '<span id="afSelCount" style="font-weight:700;color:#f5576c;font-size:13px;">0 / ' + files.length + '</span>'
+        + '<span style="font-size:12px;color:#888;">' + empName + ' &nbsp;•&nbsp; ' + files.length + ' file(s)</span>'
+        + '</div></div>';
+
+    var ci = 0;
+    Object.keys(groups).sort().forEach(function(g) {
+        var gf = groups[g];
+        if (Object.keys(groups).length > 1) {
+            html += '<div style="background:#e8eaf6;padding:7px 14px;font-weight:700;font-size:13px;'
+                + 'color:#3949ab;border-radius:7px;margin:4px 0 8px;">📁 ' + g + ' (' + gf.length + ')</div>';
+        }
+        gf.forEach(function(f) {
+            var idx  = ci++;
+            var mt   = String(f.mimeType || '');
+            var icon = isPdfMt(mt) ? '📄' : isImgMt(mt) ? '🖼️' : '📎';
+            var rpt  = isRptNm(f.name);
+            var fid  = f.id || '';
+            var canPrev = fid && (isPdfMt(mt) || isImgMt(mt));
+            var hdrBg   = rpt
+                ? 'linear-gradient(135deg,#6c757d,#495057)'
+                : 'linear-gradient(135deg,#f5576c,#c0392b)';
+
+            html += '<div class="af-card" id="afc' + idx + '" '
+                + 'style="background:white;border:2px solid ' + (rpt?'#dee2e6':'#f5576c33') + ';'
+                + 'border-radius:10px;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">';
+
+            // Header
+            html += '<div style="background:' + hdrBg + ';color:white;padding:10px 14px;display:flex;align-items:center;gap:10px;">';
+            html += '<input type="checkbox" class="af-chk" id="afck' + idx + '" onchange="afUpdCount()" '
+                + 'style="width:17px;height:17px;cursor:pointer;accent-color:rgba(255,255,255,0.9);flex-shrink:0;">';
+            html += '<div style="flex:1;min-width:0;">'
+                + '<div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+                + icon + ' ' + (idx + 1) + '. ' + f.name
+                + (rpt ? ' <span style="font-size:10px;opacity:0.7;font-weight:400;">(report)</span>' : '')
+                + '</div>'
+                + '<div style="font-size:11px;opacity:0.8;margin-top:2px;">'
+                + fmtSz(f.size) + (f.size && f.date ? ' &nbsp;•&nbsp; ' : '') + fmtDt(f.date)
+                + '</div></div>';
+            if (f.url) {
+                html += '<a href="' + f.url + '" target="_blank" '
+                    + 'style="color:white;text-decoration:none;font-size:11px;background:rgba(255,255,255,0.2);'
+                    + 'padding:4px 10px;border-radius:5px;white-space:nowrap;flex-shrink:0;">📂 Open</a>';
+            }
+            html += '</div>';
+
+            // Preview area
+            html += '<div style="padding:8px 10px 10px;">';
+            if (canPrev) {
+                html += '<div class="af-lazy" data-fid="' + fid + '" '
+                    + 'style="width:100%;height:480px;background:linear-gradient(135deg,#f8f9fa,#e9ecef);'
+                    + 'display:flex;align-items:center;justify-content:center;border-radius:8px;'
+                    + 'cursor:pointer;border:2px dashed #dee2e6;" onclick="afLoadPreview(this)">'
+                    + '<div style="text-align:center;">'
+                    + '<div style="font-size:34px;margin-bottom:8px;">' + icon + '</div>'
+                    + '<div style="font-size:13px;font-weight:600;color:#555;">Click to load preview</div>'
+                    + '<div style="font-size:11px;color:#bbb;margin-top:4px;">' + f.name + '</div>'
+                    + '</div></div>';
+            } else {
+                html += '<div style="padding:24px;text-align:center;color:#999;font-size:12px;">'
+                    + '📎 Preview not available'
+                    + (f.url ? ' &nbsp;—&nbsp; <a href="' + f.url + '" target="_blank" style="color:#667eea;font-weight:600;">Open in Drive ↗</a>' : '')
+                    + '</div>';
+            }
+            html += '</div></div>';
+        });
+    });
+
+    content.innerHTML = html;
+
+    // Lazy-load previews as user scrolls
+    if (window.IntersectionObserver) {
+        var obs = new IntersectionObserver(function(entries) {
+            entries.forEach(function(e) {
+                if (e.isIntersecting && e.target.classList.contains('af-lazy')) {
+                    afLoadPreview(e.target);
+                    obs.unobserve(e.target);
+                }
+            });
+        }, { rootMargin: '300px' });
+        document.querySelectorAll('.af-lazy').forEach(function(el){ obs.observe(el); });
+    }
+}
+
+function afLoadPreview(div) {
+    var fid = div.getAttribute('data-fid');
+    if (!fid) return;
+    var iframe = document.createElement('iframe');
+    iframe.src = 'https://drive.google.com/file/d/' + fid + '/preview';
+    iframe.style.cssText = 'width:100%;height:480px;border:none;border-radius:8px;display:block;';
+    div.parentNode.replaceChild(iframe, div);
+}
+
+function afToggleAll(v) {
+    document.querySelectorAll('.af-chk').forEach(function(c){ c.checked = v; });
+    afUpdCount();
+}
+function afUpdCount() {
+    var total  = document.querySelectorAll('.af-chk').length;
+    var sel    = document.querySelectorAll('.af-chk:checked').length;
+    var el     = document.getElementById('afSelCount');
+    if (el) el.textContent = sel + ' / ' + total;
+    var allCb  = document.getElementById('afSelectAll');
+    if (allCb) allCb.indeterminate = sel > 0 && sel < total;
+}
+
+function openAllFilesInTabs() {
+    var opened = 0;
+    document.querySelectorAll('.af-card').forEach(function(card) {
+        var chk = card.querySelector('.af-chk');
+        if (chk && !chk.checked) return;
+        var a = card.querySelector('a[target="_blank"]');
+        if (a) { window.open(a.href, '_blank'); opened++; }
+    });
+    // Nothing selected → open all
+    if (!opened) _allFilesData.forEach(function(f){ if(f.url) window.open(f.url, '_blank'); });
+}
+
+function printAllFiles() {
+    var items = [];
+    document.querySelectorAll('.af-card').forEach(function(card) {
+        var chk  = card.querySelector('.af-chk');
+        var a    = card.querySelector('a[target="_blank"]');
+        if (!a) return;
+        var m    = (a.href || '').match(/\/d\/([a-zA-Z0-9_-]+)/);
+        var fid  = m ? m[1] : '';
+        var ttEl = card.querySelector('[style*="font-weight:700;font-size:13px"]');
+        var nm   = ttEl ? ttEl.textContent.trim().replace(/^[\S]{1,2}\s+\d+\.\s*/, '') : '';
+        items.push({ fid: fid, title: nm, selected: !!(chk && chk.checked) });
+    });
+    var toShow = items.filter(function(i){ return i.selected; });
+    if (!toShow.length) toShow = items; // print all if nothing selected
+    if (!toShow.length) { showMsg('No files to print.'); return; }
+
+    var empName = currentEmployer ? (currentEmployer.EFN || currentEmployer.EmployerName || '') : '';
+    var empCode = currentEmployer ? computeEmployerCode(currentEmployer) : '';
+
+    var ph = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + empName + ' Documents</title>'
+        + '<style>*{margin:0;padding:0}body{font-family:sans-serif}'
+        + '.top{background:linear-gradient(135deg,#f5576c,#c0392b);color:white;padding:14px;text-align:center;}'
+        + '.pbtn{padding:9px 18px;border:none;border-radius:7px;font-weight:700;cursor:pointer;color:white;margin:0 4px}'
+        + '.pg{page-break-after:always}.pg:last-child{page-break-after:avoid}'
+        + '.ph{background:linear-gradient(135deg,#f5576c,#c0392b);color:white;padding:8px 14px;font-weight:700;font-size:13px}'
+        + '.pg img{max-width:100%;max-height:calc(100vh - 46px);object-fit:contain;display:block;margin:auto}'
+        + '@media print{.top{display:none!important}.ph{-webkit-print-color-adjust:exact;print-color-adjust:exact}}'
+        + '@page{size:A4;margin:0}</style></head><body>'
+        + '<div class="top"><h2>🖨️ ' + empName + ' (' + empCode + ') — ' + toShow.length + ' file(s)</h2>'
+        + '<button class="pbtn" style="background:#28a745" onclick="window.print()">🖨️ Print / Save PDF</button>'
+        + '<button class="pbtn" style="background:#6c757d" onclick="window.close()">✕ Close</button></div>';
+
+    toShow.forEach(function(c) {
+        ph += '<div class="pg"><div class="ph">' + c.title + '</div>';
+        if (c.fid) {
+            ph += '<img src="https://lh3.googleusercontent.com/d/' + c.fid + '=w1200" '
+                + 'onerror="this.src=\'https://drive.google.com/thumbnail?id=' + c.fid + '&sz=w1200\'">';
+        }
+        ph += '</div>';
+    });
+    ph += '</body></html>';
+    var pw = window.open('', '_blank');
+    if (pw) { pw.document.write(ph); pw.document.close(); }
+}
+
+function printToPDF() { printAllFiles(); }
+
+window.addEventListener('DOMContentLoaded', init);
+
+// ==========================================
+// SINGLE CONTACT SYNC
+// ==========================================
+var _syncSinglePending=null;
+function syncSingleContact(){
+    if(!currentEmployer){showMsg('Please select an employer first.');return;}
+    var btn=document.getElementById('syncSingleBtn'); var statusEl=document.getElementById('syncSingleStatus');
+    var phone=currentEmployer.MobileNumber||currentEmployer.MobileNumber2||currentEmployer.ContactNumber||'';
+    var name=currentEmployer.EFN||currentEmployer.EmployerName||'';
+    if(!phone&&!name){showMsg('This employer has no phone or name to match.');return;}
+    if(btn){btn.disabled=true;btn.textContent='Syncing...';}
+    if(statusEl){statusEl.textContent='Looking up contact...';statusEl.style.color='#6c757d';}
+    document.getElementById('syncPreviewBox').style.display='none'; _syncSinglePending=null;
+    google.script.run
+        .withSuccessHandler(function(result){
+            if(btn){btn.disabled=false;btn.textContent='Sync This Contact';}
+            if(!result||!result.success){var errMsg=(result&&result.error)?result.error:'Contact not found.';if(statusEl){statusEl.textContent=errMsg;statusEl.style.color='#dc3545';}showMsg(errMsg);return;}
+            var contact=result.contact; var diff={};
+            var LABELS={EFN:'Full Name',City:'City',Email:'Email',Address:'Address',Notes:'Notes',Organization:'Organization',JobTitle:'Job Title',BirthDate:'Birth Date'};
+            for(var i=1;i<=10;i++){var key=(i===1)?'MobileNumber':'MobileNumber'+i;if(contact[key])LABELS[key]=(i===1)?'Mobile 1':'Mobile '+i;}
+            Object.keys(LABELS).forEach(function(field){var oldVal=(currentEmployer[field]||'').toString().trim();var newVal=(contact[field]||'').toString().trim();if(newVal&&newVal!==oldVal)diff[field]={old:oldVal,newVal:newVal,label:LABELS[field]};});
+            if(Object.keys(diff).length===0){if(statusEl){statusEl.textContent='Already up to date';statusEl.style.color='#28a745';}setTimeout(function(){if(statusEl)statusEl.textContent='';},4000);return;}
+            _syncSinglePending={diff:diff,contact:contact}; showSyncPreview(diff);
+            if(statusEl){statusEl.textContent=Object.keys(diff).length+' field(s) changed';statusEl.style.color='#f59e0b';}
+        })
+        .withFailureHandler(function(e){if(btn){btn.disabled=false;btn.textContent='Sync This Contact';}if(statusEl){statusEl.textContent=e.message;statusEl.style.color='#dc3545';}showMsg('Sync failed: '+e.message);})
+        .syncSingleContact({employerID:currentEmployer.EmployerID,phone:phone,name:name});
+}
+function showSyncPreview(diff){
+    var fieldsEl=document.getElementById('syncPreviewFields'); var box=document.getElementById('syncPreviewBox'); var html='';
+    Object.keys(diff).forEach(function(field){var d=diff[field];html+='<div style="background:white;border:1px solid #c3e6cb;border-radius:7px;padding:10px 14px;margin-bottom:6px;"><div style="font-size:11px;font-weight:700;color:#6c757d;text-transform:uppercase;margin-bottom:6px;">'+d.label+'</div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="padding:3px 10px;background:#f8d7da;color:#721c24;border-radius:4px;font-size:12px;text-decoration:line-through;">'+(d.old||'(empty)')+'</span><span style="color:#28a745;font-weight:700;">-&gt;</span><span style="padding:3px 10px;background:#d4edda;color:#155724;border-radius:4px;font-size:13px;font-weight:600;">'+d.newVal+'</span></div></div>';});
+    fieldsEl.innerHTML=html; box.style.display=''; box.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function applySyncChanges(){
+    if(!_syncSinglePending||!currentEmployer)return;
+    var diff=_syncSinglePending.diff;
+    Object.keys(diff).forEach(function(field){currentEmployer[field]=diff[field].newVal;var el=document.getElementById(field);if(el)el.value=diff[field].newVal;});
+    var now=new Date().toLocaleString(); currentEmployer.SyncStatus='Synced'; currentEmployer.LastSyncDate=now;
+    var ssEl=document.getElementById('SyncStatusField');if(ssEl)ssEl.value='Synced';
+    var lsEl=document.getElementById('LastSyncDateField');if(lsEl)lsEl.value=now;
+    var idx=employers.findIndex(function(e){return e.EmployerID===currentEmployer.EmployerID;});
+    if(idx>=0)employers[idx]=currentEmployer;
+    CloudDB.saveRow('Employers',currentEmployer); markAsSaved();
+    dismissSyncPreview(); _syncSinglePending=null;
+    var statusEl=document.getElementById('syncSingleStatus');
+    if(statusEl){statusEl.textContent=Object.keys(diff).length+' field(s) updated';statusEl.style.color='#28a745';setTimeout(function(){statusEl.textContent='';},5000);}
+}
+function dismissSyncPreview(){ var box=document.getElementById('syncPreviewBox'); if(box)box.style.display='none'; _syncSinglePending=null; }
+
+// ── Folder link updater ────────────────────────────────────
+function updateFolderLink(){
+    var link  = document.getElementById('employerFolderLink');
+    if(!link) return;
+    var fid   = (currentEmployer && currentEmployer.EmployerFolderID) ? currentEmployer.EmployerFolderID : '';
+    var fname = (document.getElementById('EmployerFolderName') || {}).value || '';
+    if(fid){
+        link.href = 'https://drive.google.com/drive/folders/' + fid;
+        link.style.display = 'inline-block';
+        link.title = 'Open folder in Google Drive';
+    } else if(fname.trim()){
+        link.href = 'https://drive.google.com/drive/search?q=' + encodeURIComponent(fname.trim());
+        link.style.display = 'inline-block';
+        link.title = 'Search Drive for: ' + fname.trim();
+    } else {
+        link.style.display = 'none';
+    }
+}
+
+</script>
+</body>
+</html>
