@@ -114,28 +114,30 @@
             <span id="cloudStatus" style="background: #fff3cd; color: #856404;">⏳ Loading...</span>
         </div>
         <div class="tabs-bar">
-            <button class="tab-btn active" data-tab="processing" onclick="switchTab('processing')">🔄 All <span class="tab-count" id="count-processing">0</span></button>
+            <button class="tab-btn active" data-tab="processing" onclick="switchTab('processing')">✅ Selected <span class="tab-count" id="count-processing">0</span></button>
             <button class="tab-btn" data-tab="preapproval" onclick="switchTab('preapproval')">📋 Preapproval <span class="tab-count" id="count-preapproval">0</span></button>
             <button class="tab-btn" data-tab="waiting_visa" onclick="switchTab('waiting_visa')">⏳ Waiting Visa <span class="tab-count" id="count-waiting_visa">0</span></button>
-            <button class="tab-btn" data-tab="ready_visa" onclick="switchTab('ready_visa')">✅ Ready Visas <span class="tab-count" id="count-ready_visa">0</span></button>
             <button class="tab-btn" data-tab="waiting_ticket" onclick="switchTab('waiting_ticket')">🎫 Waiting Ticket <span class="tab-count" id="count-waiting_ticket">0</span></button>
+            <button class="tab-btn" disabled style="opacity:0.4;cursor:not-allowed;">📅 Arrival Dates</button>
         </div>
         <!-- Outcome Status Tabs Row -->
         <div class="tabs-bar-outcome">
-            <span class="otab-label">Filter by:</span>
-            <button class="otab-btn" data-otab="all" onclick="switchOutcomeTab('all')">📋 All <span class="otab-count" id="ocount-all">0</span></button>
-            <button class="otab-btn" data-otab="selected" onclick="switchOutcomeTab('selected')">✅ 1. Selected <span class="otab-count" id="ocount-selected">0</span></button>
-            <button class="otab-btn" data-otab="preapproval" onclick="switchOutcomeTab('preapproval')">📋 2. Ready Pre-Approval <span class="otab-count" id="ocount-preapproval">0</span></button>
-            <button class="otab-btn" data-otab="immigration" onclick="switchOutcomeTab('immigration')">🛂 3. Sent To Immigration <span class="otab-count" id="ocount-immigration">0</span></button>
-            <button class="otab-btn" data-otab="waitingvisa" onclick="switchOutcomeTab('waitingvisa')">⏳ 4. Waiting Visa <span class="otab-count" id="ocount-waitingvisa">0</span></button>
-            <button class="otab-btn" data-otab="waitingticket" onclick="switchOutcomeTab('waitingticket')">🎫 5. Waiting Ticket <span class="otab-count" id="ocount-waitingticket">0</span></button>
-            <button class="otab-btn" data-otab="cancelled" onclick="switchOutcomeTab('cancelled')">❌ 6. Cancelled <span class="otab-count" id="ocount-cancelled">0</span></button>
-            <button class="otab-btn" data-otab="arrived" onclick="switchOutcomeTab('arrived')">✈️ 7. Arrived <span class="otab-count" id="ocount-arrived">0</span></button>
-            <button class="otab-btn" data-otab="local" onclick="switchOutcomeTab('local')">🏠 8. Local <span class="otab-count" id="ocount-local">0</span></button>
-            <button class="otab-btn" data-otab="moved" onclick="switchOutcomeTab('moved')">🔀 9. Moved to Other Employer <span class="otab-count" id="ocount-moved">0</span></button>
-            <button class="otab-btn" data-otab="unfit" onclick="switchOutcomeTab('unfit')">🚫 10. Unfit <span class="otab-count" id="ocount-unfit">0</span></button>
-            <button class="otab-btn" data-otab="runaway" onclick="switchOutcomeTab('runaway')">🏃 11. RunAway <span class="otab-count" id="ocount-runaway">0</span></button>
-            <button class="otab-btn" data-otab="senthome" onclick="switchOutcomeTab('senthome')">🛫 12. Send Back Home <span class="otab-count" id="ocount-senthome">0</span></button>
+            <span class="otab-label">Filter:</span>
+            <button class="otab-btn active" data-otab="all" onclick="switchOutcomeTab('all')">📋 All <span class="otab-count" id="ocount-all">0</span></button>
+            <button class="otab-btn" data-otab="selected" onclick="switchOutcomeTab('selected')">✅ 1.Selected <span class="otab-count" id="ocount-selected">0</span></button>
+            <button class="otab-btn" data-otab="preapproval" onclick="switchOutcomeTab('preapproval')">📋 2.Pre-Appr <span class="otab-count" id="ocount-preapproval">0</span></button>
+            <button class="otab-btn" data-otab="immigration" onclick="switchOutcomeTab('immigration')">🛂 3.Immigration <span class="otab-count" id="ocount-immigration">0</span></button>
+            <button class="otab-btn" data-otab="waitingvisa" onclick="switchOutcomeTab('waitingvisa')">⏳ 4.W.Visa <span class="otab-count" id="ocount-waitingvisa">0</span></button>
+            <button class="otab-btn" data-otab="waitingticket" onclick="switchOutcomeTab('waitingticket')">🎫 5.W.Ticket <span class="otab-count" id="ocount-waitingticket">0</span></button>
+            <button class="otab-btn" data-otab="cancelled" onclick="switchOutcomeTab('cancelled')">❌ 6.Cancelled <span class="otab-count" id="ocount-cancelled">0</span></button>
+            <button class="otab-btn" data-otab="arrived" onclick="switchOutcomeTab('arrived')">✈️ 7.Arrived <span class="otab-count" id="ocount-arrived">0</span></button>
+            <button class="otab-btn" data-otab="local" onclick="switchOutcomeTab('local')">🏠 8.Local <span class="otab-count" id="ocount-local">0</span></button>
+            <button class="otab-btn" data-otab="moved" onclick="switchOutcomeTab('moved')">🔀 9.Moved <span class="otab-count" id="ocount-moved">0</span></button>
+            <button class="otab-btn" data-otab="unfit" onclick="switchOutcomeTab('unfit')">🚫 10.Unfit <span class="otab-count" id="ocount-unfit">0</span></button>
+            <button class="otab-btn" data-otab="runaway" onclick="switchOutcomeTab('runaway')">🏃 11.RunAway <span class="otab-count" id="ocount-runaway">0</span></button>
+            <button class="otab-btn" data-otab="senthome" onclick="switchOutcomeTab('senthome')">🛫 12.SendHome <span class="otab-count" id="ocount-senthome">0</span></button>
+            <button class="otab-btn" data-otab="archived" onclick="switchOutcomeTab('archived')">🗄️ 13.Archived <span class="otab-count" id="ocount-archived">0</span></button>
+            <button class="otab-btn" disabled style="opacity:0.4;cursor:not-allowed;">📅 Arrival Dates</button>
         </div>
 
               <div id="tabContent"></div>
@@ -228,6 +230,33 @@
             get: function(k) { try { return localStorage.getItem(k); } catch(e) { return null; } },
              set: function(k, v) { try { localStorage.setItem(k, v); } catch(e) {} }
         };
+// ── Auto-sync every 30 seconds ──────────────────────────
+        var _autoSyncTimer = null;
+        function startAutoSync() {
+            if (_autoSyncTimer) clearInterval(_autoSyncTimer);
+            _autoSyncTimer = setInterval(async function() {
+                try {
+                    var result = await CloudDB.loadAll();
+                    if (result.workers && result.employers) {
+                        allWorkers = result.workers;
+                        allEmployers = result.employers;
+                        if (result.agencies) allAgencies = result.agencies;
+                        updateCounts();
+                        renderTab();
+                        var el = document.getElementById('cloudStatus');
+                        if (el) {
+                            var t = new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+                            el.textContent = '🔄 Synced ' + t;
+                            el.style.background = '#d4edda';
+                            el.style.color = '#155724';
+                        }
+                    }
+                } catch(e) {
+                    console.warn('Auto-sync failed:', e);
+                }
+            }, 30000);
+        }
+        // ── End Auto-sync ────────────────────────────────────────
 
         async function init() {
             var s1 = _ls.get('mgsdb_workers');
@@ -353,10 +382,22 @@
             document.getElementById('totalEmployers').textContent = '💼 ' + Object.keys(empGroups).length + ' Employers';
         }
         
-        function switchTab(tab) {
+       function switchTab(tab) {
             currentTab = tab;
+            currentOutcomeTab = 'all';
             document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
             document.querySelector('.tab-btn[data-tab="' + tab + '"]').classList.add('active');
+            // Reset lower pills to All
+            document.querySelectorAll('.wf-btn').forEach(function(btn) {
+                var wf = btn.getAttribute('data-wf');
+                var isAll = false;
+                btn.style.background  = 'white';
+                btn.style.color       = '#888';
+                btn.style.borderColor = '#ddd';
+                btn.style.boxShadow   = 'none';
+                var sp = btn.querySelector('span');
+                if (sp) sp.style.background = 'rgba(0,0,0,0.08)';
+            });
             updateCounts();
             renderTab();
         }
@@ -914,7 +955,15 @@
             
             // Load fees
             var saved = _ls.get('mgsdb_processing_fees');
-            if (saved) allFees = JSON.parse(saved);
+            if (saved) {
+                var parsed = JSON.parse(saved);
+                var seen = {};
+                allFees = parsed.filter(function(f) {
+                    if (seen[f.FeeID]) return false;
+                    seen[f.FeeID] = true;
+                    return true;
+                });
+            }
             
             // Filter out discontinued — only active fees in invoice
             activeFees = allFees.filter(function(f) {
@@ -2095,7 +2144,15 @@
             var autoInv = 'INV-' + String(maxNum + 1).padStart(4, '0');
             // Load fees
             var saved = _ls.get('mgsdb_processing_fees');
-            if (saved) allFees = JSON.parse(saved);
+            if (saved) {
+                var parsed = JSON.parse(saved);
+                var seen = {};
+                allFees = parsed.filter(function(f) {
+                    if (seen[f.FeeID]) return false;
+                    seen[f.FeeID] = true;
+                    return true;
+                });
+            }
             activeFees = allFees.filter(function(f) { return !(f.Discontinued === true || f.Discontinued === 'true'); });
             // Build fees rows
             var feesHtml = '';
@@ -3291,16 +3348,15 @@
 <script>
 (function() {
     'use strict';
-    var WORKFLOW = [
-        { id: 'all',           num: '',   icon: '📋', label: 'All',       color: '#667eea' },
-        { id: 'selected',      num: '1',  icon: '✅', label: 'Selected',  color: '#3b82f6' },
-        { id: 'preapproval',   num: '2',  icon: '📋', label: 'Pre-Appr',  color: '#9c27b0' },
-        { id: 'waitingvisa',   num: '4',  icon: '⏳', label: 'W.Visa',    color: '#2196f3' },
-        { id: 'waitingticket', num: '5',  icon: '🎫', label: 'W.Ticket',  color: '#00bcd4' },
-        { id: 'arrived',       num: '6',  icon: '✈️', label: 'Arrived',   color: '#16a34a' },
-        { id: 'local',         num: '7',  icon: '🏠', label: 'Local',     color: '#6b7280' },
-        { id: 'moved',         num: '8',  icon: '🔀', label: 'Moved',     color: '#7c3aed' },
-        { id: 'archived',      num: '9',  icon: '🗄️', label: 'Archived',  color: '#475569' }
+  var WORKFLOW = [
+        { id: 'cancelled',  num: '1',  icon: '❌', label: 'Cancelled', color: '#dc3545' },
+        { id: 'arrived',    num: '2',  icon: '✈️', label: 'Arrived',   color: '#16a34a' },
+        { id: 'local',      num: '3',  icon: '🏠', label: 'Local',     color: '#6b7280' },
+        { id: 'moved',      num: '4',  icon: '🔀', label: 'Moved',     color: '#7c3aed' },
+        { id: 'unfit',      num: '5',  icon: '🚫', label: 'Unfit',     color: '#e65100' },
+        { id: 'runaway',    num: '6',  icon: '🏃', label: 'RunAway',   color: '#b71c1c' },
+        { id: 'senthome',   num: '7',  icon: '🛫', label: 'SendHome',  color: '#4a148c' },
+        { id: 'archived',   num: '8',  icon: '🗄️', label: 'Archived',  color: '#475569' }
     ];
 
     var oldBar = document.querySelector('.tabs-bar-outcome');
@@ -3308,7 +3364,7 @@
         var html = '<span style="font-size:10px;color:#bbb;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;margin-right:4px;white-space:nowrap;">Filter:</span>';
         WORKFLOW.forEach(function(cat) {
             var numLabel = cat.num ? cat.num + '. ' : '';
-            html += '<button class="wf-btn" data-wf="' + cat.id + '" onclick="wfFilterProc(\'' + cat.id + '\')" '
+            html += '<button class="wf-btn" data-wf="' + cat.id + '" ' + (cat.disabled ? 'disabled ' : 'onclick="wfFilterProc(\'' + cat.id + '\')" ') + '  '
                 + 'style="padding:6px 14px;border-radius:25px;font-size:12px;font-weight:600;cursor:pointer;'
                 + 'border:2px solid ' + (cat.id === 'all' ? cat.color : '#ddd') + ';'
                 + 'background:' + (cat.id === 'all' ? cat.color : 'white') + ';'
@@ -3343,6 +3399,10 @@
             var isT = o.indexOf('cancelled') >= 0 || o.indexOf('unfit') >= 0
                    || o.indexOf('runaway') >= 0 || o.indexOf('senthome') >= 0;
             var isA = o.indexOf('arrived') >= 0, isDone = isT || isA;
+            if (filterId === 'cancelled')     return o.indexOf('cancelled') >= 0;
+            if (filterId === 'unfit')         return o.indexOf('unfit') >= 0;
+            if (filterId === 'runaway')       return o.indexOf('runaway') >= 0;
+            if (filterId === 'senthome')      return o.indexOf('senthome') >= 0;
             if (filterId === 'arrived')       return isA && !isT;
             if (filterId === 'local')         return o.indexOf('local') >= 0 && !isT;
             if (filterId === 'moved')         return o.indexOf('moved') >= 0 && !isT && !isA;
@@ -3474,6 +3534,7 @@ CloudDB.loadAll().then(function(c){
     if(c.agencies  && c.agencies.length  > 0) allAgencies  = c.agencies;
 
     cloudReady = true;
+    startAutoSync();
 
     var procCount = allWorkers.filter(function(w){
         return w.Processing===true||w.Processing==='true'||w.Processing==='TRUE';
