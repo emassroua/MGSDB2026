@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🔄 Processing Manager - MGSDB2026</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -53,7 +54,9 @@
         .tab-btn[data-tab="ready_visa"].active { background: linear-gradient(135deg, #4caf50, #2e7d32); }
         .tab-btn[data-tab="ready_visa"] .tab-count { background: #e8f5e9; color: #2e7d32; }
         .tab-btn[data-tab="ready_visa"].active .tab-count { background: rgba(255,255,255,0.3); color: white; }
-        .tab-btn[data-tab="waiting_ticket"].active { background: linear-gradient(135deg, #00bcd4, #00838f); }
+        .tab-btn[data-tab="selected"].active { background: linear-gradient(135deg, #43a047, #1b5e20); }
+        .tab-btn[data-tab="selected"] .tab-count { background: #e8f5e9; color: #1b5e20; }
+        .tab-btn[data-tab="selected"].active .tab-count { background: rgba(255,255,255,0.3); color: white; }
         .tab-btn[data-tab="waiting_ticket"] .tab-count { background: #e0f7fa; color: #00838f; }
         .tab-btn[data-tab="waiting_ticket"].active .tab-count { background: rgba(255,255,255,0.3); color: white; }
         .employer-card { background: white; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); overflow: hidden; }
@@ -106,25 +109,27 @@
         </div>
         <div class="toolbar">
             <button class="btn-refresh" onclick="refreshData()">🔄 Refresh</button>
-            <button class="btn-dashboard" onclick="window.location.href='Dashboard.html'">🏠 Dashboard</button>
+            <button class="btn-dashboard" onclick="window.open(SCRIPT_URL + '?page=Dashboard', '_blank')">🏠 Dashboard</button>
             <button class="btn-agencies" onclick="window.location.href='Local_Agencies_Manager.html'">🏛️ Local Agencies</button>
             <button onclick="debugData()" style="padding:10px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;background:#ffc107;color:#000;">🔍 Debug</button>
             <button onclick="showManualProcess()" style="padding:10px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;background:#9c27b0;color:white;">📋 Send Selected → Process</button>
-            <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search worker name, code..." oninput="renderTab()">
+            <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search worker name, code..." oninput="currentOutcomeTab='all';updateCounts();renderTab();">
             <span id="cloudStatus" style="background: #fff3cd; color: #856404;">⏳ Loading...</span>
         </div>
         <div class="tabs-bar">
-            <button class="tab-btn active" data-tab="processing" onclick="switchTab('processing')">✅ Selected <span class="tab-count" id="count-processing">0</span></button>
+            <button class="tab-btn active" data-tab="processing" onclick="switchTab('processing')">🔄 Processing <span class="tab-count" id="count-processing">0</span></button>
             <button class="tab-btn" data-tab="preapproval" onclick="switchTab('preapproval')">📋 Preapproval <span class="tab-count" id="count-preapproval">0</span></button>
             <button class="tab-btn" data-tab="waiting_visa" onclick="switchTab('waiting_visa')">⏳ Waiting Visa <span class="tab-count" id="count-waiting_visa">0</span></button>
+            <button class="tab-btn" data-tab="ready_visa" onclick="switchTab('ready_visa')">✅ Ready Visa <span class="tab-count" id="count-ready_visa">0</span></button>
             <button class="tab-btn" data-tab="waiting_ticket" onclick="switchTab('waiting_ticket')">🎫 Waiting Ticket <span class="tab-count" id="count-waiting_ticket">0</span></button>
             <button class="tab-btn" disabled style="opacity:0.4;cursor:not-allowed;">📅 Arrival Dates</button>
+            <button class="tab-btn" data-tab="selected" onclick="switchTab('selected')">✅ Selected <span class="tab-count" id="count-selected">0</span></button>
         </div>
         <!-- Outcome Status Tabs Row -->
         <div class="tabs-bar-outcome">
             <span class="otab-label">Filter:</span>
             <button class="otab-btn active" data-otab="all" onclick="switchOutcomeTab('all')">📋 All <span class="otab-count" id="ocount-all">0</span></button>
-            <button class="otab-btn" data-otab="selected" onclick="switchOutcomeTab('selected')">✅ 1.Selected <span class="otab-count" id="ocount-selected">0</span></button>
+            <button class="otab-btn" data-otab="processing" onclick="switchOutcomeTab('processing')">🔄 1.Processing <span class="otab-count" id="ocount-processing">0</span></button>
             <button class="otab-btn" data-otab="preapproval" onclick="switchOutcomeTab('preapproval')">📋 2.Pre-Appr <span class="otab-count" id="ocount-preapproval">0</span></button>
             <button class="otab-btn" data-otab="immigration" onclick="switchOutcomeTab('immigration')">🛂 3.Immigration <span class="otab-count" id="ocount-immigration">0</span></button>
             <button class="otab-btn" data-otab="waitingvisa" onclick="switchOutcomeTab('waitingvisa')">⏳ 4.W.Visa <span class="otab-count" id="ocount-waitingvisa">0</span></button>
@@ -137,6 +142,7 @@
             <button class="otab-btn" data-otab="runaway" onclick="switchOutcomeTab('runaway')">🏃 11.RunAway <span class="otab-count" id="ocount-runaway">0</span></button>
             <button class="otab-btn" data-otab="senthome" onclick="switchOutcomeTab('senthome')">🛫 12.SendHome <span class="otab-count" id="ocount-senthome">0</span></button>
             <button class="otab-btn" data-otab="archived" onclick="switchOutcomeTab('archived')">🗄️ 13.Archived <span class="otab-count" id="ocount-archived">0</span></button>
+            <button class="otab-btn" data-otab="selected" onclick="switchOutcomeTab('selected')">✅ All Selected <span class="otab-count" id="ocount-selected">0</span></button>
             <button class="otab-btn" disabled style="opacity:0.4;cursor:not-allowed;">📅 Arrival Dates</button>
         </div>
 
@@ -150,12 +156,13 @@
             if (match) return match[1];
             return 'https://script.google.com/macros/s/AKfycbxEbNo287tvEezLwy8vYHrNWxPXELlzzsGVg9yeA6XXDIkXdR0ILEKOTWbG88PxHiIf/exec';
         })();
-        var allWorkers = [], allEmployers = [], allAgencies = [];
+        var allWorkers = [], allEmployers = [], allAgencies = [], allSuppliers = [];
         var cloudReady = false, currentTab = 'processing', currentOutcomeTab = 'all';
         var _openEmpKey = null; // accordion: which employer is open
         
         var STAGES = {
             processing:     { label: 'Processing',     icon: '🔄', color: '#2196f3', gradient: 'linear-gradient(135deg, #2196f3, #1565c0)' },
+            selected:       { label: 'Selected',       icon: '✅', color: '#43a047', gradient: 'linear-gradient(135deg, #43a047, #1b5e20)' },
             preapproval:    { label: 'Preapproval',     icon: '📋', color: '#9c27b0', gradient: 'linear-gradient(135deg, #9c27b0, #7b1fa2)' },
             waiting_visa:   { label: 'Waiting Visa',    icon: '⏳', color: '#2196f3', gradient: 'linear-gradient(135deg, #2196f3, #1565c0)' },
             ready_visa:     { label: 'Ready Visas',     icon: '✅', color: '#4caf50', gradient: 'linear-gradient(135deg, #4caf50, #2e7d32)' },
@@ -168,7 +175,8 @@
             async post(d) { var r = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(d) }); return await r.json(); },
             async loadSheet(s) { try { var r = await this.get({ action: 'getAll', sheet: s }); return r.data || []; } catch(e) { return []; } },
             async saveRow(s, d) { return await this.post({ action: 'saveRow', sheet: s, data: d }); },
-            async loadAll() { try { var [w,e,a] = await Promise.all([this.loadSheet('Workers'), this.loadSheet('Employers'), this.loadSheet('Local_Agencies')]); return {workers:w,employers:e,agencies:a}; } catch(e) { return {workers:null,employers:null,agencies:null}; } }
+            async loadAll() { try { var [w,e,f] = await Promise.all([this.loadSheet('Workers'), this.loadSheet('Employers'), this.loadSheet('Processing_Costs')]); return {workers:w,employers:e,agencies:null,suppliers:null,fees:f}; } catch(e) { return {workers:null,employers:null,agencies:null,suppliers:null,fees:null}; } },
+            async loadBackground() { try { var [a,s] = await Promise.all([this.loadSheet('Local_Agencies'), this.loadSheet('Suppliers')]); return {agencies:a,suppliers:s}; } catch(e) { return {agencies:null,suppliers:null}; } }
         };
         
         function getProcessingWorkers() {
@@ -178,11 +186,17 @@
             });
         }
         function getWorkersByStage(stage) {
-            var all = getProcessingWorkers();
-            if (stage !== 'processing') {
-                all = all.filter(function(w) { return w.ProcessingStage === stage; });
-            }
-            // Apply outcome tab filter
+           var all = getProcessingWorkers();
+           if (stage === 'selected') {
+               return allWorkers.filter(function(w) {
+                  var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+                  return outs.indexOf('selected') >= 0;
+             });
+               return all; // ← skip outcome filter for Selected tab
+          } else if (stage !== 'processing') {
+              all = all.filter(function(w) { return w.ProcessingStage === stage; });
+          }
+         // Apply outcome tab filter
             if (currentOutcomeTab === 'all' || !currentOutcomeTab) {
                 // All tab — hide terminal/final outcomes (they belong only in their own tabs)
                 all = all.filter(function(w) {
@@ -305,7 +319,17 @@
                     _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
                 }
                 if (c.employers && c.employers.length > 0) { allEmployers = c.employers; _ls.set('mgsdb_employers', JSON.stringify(allEmployers)); }
-                if (c.agencies && c.agencies.length > 0) { allAgencies = c.agencies; _ls.set('mgsdb_local_agencies', JSON.stringify(allAgencies)); }
+                if (c.agencies && c.agencies.length > 0) { allAgencies = c.agencies; }
+                if (c.suppliers && c.suppliers.length > 0) { allSuppliers = c.suppliers; }
+                if (c.fees && c.fees.length > 0) { allFees = c.fees; }
+
+                // Load background data silently after page is visible
+                CloudDB.loadBackground().then(function(b) {
+                     if (b.agencies && b.agencies.length > 0) { allAgencies = b.agencies; }
+                     if (b.suppliers && b.suppliers.length > 0) { allSuppliers = b.suppliers; }
+                     if (b.fees && b.fees.length > 0) { allFees = b.fees; }
+                     updateCounts(); renderTab();
+               }).catch(function(){});
                 cloudReady = true;
                 document.getElementById('cloudStatus').textContent = '☁️ Cloud';
                 document.getElementById('cloudStatus').style.background = '#d4edda';
@@ -327,7 +351,10 @@
             var rv = all.filter(function(w) { return w.ProcessingStage === 'ready_visa'; }).length;
             var wt = all.filter(function(w) { return w.ProcessingStage === 'waiting_ticket'; }).length;
             
-            document.getElementById('count-processing').textContent = all.length;
+            var proc = all.filter(function(w) { return w.ProcessingStage === 'processing' || !w.ProcessingStage; }).length;
+            var sel = all.filter(function(w) { var o=[]; try{o=JSON.parse(w.WorkerOutcomes||'[]')}catch(e){} return o.indexOf('selected')>=0; }).length;
+            document.getElementById('count-processing').textContent = proc;
+            (document.getElementById('count-selected')||{textContent:''}).textContent = sel;
             document.getElementById('count-preapproval').textContent = pre;
             document.getElementById('count-waiting_visa').textContent = wv;
             document.getElementById('count-ready_visa').textContent = rv;
@@ -339,18 +366,31 @@
 
             
             // Outcome tab counts — count from ALL processing workers (not filtered by stage)
-            var OKEYS = ['all','selected','preapproval','waitingvisa','waitingticket','cancelled','arrived','local','moved','unfit','runaway','senthome'];
+            var OKEYS = ['all','selected','preapproval','waitingvisa','waitingticket','cancelled','arrived','local','moved','unfit','runaway','senthome','archived'];
             OKEYS.forEach(function(k) {
                 var el = document.getElementById('ocount-' + k);
                 if (!el) return;
-                if (k === 'all') {
+if (k === 'archived') {
+    el.textContent = allWorkers.filter(function(w) {
+        var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+        return outs.indexOf('archived') >= 0 || w.WorkerArchived === true || w.WorkerArchived === 'true' || w.WorkerArchived === 'TRUE';
+    }).length;
+    return;
+}
+if (k === 'all') {
                     el.textContent = all.filter(function(w) {
-                        var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
-                        return outs.indexOf('arrived') < 0 && outs.indexOf('local') < 0 && outs.indexOf('cancelled') < 0 && outs.indexOf('unfit') < 0 && outs.indexOf('runaway') < 0 && outs.indexOf('senthome') < 0;
+                    var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+                    return outs.indexOf('arrived') < 0 && outs.indexOf('local') < 0 && outs.indexOf('cancelled') < 0 && outs.indexOf('unfit') < 0 && outs.indexOf('runaway') < 0 && outs.indexOf('senthome') < 0;
                     }).length;
                     return;
                 }
                 el.textContent = all.filter(function(w) {
+                    var stage = w.ProcessingStage || '';
+                    // Use ProcessingStage as source of truth for pipeline stages
+                    if (k === 'selected')      return stage === 'processing' || stage === '';
+                    if (k === 'preapproval')   return stage === 'preapproval';
+                    if (k === 'waitingvisa')   return stage === 'waiting_visa';
+                    if (k === 'waitingticket') return stage === 'waiting_ticket';
                     var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
                     var isCancelled = outs.indexOf('cancelled') >= 0;
                     var isUnfit     = outs.indexOf('unfit') >= 0;
@@ -364,7 +404,6 @@
                     if (k === 'senthome')     return isSentHome;
                     if (k === 'arrived')      return (isArrived || outs.indexOf('local') >= 0) && !isTerminal;
                     if (k === 'moved')        return outs.indexOf('moved') >= 0 && !isTerminal && !isArrived;
-                    if (k === 'local')        return outs.indexOf('local') >= 0 && !isTerminal && !isArrived;
                     var isDone = isTerminal || isArrived;
                     if (k === 'selected')     return outs.indexOf('selected') >= 0 && outs.indexOf('preapproval') < 0 && !isDone;
                     if (k === 'preapproval')  return outs.indexOf('preapproval') >= 0 && outs.indexOf('immigration') < 0 && !isDone;
@@ -378,7 +417,7 @@
             var stage = STAGES[currentTab];
             var empGroups = {};
             tabWorkers.forEach(function(w) { empGroups[w.EmployerCode || w.EmployerID || 'x'] = true; });
-            document.getElementById('totalProcessing').textContent = stage.icon + ' ' + tabWorkers.length + ' ' + stage.label;
+            document.getElementById('totalProcessing').textContent = '✅ ' + sel + ' Selected';
             document.getElementById('totalEmployers').textContent = '💼 ' + Object.keys(empGroups).length + ' Employers';
         }
         
@@ -428,18 +467,28 @@
 
         function renderTab() {
             var search = (document.getElementById('searchBox').value || '').toLowerCase();
-            var stage = STAGES[currentTab];
-            var workers = getWorkersByStage(currentTab);
-            
+            var stage = STAGES[currentTab] || STAGES['processing'];
+            var workers = search ? getProcessingWorkers() : getWorkersByStage(currentTab);
+            if (search) stage = { label: 'Search Results', icon: '🔍', color: '#ff9800', gradient: 'linear-gradient(135deg, #ff9800, #e65100)' };
+
             if (search) {
                 workers = workers.filter(function(w) {
                     var computedCode = (w.SupplierCode && w.WorkerID) ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : '';
-                    return [w.WFullName, w.WorkerFirstName, w.WorkerLastName, w.PassportNumber, w.IDNumber, w.Nationality, w.SupplierCode, w.EmployerCode, w.WorkerCode || computedCode].join(' ').toLowerCase().indexOf(search) >= 0;
-                });
-            }
+                    var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(w.EmployerCode) || String(e.EmployerID) === String(w.EmployerID); });
+                    var empName = emp ? (emp.EFN || emp.EmployerName || '') : '';
+                    var ag = (emp && emp.AgencyCode) ? allAgencies.find(function(a) { return String(a.AgencyCode) === String(emp.AgencyCode); }) : null;
+                    var agName = ag ? (ag.AgencyName || '') : '';
+                   return [w.WFullName, w.WorkerFirstName, w.WorkerLastName, w.PassportNumber, w.IDNumber, w.Nationality, w.SupplierCode, w.EmployerCode, w.WorkerCode || computedCode, empName, agName].join(' ').toLowerCase().indexOf(search) >= 0;
+               });
+           }
             
             var groups = {};
-            workers.forEach(function(w) { var k = w.EmployerCode || w.EmployerID || 'unassigned'; if (!groups[k]) groups[k] = []; groups[k].push(w); });
+            workers.forEach(function(w) { 
+                // Each worker gets its own unique key = EmployerCode + WorkerID
+                var k = (w.EmployerCode || w.EmployerID || 'unassigned') + '_' + w.WorkerID; 
+                if (!groups[k]) groups[k] = []; 
+                groups[k].push(w); 
+            });
             var content = document.getElementById('tabContent');
             var keys = Object.keys(groups);
             
@@ -451,9 +500,10 @@
             var html = '';
             keys.forEach(function(empKey) {
                 var ew = groups[empKey];
-                var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(empKey) || String(e.EmployerID) === String(empKey); });
-                var empName = emp ? (emp.EmployerName || emp.EFN || emp.EmployerCode) : empKey;
-                var empCode = emp ? emp.EmployerCode : empKey;
+                var realEmpKey = empKey.split('_')[0]; // strip WorkerID suffix
+                var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(realEmpKey) || String(e.EmployerID) === String(realEmpKey); });
+                var empName = emp ? (emp.EFN || emp.EmployerName || emp.EmployerCode) : realEmpKey;
+                var empCode = emp ? emp.EmployerCode : realEmpKey;
                 var ag = null;
                 if (emp && emp.AgencyCode) ag = allAgencies.find(function(a) { return String(a.AgencyCode) === String(emp.AgencyCode); });
                 var agName = ag ? ag.AgencyName : '';
@@ -529,7 +579,7 @@
                         { key:'unfit',       icon:'🚫', label:'10. Unfit' },
                         { key:'runaway',     icon:'🏃', label:'11. RunAway' },
                         { key:'senthome',    icon:'🛫', label:'12. Send Back Home' }
-                    ];
+                  ];
                     // WorkerOutcomes stored as JSON array for multi-select
                     var activeOuts = [];
                     try { activeOuts = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) { activeOuts = []; }
@@ -547,7 +597,7 @@
                     html += '<div class="worker-name">' + (i+1) + '. ' + name + lockIcon + ' <span class="status-badge" style="background:' + si.color + ';color:white">' + si.icon + ' ' + si.label + '</span>' + invBadge + '</div>';
                     // Employer line — current on top, previous below if moved
                     var curEmpObj2 = allEmployers.find(function(e){ return String(e.EmployerCode)===String(w.EmployerCode)||String(e.EmployerID)===String(w.EmployerID); });
-                    var curEmpName2 = curEmpObj2 ? (curEmpObj2.EmployerName || curEmpObj2.EFN || w.EmployerCode) : w.EmployerCode;
+                    var curEmpName2 = curEmpObj2 ? (curEmpObj2.EFN || curEmpObj2.EmployerName || w.EmployerCode) : w.EmployerCode;
                     var curAgCode2 = curEmpObj2 ? (curEmpObj2.AgencyCode || '') : '';
                     var curAg2 = curAgCode2 ? allAgencies.find(function(a){ return a.AgencyCode===curAgCode2||a.Code===curAgCode2; }) : null;
                     var curAgName2 = curAg2 ? (curAg2.AgencyName || curAg2.Name || curAgCode2) : curAgCode2;
@@ -794,7 +844,7 @@
                                 var agName = agency ? (agency.AgencyName || agency.Name || agCode) : agCode;
                                 currentEmpInfo = '<div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:6px;">'
                                     + '<div style="font-weight:800;color:#e65100;margin-bottom:3px;">📤 Moving From:</div>'
-                                    + '<div><b>' + (oldEmp.EmployerName || oldEmp.EFN || '') + '</b></div>'
+                                    + '<div><b>' + (oldEmp.EFN || oldEmp.EmployerName || '') + '</b></div>'
                                     + '<div style="color:#666;">Code: <b>' + (oldEmp.EmployerCode||'') + '</b> &nbsp;|&nbsp; Agency: <b>' + agName + '</b> (' + agCode + ')</div>'
                                     + '</div>';
                             }
@@ -941,7 +991,7 @@
             var name = worker.WFullName || worker.WorkerFirstName || 'Unnamed';
             var wCode = worker.WorkerCode || (worker.SupplierCode && worker.WorkerID ? worker.SupplierCode + '-' + String(worker.WorkerID).padStart(4, '0') : 'N/A');
             var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(worker.EmployerCode); });
-            var empName = emp ? (emp.EmployerName || emp.EFN || emp.EmployerCode) : (worker.EmployerCode || 'N/A');
+            var empName = emp ? (emp.EFN || emp.EmployerName || emp.EmployerCode) : (worker.EmployerCode || 'N/A');
             var today = new Date().toISOString().split('T')[0];
             var d = new Date();
             // Use sequential format matching Accountant system
@@ -953,7 +1003,7 @@
             });
             var autoInv = 'INV-' + String(maxNum + 1).padStart(4, '0');
             
-            // Load fees
+            // allFees loaded from cloud in init()
             var saved = _ls.get('mgsdb_processing_fees');
             if (saved) {
                 var parsed = JSON.parse(saved);
@@ -1092,7 +1142,7 @@
             if (!w) { alert('❌ Worker not found!'); return; }
             
             var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(w.EmployerCode); });
-            var empName = emp ? (emp.EmployerName || emp.EFN || emp.EmployerCode) : (w.EmployerCode || 'N/A');
+            var empName = emp ? (emp.EFN || emp.EmployerName || emp.EmployerCode) : (w.EmployerCode || 'N/A');
             var workerName = w.WFullName || w.WorkerFirstName || 'Worker';
             
             // Collect selected fees
@@ -1114,6 +1164,7 @@
                         subtotal: sub
                     });
                 }
+             
             });
             
             if (selectedFees.length === 0 && activeFees.length > 0) {
@@ -1180,200 +1231,11 @@
                 console.log('☁️ Invoice synced to Accountant cloud:', res);
             }).catch(function(e) { console.warn('☁️ Invoice cloud sync failed:', e); });
             
+            createSupplierVoucher(w, invNumber, empName, workerName);
             closeInvoicePopup();
 
-           var recruitFee = parseFloat(w.RecruitmentFee) || totalAmount;
-            var feeWarning = '';
-            if (!w.RecruitmentFee || parseFloat(w.RecruitmentFee) === 0) {
-                feeWarning = '\n\n⚠️ No recruitment fee stamped — using invoice total ($' + totalAmount.toFixed(2) + ') as supplier credit amount.';
-            }
-
-            var wCodeStr = w.WorkerCode || ((w.SupplierCode || '') + '-' + String(w.WorkerID).padStart(4, '0'));
-            var workerNat = w.Nationality || '';
-            var suppName = w.SupplierCode || 'Unknown Supplier';
-            var voucherNum = 'VCH-0001';
-
-            try {
-                // 1. Lookup supplier name from cloud
-                var suppList = await CloudDB.loadSheet('Suppliers');
-                var suppObj = suppList.find(function(s) {
-                    return String(s.SupplierCODE) === String(w.SupplierCode);
-                });
-                if (suppObj) suppName = suppObj.SupplierBusinessName || suppObj.SupplierName || suppName;
-
-                // 2. Get next voucher number from cloud
-                var existingPayments = await CloudDB.loadSheet('OutgoingPayments');
-                var maxVch = 0;
-                existingPayments.forEach(function(p) {
-                    var m = String(p.voucherNumber || '').match(/VCH-(\d+)/i);
-                    if (m) { var n = parseInt(m[1]); if (n > maxVch) maxVch = n; }
-                });
-                voucherNum = 'VCH-' + String(maxVch + 1).padStart(4, '0');
-            } catch(e) {
-                console.warn('⚠️ Supplier credit prep failed:', e);
-            }
-
-            // 3. Build and save credit record to cloud
-            var creditRecord = {
-                voucherNumber: voucherNum,
-                category: 'supplier',
-                supplierCode: w.SupplierCode || '',
-                supplierName: suppName,
-                workerID: w.WorkerID,
-                workerCode: wCodeStr,
-                workerName: workerName,
-                workerNationality: workerNat,
-                employerCode: w.EmployerCode || '',
-                employerName: empName,
-                invoiceNumber: invNumber,
-                amount: recruitFee,
-                status: 'pending',
-                dueOn: 'arrived',
-                notes: 'Due on arrival | Worker: ' + wCodeStr + ' | Invoice: ' + invNumber,
-                createdDate: new Date().toISOString(),
-                source: 'preapproval'
-            };
-
-            CloudDB.saveRow('OutgoingPayments', creditRecord)
-                .then(function(res) { console.log('☁️ Supplier credit saved:', res); })
-                .catch(function(e) { console.warn('☁️ Supplier credit save failed:', e); });
-
-            // ── Generate Supplier Credit PDF → Employer Folder (type: PreAp) ──
-            (async function() {
-                try {
-                    var empFolderID2 = emp ? (emp.EmployerFolderID || '') : '';
-                    var empFolderName2 = emp ? (emp.EmployerFolderName || emp.EmployerFolder || '') : '';
-                    if (!empFolderName2 && emp) {
-                        var agCode2 = emp.AgencyCode || '';
-                        var eId2 = emp.EmployerID || '';
-                        var eName2 = emp.EFN || emp.EmployerName || '';
-                        empFolderName2 = agCode2
-                            ? agCode2 + ' (' + eId2 + ') ' + eName2
-                            : (emp.EmployerCode || 'Unknown') + ' (' + eId2 + ') ' + eName2;
-                    }
-                    if (!empFolderID2 && !empFolderName2) {
-                        console.warn('⚠️ No employer folder — supplier credit PDF skipped.');
-                        return;
-                    }
-
-                    var { jsPDF } = window.jspdf;
-                    var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-                    var pageW = 210, margin = 20, col = margin, y = 0;
-
-                    // Purple header
-                    doc.setFillColor(156, 39, 176);
-                    doc.rect(0, 0, pageW, 34, 'F');
-                    doc.setTextColor(255, 255, 255);
-                    doc.setFontSize(16); doc.setFont(undefined, 'bold');
-                    doc.text('Supplier Credit Note', pageW / 2, 14, { align: 'center' });
-                    doc.setFontSize(10); doc.setFont(undefined, 'normal');
-                    doc.text('Pre-Approval — Recruitment Fee Payable on Arrival', pageW / 2, 22, { align: 'center' });
-                    doc.text('Date: ' + new Date(invDate).toLocaleDateString('en-GB'), pageW / 2, 30, { align: 'center' });
-                    y = 44;
-
-                    doc.setTextColor(50, 50, 50);
-
-                    // Worker box
-                    doc.setFillColor(243, 229, 245);
-                    doc.roundedRect(margin, y, pageW - margin * 2, 36, 3, 3, 'F');
-                    doc.setFontSize(11); doc.setFont(undefined, 'bold');
-                    doc.text('Worker', col + 4, y + 9);
-                    doc.setFontSize(10); doc.setFont(undefined, 'normal');
-                    doc.text('Name: ' + workerName, col + 4, y + 17);
-                    doc.text('Code: ' + wCodeStr, col + 4, y + 24);
-                    doc.text('Nationality: ' + workerNat, col + 4, y + 31);
-                    y += 44;
-
-                    // Employer box
-                    doc.setFillColor(232, 245, 233);
-                    doc.roundedRect(margin, y, pageW - margin * 2, 22, 3, 3, 'F');
-                    doc.setFontSize(11); doc.setFont(undefined, 'bold');
-                    doc.text('Employer', col + 4, y + 9);
-                    doc.setFontSize(10); doc.setFont(undefined, 'normal');
-                    doc.text(empName + ' (' + (w.EmployerCode || '') + ')', col + 4, y + 17);
-                    y += 30;
-
-                    // Supplier box
-                    doc.setFillColor(227, 242, 253);
-                    doc.roundedRect(margin, y, pageW - margin * 2, 22, 3, 3, 'F');
-                    doc.setFontSize(11); doc.setFont(undefined, 'bold');
-                    doc.text('Supplier', col + 4, y + 9);
-                    doc.setFontSize(10); doc.setFont(undefined, 'normal');
-                    doc.text(suppName + ' (' + (w.SupplierCode || '') + ')', col + 4, y + 17);
-                    y += 30;
-
-                    // Amount box
-                    doc.setFillColor(156, 39, 176);
-                    doc.roundedRect(margin, y, pageW - margin * 2, 30, 3, 3, 'F');
-                    doc.setTextColor(255, 255, 255);
-                    doc.setFontSize(12); doc.setFont(undefined, 'bold');
-                    doc.text('Recruitment Fee — Due on Arrival', pageW / 2, y + 12, { align: 'center' });
-                    doc.setFontSize(22);
-                    doc.text('$' + recruitFee.toFixed(2), pageW / 2, y + 25, { align: 'center' });
-                    y += 38;
-
-                    // Reference lines
-                    doc.setTextColor(80, 80, 80);
-                    doc.setFontSize(10); doc.setFont(undefined, 'normal');
-                    doc.text('Voucher: ' + voucherNum, col, y + 8);
-                    doc.text('Linked Invoice: ' + invNumber, col, y + 16);
-                    doc.text('Status: Pending — Payable upon worker arrival', col, y + 24);
-                    y += 32;
-                    doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(80,80,80);
-                    doc.text('Amount in Words:', col, y);
-                    doc.setFont(undefined, 'italic');
-                    doc.text(_numToWords(totalAmount), col, y + 7);
-
-                    // Footer
-                    doc.setFontSize(9); doc.setTextColor(160, 160, 160);
-                    doc.text('Generated by MGSDB2026 — ' + new Date().toLocaleString(), pageW / 2, 285, { align: 'center' });
-
-                    // Upload to employer folder with type PreAp
-                    var pdfBlob = doc.output('blob');
-                    var fileName = 'PreAp_SupCredit_' + wCodeStr + '_' + voucherNum + '.pdf';
-                    var pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
-                    var formData = new FormData();
-                    formData.append('file', pdfFile);
-                    formData.append('folderId', empFolderID2);
-                    formData.append('folderName', empFolderName2);
-                    formData.append('employerCode', w.EmployerCode || '');
-                    formData.append('fileType', 'PreAp');
-                    var PDF_UP = 'https://script.google.com/macros/s/AKfycbwI-2e6Zav1-AAdHOIV442lzSGkp1NxTayIbantWgLj-v2p2M4uwdMX3Vlhc_YoJSLH/exec';
-                    fetch(PDF_UP, { method: 'POST', body: formData })
-                        .then(function(r) { return r.json(); })
-                        .then(function(res) { console.log('☁️ Supplier credit PDF uploaded:', res); })
-                        .catch(function(e) { console.warn('☁️ Supplier credit PDF upload failed:', e); });
-
-                } catch(e) {
-                    console.warn('⚠️ Supplier credit PDF generation failed:', e);
-                }
-            })();
-            // ── End Supplier Credit ────────────────────────────────────────────
-// ── Amount in words helper ──────────────────────────────────
-            function _numToWords(num) {
-                if (!num || num === 0) return 'Zero Dollars';
-                var ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
-                var tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
-                function convert(n) {
-                    if (n < 20) return ones[n];
-                    if (n < 100) return tens[Math.floor(n/10)] + (n%10 ? ' ' + ones[n%10] : '');
-                    if (n < 1000) return ones[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' and ' + convert(n%100) : '');
-                    if (n < 1000000) return convert(Math.floor(n/1000)) + ' Thousand' + (n%1000 ? ' ' + convert(n%1000) : '');
-                    return convert(Math.floor(n/1000000)) + ' Million' + (n%1000000 ? ' ' + convert(n%1000000) : '');
-                }
-                var whole = Math.floor(Math.abs(num));
-                var cents = Math.round((Math.abs(num) - whole) * 100);
-                var result = convert(whole) + ' Dollars';
-                if (cents > 0) result += ' and ' + convert(cents) + ' Cents';
-                return result;
-            }
-
             var feesSummary = selectedFees.map(function(f) { return f.nameEN + ': $' + f.subtotal.toFixed(2); }).join('\n');
-            alert('✅ Invoice Issued & Sent to Accountant!\n\n📋 Invoice: ' + invNumber + '\n📅 Date: ' + invDate + '\n\n💲 Fee Items:\n' + feesSummary + '\n\n💰 Total: $' + totalAmount.toFixed(2) + '\n\n🧾 Supplier Credit: ' + voucherNum + ' ($' + recruitFee.toFixed(2) + ')\n👤 Supplier: ' + suppName + '\n\n🔒 Worker LOCKED\n📋 ' + workerName + ' → Preapproval\n📊 Invoice + Credit copied to Accountant' + feeWarning);
-            updateCounts(); renderTab();
-
-            var feesSummary = selectedFees.map(function(f) { return f.nameEN + ': $' + f.subtotal.toFixed(2); }).join('\n');
-            alert('✅ Invoice Issued & Sent to Accountant!\n\n📋 Invoice: ' + invNumber + '\n📅 Date: ' + invDate + '\n\n💲 Fee Items:\n' + feesSummary + '\n\n💰 Total: $' + totalAmount.toFixed(2) + '\n\n🧾 Supplier Credit: ' + voucherNum + ' ($' + recruitFee.toFixed(2) + ')\n👤 Supplier: ' + suppName + '\n\n🔒 Worker LOCKED\n📋 ' + workerName + ' → Preapproval\n📊 Invoice + Credit copied to Accountant' + feeWarning);
+            alert('✅ Invoice Issued!\n\n📋 Invoice: ' + invNumber + '\n📅 Date: ' + invDate + '\n\n💲 Fee Items:\n' + feesSummary + '\n\n💰 Total: $' + totalAmount.toFixed(2) + '\n\n🔒 Worker LOCKED\n📋 ' + workerName + ' → Preapproval\n📊 Invoice copied to Accountant\n🧾 Supplier Voucher created');
             updateCounts(); renderTab();
 
             // ── Auto-generate and upload invoice PDF to employer folder ──────
@@ -1500,6 +1362,13 @@
                 doc.text('$' + data.totalAmount.toFixed(2), rightX-3, y+7, { align:'right' });
                 y += 18;
 
+                // Amount in words
+                doc.setFillColor(232, 244, 253);
+                doc.rect(margin, y, rightX - margin, 12, 'F');
+                doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(30,80,160);
+                doc.text('Amount in Words: ' + _numToWords(data.totalAmount), margin + 3, y + 8);
+                y += 16;
+
                 // Notes
                 if (data.notes) {
                     doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(120,120,120);
@@ -1538,6 +1407,24 @@
                 console.warn('📄 PDF generation error:', e);
             }
         }
+
+        function _numToWords(num) {
+            if (!num || num === 0) return 'Zero Dollars';
+            var ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+            var tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+            function convert(n) {
+                if (n < 20) return ones[n];
+                if (n < 100) return tens[Math.floor(n/10)] + (n%10 ? ' ' + ones[n%10] : '');
+                if (n < 1000) return ones[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' and ' + convert(n%100) : '');
+                if (n < 1000000) return convert(Math.floor(n/1000)) + ' Thousand' + (n%1000 ? ' ' + convert(n%1000) : '');
+                return convert(Math.floor(n/1000000)) + ' Million' + (n%1000000 ? ' ' + convert(n%1000000) : '');
+            }
+            var whole = Math.floor(Math.abs(num));
+            var cents = Math.round((Math.abs(num) - whole) * 100);
+            var result = convert(whole) + ' Dollar' + (whole !== 1 ? 's' : '');
+            if (cents > 0) result += ' and ' + convert(cents) + ' Cent' + (cents !== 1 ? 's' : '');
+            return result;
+        }
         
         // ── Set worker outcome status ───────────────────────────────────────────
         async function setWorkerOutcome(workerId, outcome) {
@@ -1552,13 +1439,14 @@
 
             if (isActive) {
                 // ── DESELECT — requires admin password ───────────────────
-                var pwd = prompt('🔒 Admin password required to remove status:\n\n"' + outcome + '"');
+                var pwd = prompt('⚠️ WARNING: You are moving this worker BACKWARD!\n\nRemoving "' + outcome + '" will revert their progress.\n\n🔒 Admin password required:');
                 if (pwd === null) return; // cancelled
                 var savedPwd = _ls.get('mgsdb_security_password') || 'masr3434';
                 if (pwd !== savedPwd) {
                     alert('❌ Incorrect password. Status not changed.');
                     return;
                 }
+                alert('⚠️ Status "' + outcome + '" removed. Worker stage may need manual adjustment.');
                 activeOuts = activeOuts.filter(function(k) { return k !== outcome; });
                 // Clear timestamp for this outcome
                 var outDates = {}; try { outDates = JSON.parse(w.WorkerOutcomeDates || '{}'); } catch(e) {}
@@ -1566,11 +1454,36 @@
                 w.WorkerOutcomeDates = JSON.stringify(outDates);
             } else {
                 // ── SELECT — no password needed ──────────────────────────
+                var allOutDates = {};
+                try { allOutDates = JSON.parse(w.WorkerOutcomeDates || '{}'); } catch(e) {}
+
+                // ── Auto stage mapping ────────────────────────────────────
+                var stageMap = {
+    'selected':      { stage: 'processing',      remove: [] },
+    'preapproval':   { stage: 'preapproval',     remove: ['selected'] },
+    'immigration':   { stage: 'preapproval',     remove: ['selected'] },
+    'waitingvisa':   { stage: 'waiting_visa',    remove: ['selected', 'preapproval', 'immigration'] },
+    'waitingticket': { stage: 'waiting_ticket',  remove: ['selected', 'preapproval', 'immigration', 'waitingvisa'] },
+    'arrived':       { stage: 'arrived',         remove: ['selected', 'preapproval', 'immigration', 'waitingvisa', 'waitingticket'] },
+    'cancelled':     { stage: 'cancelled',       remove: [] },
+    'local':         { stage: 'local',           remove: [] },
+    'moved':         { stage: 'moved',           remove: [] },
+    'unfit':         { stage: 'unfit',           remove: [] },
+    'runaway':       { stage: 'runaway',         remove: [] },
+    'senthome':      { stage: 'senthome',        remove: [] },
+    'archived':      { stage: 'archived',        remove: [] }
+};
+                if (stageMap[outcome]) {
+                    w.ProcessingStage = stageMap[outcome].stage;
+                    var toRemove = stageMap[outcome].remove;
+                    activeOuts = activeOuts.filter(function(k) { return toRemove.indexOf(k) < 0; });
+                    toRemove.forEach(function(k) { delete allOutDates[k]; });
+                }
+                // ─────────────────────────────────────────────────────────
+
                 activeOuts.push(outcome);
-                // Save timestamp for this outcome
-                var outDates = {}; try { outDates = JSON.parse(w.WorkerOutcomeDates || '{}'); } catch(e) {}
-                outDates[outcome] = new Date().toISOString();
-                w.WorkerOutcomeDates = JSON.stringify(outDates);
+                allOutDates[outcome] = new Date().toISOString();
+                w.WorkerOutcomeDates = JSON.stringify(allOutDates);
                 // For 'local' outcome — record employer move entry so from→to shows on the line
                 if (outcome === 'local') {
                     var fromCode = w.EmployerCode || '?';
@@ -1583,14 +1496,16 @@
                 }
             }
 
-            w.WorkerOutcomes = JSON.stringify(activeOuts);
-            _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
-            if (cloudReady) {
-                try { await CloudDB.saveRow('Workers', w); }
-                catch(e) { console.warn('Outcome sync failed:', e); }
-            }
-            renderTab();
-        }
+           w.WorkerOutcomes = JSON.stringify(activeOuts);
+_ls.set('mgsdb_workers', JSON.stringify(allWorkers));
+updateCounts();
+renderTab();
+try {
+    await CloudDB.saveRow('Workers', w);
+    console.log('✅ Outcome saved to cloud');
+} catch(e) {
+    console.warn('⚠️ Outcome save failed:', e);
+}
 
         // ── Release worker: clear outcome statuses ─────────────────────────────
         // Password required only if worker has any PROTECTED outcomes active
@@ -2075,10 +1990,10 @@
             var agency = allAgencies.find(function(a){ return a.AgencyCode === agCode || a.Code === agCode; });
             var agName = agency ? (agency.AgencyName || agency.Name || agCode) : agCode;
             if (resultsEl) resultsEl.style.display = 'none';
-            if (searchEl)  searchEl.value = (emp.EmployerName || emp.EFN || '') + ' (' + emp.EmployerCode + ')';
+            if (searchEl)  searchEl.value = (emp.EFN || emp.EmployerName || '') + ' (' + emp.EmployerCode + ')';
             if (selectedEl) selectedEl.innerHTML = '<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:7px 12px;margin-top:4px;">'
                 + '<div style="font-weight:800;color:#2e7d32;">📥 Moving To:</div>'
-                + '<div style="font-weight:700;">' + (emp.EmployerName || emp.EFN || '') + '</div>'
+                + '<div style="font-weight:700;">' + (emp.EFN || emp.EmployerName || '') + '</div>'
                 + '<div style="font-size:11px;color:#555;">Code: <b>' + (emp.EmployerCode||'') + '</b> &nbsp;|&nbsp; Agency: <b>' + agName + '</b> (' + agCode + ')</div>'
                 + '</div>';
         }
@@ -3406,7 +3321,8 @@
             if (filterId === 'arrived')       return isA && !isT;
             if (filterId === 'local')         return o.indexOf('local') >= 0 && !isT;
             if (filterId === 'moved')         return o.indexOf('moved') >= 0 && !isT && !isA;
-            if (filterId === 'selected')      return o.indexOf('selected') >= 0 && o.indexOf('preapproval') < 0 && !isDone;
+            if (filterId === 'processing')    return w.ProcessingStage === 'processing' || !w.ProcessingStage;
+            if (filterId === 'selected')      return !isDone; // show ALL non-terminal workers
             if (filterId === 'preapproval')   return o.indexOf('preapproval') >= 0 && o.indexOf('immigration') < 0 && !isDone;
             if (filterId === 'immigration')   return o.indexOf('immigration') >= 0 && o.indexOf('waitingvisa') < 0 && !isDone;
             if (filterId === 'waitingvisa')   return o.indexOf('waitingvisa') >= 0 && o.indexOf('waitingticket') < 0 && !isDone;
@@ -3415,11 +3331,26 @@
         });
     }
 
-    window.getWorkersByStage = function(stage) {
-        var all = getProcessingWorkers();
-        if (stage !== 'processing') all = all.filter(function(w) { return w.ProcessingStage === stage; });
-        return filterWorkers(all, currentOutcomeTab || 'all');
-    };
+    if (stage === 'selected') {
+    return allWorkers.filter(function(w) {
+        var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+        return outs.indexOf('selected') >= 0;
+    });
+}
+if (stage === 'archived') {
+    return allWorkers.filter(function(w) {
+        var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+        return outs.indexOf('archived') >= 0 || w.WorkerArchived === true || w.WorkerArchived === 'true' || w.WorkerArchived === 'TRUE';
+    });
+}
+    var all = getProcessingWorkers();
+    if (stage === 'processing') {
+        all = all.filter(function(w) { return w.ProcessingStage === 'processing' || !w.ProcessingStage; });
+    } else {
+        all = all.filter(function(w) { return w.ProcessingStage === stage; });
+    }
+    return filterWorkers(all, currentOutcomeTab || 'all');
+};
 
     window.wfFilterProc = function(filterId) {
         currentOutcomeTab = filterId;
@@ -3448,9 +3379,20 @@
             var el = document.getElementById('wfpc-' + cat.id);
             if (el) el.textContent = filterWorkers(allProc, cat.id).length;
         });
+        // Update processing pill count
+        var procEl = document.getElementById('ocount-processing');
+        if (procEl) procEl.textContent = allProc.filter(function(w){ return w.ProcessingStage === 'processing' || !w.ProcessingStage; }).length;
+
+        // Update selected pill count = ALL processing workers
+        var selEl = document.getElementById('ocount-selected');
+        if (selEl) selEl.textContent = allProc.length;
         var tv = getWorkersByStage(currentTab), st = STAGES[currentTab], eg = {};
         tv.forEach(function(w) { eg[w.EmployerCode || w.EmployerID || 'x'] = true; });
-        document.getElementById('totalProcessing').textContent = st.icon + ' ' + tv.length + ' ' + st.label;
+        var selCount = allProc.filter(function(w){ var o=[]; try{o=JSON.parse(w.WorkerOutcomes||'[]')}catch(e){} return o.indexOf('selected')>=0; }).length;
+        var procCount = allProc.filter(function(w){ return w.ProcessingStage === 'processing' || !w.ProcessingStage; }).length;
+        document.getElementById('totalProcessing').textContent = '✅ ' + selCount + ' Selected';
+        (document.getElementById('count-processing')||{textContent:''}).textContent = procCount;
+        (document.getElementById('count-selected')||{textContent:''}).textContent = selCount;
         document.getElementById('totalEmployers').textContent = '💼 ' + Object.keys(eg).length + ' Employers';
     };
 
@@ -3481,34 +3423,50 @@ console.log('🔧 Processing Manager cloud fix loading…');
 /* ── Override CloudDB.loadAll to use google.script.run ──── */
 CloudDB.loadAll = function(){
     return new Promise(function(resolve){
-        var result = { workers: null, employers: null, agencies: null };
-        var done = 0;
+        var result = { workers: null, employers: null, agencies: null, suppliers: null, fees: null };
+var done = 0;
 
-        function check(){ if(++done === 3) resolve(result); }
+function check(){ if(++done === 5) resolve(result); }
 
-        google.script.run
-            .withSuccessHandler(function(data){
-                result.workers = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-                check();
-            })
-            .withFailureHandler(function(){ check(); })
-            .gsrGetAll('Workers');
+google.script.run
+    .withSuccessHandler(function(data){
+        result.workers = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+        check();
+    })
+    .withFailureHandler(function(){ check(); })
+    .gsrGetAll('Workers');
 
-        google.script.run
-            .withSuccessHandler(function(data){
-                result.employers = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-                check();
-            })
-            .withFailureHandler(function(){ check(); })
-            .gsrGetAll('Employers');
+google.script.run
+    .withSuccessHandler(function(data){
+        result.employers = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+        check();
+    })
+    .withFailureHandler(function(){ check(); })
+    .gsrGetAll('Employers');
 
-        google.script.run
-            .withSuccessHandler(function(data){
-                result.agencies = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-                check();
-            })
-            .withFailureHandler(function(){ check(); })
-            .gsrGetAll('Local_Agencies');
+google.script.run
+    .withSuccessHandler(function(data){
+        result.agencies = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+        check();
+    })
+    .withFailureHandler(function(){ check(); })
+    .gsrGetAll('Local_Agencies');
+
+google.script.run
+    .withSuccessHandler(function(data){
+        result.suppliers = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+        check();
+    })
+    .withFailureHandler(function(){ check(); })
+    .gsrGetAll('Suppliers');
+
+google.script.run
+    .withSuccessHandler(function(data){
+        result.fees = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+        check();
+    })
+    .withFailureHandler(function(){ check(); })
+    .gsrGetAll('Processing_Costs');
     });
 };
 
@@ -3532,6 +3490,8 @@ CloudDB.loadAll().then(function(c){
     }
     if(c.employers && c.employers.length > 0) allEmployers = c.employers;
     if(c.agencies  && c.agencies.length  > 0) allAgencies  = c.agencies;
+    if(c.suppliers && c.suppliers.length > 0) allSuppliers = c.suppliers;
+    if(c.fees      && c.fees.length      > 0) allFees      = c.fees;
 
     cloudReady = true;
     startAutoSync();
@@ -3560,10 +3520,6 @@ CloudDB.loadAll().then(function(c){
     var cs = document.getElementById('cloudStatus');
     if(cs){ cs.textContent = '❌ Load failed'; cs.style.background='#f8d7da'; cs.style.color='#721c24'; }
 });
-
-console.log('✅ Processing Manager cloud fix applied');
-})();
-</script>
 
 </body>
 </html>
