@@ -113,7 +113,7 @@
             <button class="btn-agencies" onclick="window.location.href='Local_Agencies_Manager.html'">🏛️ Local Agencies</button>
             <button onclick="debugData()" style="padding:10px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;background:#ffc107;color:#000;">🔍 Debug</button>
             <button onclick="showManualProcess()" style="padding:10px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;background:#9c27b0;color:white;">📋 Send Selected → Process</button>
-            <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search worker name, code..." oninput="renderTab()">
+            <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search worker name, code..." oninput="currentOutcomeTab='all';updateCounts();renderTab();">
             <span id="cloudStatus" style="background: #fff3cd; color: #856404;">⏳ Loading...</span>
         </div>
         <div class="tabs-bar">
@@ -366,11 +366,18 @@
 
             
             // Outcome tab counts — count from ALL processing workers (not filtered by stage)
-            var OKEYS = ['all','selected','preapproval','waitingvisa','waitingticket','cancelled','arrived','local','moved','unfit','runaway','senthome'];
+            var OKEYS = ['all','selected','preapproval','waitingvisa','waitingticket','cancelled','arrived','local','moved','unfit','runaway','senthome','archived'];
             OKEYS.forEach(function(k) {
                 var el = document.getElementById('ocount-' + k);
                 if (!el) return;
-                if (k === 'all') {
+if (k === 'archived') {
+    el.textContent = allWorkers.filter(function(w) {
+        var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+        return outs.indexOf('archived') >= 0 || w.WorkerArchived === true || w.WorkerArchived === 'true' || w.WorkerArchived === 'TRUE';
+    }).length;
+    return;
+}
+if (k === 'all') {
                     el.textContent = all.filter(function(w) {
                     var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
                     return outs.indexOf('arrived') < 0 && outs.indexOf('local') < 0 && outs.indexOf('cancelled') < 0 && outs.indexOf('unfit') < 0 && outs.indexOf('runaway') < 0 && outs.indexOf('senthome') < 0;
@@ -397,7 +404,6 @@
                     if (k === 'senthome')     return isSentHome;
                     if (k === 'arrived')      return (isArrived || outs.indexOf('local') >= 0) && !isTerminal;
                     if (k === 'moved')        return outs.indexOf('moved') >= 0 && !isTerminal && !isArrived;
-                    if (k === 'local')        return outs.indexOf('local') >= 0 && !isTerminal && !isArrived;
                     var isDone = isTerminal || isArrived;
                     if (k === 'selected')     return outs.indexOf('selected') >= 0 && outs.indexOf('preapproval') < 0 && !isDone;
                     if (k === 'preapproval')  return outs.indexOf('preapproval') >= 0 && outs.indexOf('immigration') < 0 && !isDone;
@@ -461,15 +467,20 @@
 
         function renderTab() {
             var search = (document.getElementById('searchBox').value || '').toLowerCase();
-            var stage = STAGES[currentTab];
-            var workers = getWorkersByStage(currentTab);
-            
+            var stage = STAGES[currentTab] || STAGES['processing'];
+            var workers = search ? getProcessingWorkers() : getWorkersByStage(currentTab);
+            if (search) stage = { label: 'Search Results', icon: '🔍', color: '#ff9800', gradient: 'linear-gradient(135deg, #ff9800, #e65100)' };
+
             if (search) {
                 workers = workers.filter(function(w) {
                     var computedCode = (w.SupplierCode && w.WorkerID) ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : '';
-                    return [w.WFullName, w.WorkerFirstName, w.WorkerLastName, w.PassportNumber, w.IDNumber, w.Nationality, w.SupplierCode, w.EmployerCode, w.WorkerCode || computedCode].join(' ').toLowerCase().indexOf(search) >= 0;
-                });
-            }
+                    var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(w.EmployerCode) || String(e.EmployerID) === String(w.EmployerID); });
+                    var empName = emp ? (emp.EFN || emp.EmployerName || '') : '';
+                    var ag = (emp && emp.AgencyCode) ? allAgencies.find(function(a) { return String(a.AgencyCode) === String(emp.AgencyCode); }) : null;
+                    var agName = ag ? (ag.AgencyName || '') : '';
+                   return [w.WFullName, w.WorkerFirstName, w.WorkerLastName, w.PassportNumber, w.IDNumber, w.Nationality, w.SupplierCode, w.EmployerCode, w.WorkerCode || computedCode, empName, agName].join(' ').toLowerCase().indexOf(search) >= 0;
+               });
+           }
             
             var groups = {};
             workers.forEach(function(w) { 
@@ -568,7 +579,7 @@
                         { key:'unfit',       icon:'🚫', label:'10. Unfit' },
                         { key:'runaway',     icon:'🏃', label:'11. RunAway' },
                         { key:'senthome',    icon:'🛫', label:'12. Send Back Home' }
-                    ];
+                  ];
                     // WorkerOutcomes stored as JSON array for multi-select
                     var activeOuts = [];
                     try { activeOuts = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) { activeOuts = []; }
@@ -1448,13 +1459,20 @@
 
                 // ── Auto stage mapping ────────────────────────────────────
                 var stageMap = {
-                    'selected':      { stage: 'processing',      remove: [] },
-                    'preapproval':   { stage: 'preapproval',     remove: ['selected'] },
-                    'immigration':   { stage: 'preapproval',     remove: ['selected'] },
-                    'waitingvisa':   { stage: 'waiting_visa',    remove: ['selected', 'preapproval', 'immigration'] },
-                    'waitingticket': { stage: 'waiting_ticket',  remove: ['selected', 'preapproval', 'immigration', 'waitingvisa'] },
-                    'arrived':       { stage: 'waiting_ticket',  remove: ['selected', 'preapproval', 'immigration', 'waitingvisa', 'waitingticket'] }
-                };
+    'selected':      { stage: 'processing',      remove: [] },
+    'preapproval':   { stage: 'preapproval',     remove: ['selected'] },
+    'immigration':   { stage: 'preapproval',     remove: ['selected'] },
+    'waitingvisa':   { stage: 'waiting_visa',    remove: ['selected', 'preapproval', 'immigration'] },
+    'waitingticket': { stage: 'waiting_ticket',  remove: ['selected', 'preapproval', 'immigration', 'waitingvisa'] },
+    'arrived':       { stage: 'arrived',         remove: ['selected', 'preapproval', 'immigration', 'waitingvisa', 'waitingticket'] },
+    'cancelled':     { stage: 'cancelled',       remove: [] },
+    'local':         { stage: 'local',           remove: [] },
+    'moved':         { stage: 'moved',           remove: [] },
+    'unfit':         { stage: 'unfit',           remove: [] },
+    'runaway':       { stage: 'runaway',         remove: [] },
+    'senthome':      { stage: 'senthome',        remove: [] },
+    'archived':      { stage: 'archived',        remove: [] }
+};
                 if (stageMap[outcome]) {
                     w.ProcessingStage = stageMap[outcome].stage;
                     var toRemove = stageMap[outcome].remove;
@@ -1479,16 +1497,15 @@
             }
 
            w.WorkerOutcomes = JSON.stringify(activeOuts);
-            console.log('💾 Saving WorkerOutcomes:', w.WorkerID, w.WorkerOutcomes);
-            _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
-            // Use google.script.run directly to ensure cloud save
-            google.script.run
-                .withSuccessHandler(function(r){ console.log('✅ Outcome saved to cloud:', r); })
-                .withFailureHandler(function(e){ console.warn('⚠️ Outcome save failed:', e); })
-                .gsrSaveRow('Workers', w);
-            updateCounts();
-            renderTab();
-        }
+_ls.set('mgsdb_workers', JSON.stringify(allWorkers));
+updateCounts();
+renderTab();
+try {
+    await CloudDB.saveRow('Workers', w);
+    console.log('✅ Outcome saved to cloud');
+} catch(e) {
+    console.warn('⚠️ Outcome save failed:', e);
+}
 
         // ── Release worker: clear outcome statuses ─────────────────────────────
         // Password required only if worker has any PROTECTED outcomes active
@@ -3314,13 +3331,18 @@
         });
     }
 
-    window.getWorkersByStage = function(stage) {
     if (stage === 'selected') {
-        return allWorkers.filter(function(w) {
-            var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
-            return outs.indexOf('selected') >= 0;
-        });
-    }
+    return allWorkers.filter(function(w) {
+        var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+        return outs.indexOf('selected') >= 0;
+    });
+}
+if (stage === 'archived') {
+    return allWorkers.filter(function(w) {
+        var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+        return outs.indexOf('archived') >= 0 || w.WorkerArchived === true || w.WorkerArchived === 'true' || w.WorkerArchived === 'TRUE';
+    });
+}
     var all = getProcessingWorkers();
     if (stage === 'processing') {
         all = all.filter(function(w) { return w.ProcessingStage === 'processing' || !w.ProcessingStage; });
@@ -3498,169 +3520,6 @@ CloudDB.loadAll().then(function(c){
     var cs = document.getElementById('cloudStatus');
     if(cs){ cs.textContent = '❌ Load failed'; cs.style.background='#f8d7da'; cs.style.color='#721c24'; }
 });
-
-console.log('✅ Processing Manager cloud fix applied');
-// ── Silent background sync every 30 seconds ──────────────
-function silentSync() {
-    google.script.run
-        .withSuccessHandler(function(data) {
-            var fresh = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-            if (fresh.length > 0) {
-                // Merge fresh data preserving any unsaved local changes
-                fresh.forEach(function(fw) {
-                    var idx = allWorkers.findIndex(function(w) { return w.WorkerID === fw.WorkerID; });
-                    if (idx >= 0) allWorkers[idx] = fw;
-                    else allWorkers.push(fw);
-                });
-                updateCounts();
-                renderTab();
-                console.log('🔄 Silent sync complete:', fresh.length, 'workers');
-            }
-        })
-        .withFailureHandler(function(e) { console.warn('🔄 Silent sync failed:', e); })
-        .gsrGetAll('Workers');
-}
-
-// Start auto-sync every 30 seconds
-setInterval(silentSync, 30000);
-console.log('🔄 Auto-sync started — every 5 seconds');
-
-window.createSupplierVoucher = async function(worker, invNumber, empName, workerName) {
-    var supplier = allSuppliers.find(function(s) {
-        return String(s.SupplierCODE) === String(worker.SupplierCode) || String(s.SupplierID) === String(worker.SupplierID);
-    });
-    var recruitmentFee = parseFloat(worker.RecruitmentFee || 0);
-    var supplierName = supplier ? (supplier.SupplierBusinessName || worker.SupplierCode) : (worker.SupplierCode || 'Unknown');
-    var supplierCode = worker.SupplierCode || '';
-    var workerCode = worker.WorkerCode || (supplierCode + '-' + String(worker.WorkerID).padStart(4,'0'));
-    var voucherId = 'VOUCH-' + Date.now();
-
-    var voucher = {
-        paymentId: voucherId,
-        source: 'preapproval',
-        workerID: worker.WorkerID,
-        workerCode: workerCode,
-        workerName: workerName,
-        supplierCode: supplierCode,
-        supplierId: supplier ? supplier.SupplierID : '',
-        supplierName: supplierName,
-        employerCode: worker.EmployerCode || '',
-        employerName: empName,
-        invoiceRef: invNumber,
-        amount: recruitmentFee,
-        status: 'pending',
-        notes: 'Due on arrival',
-        createdDate: new Date().toISOString(),
-        dueDate: 'On Arrival'
-    };
-
-    google.script.run
-        .withSuccessHandler(function(r){ console.log('✅ Voucher saved:', r); })
-        .withFailureHandler(function(e){ console.warn('⚠️ Voucher save failed:', e); })
-        .gsrSaveRow('OutgoingPayments', voucher);
-
-    try {
-        var { jsPDF } = window.jspdf;
-        var doc = new jsPDF();
-        var dateStr = new Date().toLocaleDateString('en-GB');
-        doc.setFillColor(102, 126, 234);
-        doc.rect(0, 0, 210, 42, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(20); doc.setFont('helvetica', 'bold');
-        doc.text('SUPPLIER PAYMENT VOUCHER', 105, 18, { align: 'center' });
-        doc.setFontSize(12); doc.setFont('helvetica', 'normal');
-        doc.text('MGS - Massroua General Services', 105, 28, { align: 'center' });
-        doc.setFontSize(10);
-        doc.text('Payment due on worker arrival', 105, 36, { align: 'center' });
-        doc.setTextColor(0,0,0);
-        doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-        doc.text('Voucher ID: ' + voucherId, 15, 55);
-        doc.text('Date: ' + dateStr, 140, 55);
-        doc.text('Invoice Ref: ' + invNumber, 15, 63);
-        doc.setDrawColor(102,126,234); doc.setLineWidth(0.5);
-        doc.line(15, 68, 195, 68);
-        doc.setFontSize(11); doc.setFont('helvetica','bold');
-        doc.text('SUPPLIER:', 15, 78); doc.setFont('helvetica','normal');
-        doc.text(supplierName + ' (' + supplierCode + ')', 55, 78);
-        doc.setFont('helvetica','bold');
-        doc.text('WORKER:', 15, 88); doc.setFont('helvetica','normal');
-        doc.text(workerName + ' (' + workerCode + ')', 55, 88);
-        doc.setFont('helvetica','bold');
-        doc.text('EMPLOYER:', 15, 98); doc.setFont('helvetica','normal');
-        doc.text(empName + ' (' + (worker.EmployerCode || '') + ')', 55, 98);
-        doc.setFillColor(240, 244, 255);
-        doc.rect(15, 110, 180, 35, 'F');
-        doc.setDrawColor(102, 126, 234);
-        doc.rect(15, 110, 180, 35, 'S');
-        doc.setFont('helvetica','bold'); doc.setFontSize(13);
-        doc.setTextColor(80,80,80);
-        doc.text('RECRUITMENT FEE (Due on Arrival):', 105, 122, { align: 'center' });
-        doc.setFontSize(26); doc.setTextColor(44, 85, 48);
-        doc.text('$' + recruitmentFee.toFixed(2), 105, 137, { align: 'center' });
-        doc.setFillColor(245,245,245);
-        doc.rect(0, 272, 210, 25, 'F');
-        doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(120,120,120);
-        doc.text('Generated by MGSDB2026 | MGS - Massroua General Services | ' + dateStr, 105, 282, { align: 'center' });
-
-        var pdfBase64 = doc.output('datauristring').split(',')[1];
-        var fileName = 'VOUCHER_' + workerCode + '_' + invNumber + '.pdf';
-        var folderName = supplierCode + ' ' + supplierName;
-        console.log('🔍 Folder call — supplierCode:', supplierCode, '| supplierName:', supplierName);
-        google.script.run
-        .withSuccessHandler(function(folderId) {
-        if (folderId) {
-            google.script.run
-                .withSuccessHandler(function(r){ console.log('✅ Voucher PDF uploaded:', r); })
-                .withFailureHandler(function(e){ console.warn('⚠️ PDF upload failed:', e); })
-                .gsrUploadFile(fileName, pdfBase64, 'application/pdf', folderId);
-        } else {
-            console.warn('⚠️ Supplier folder could not be created');
-        }
-    })
-    .withFailureHandler(function(e){ console.warn('⚠️ Folder creation failed:', e); })
-    .gsrGetOrCreateSupplierFolder(supplierCode, supplierName);
-    } catch(e) {
-        console.warn('⚠️ Supplier voucher PDF failed:', e);
-    }
-};
-// Override setWorkerOutcome save to use google.script.run
-var _origSetWorkerOutcome = window.setWorkerOutcome;
-window.setWorkerOutcome = async function(workerId, outcome) {
-    // Remember which employer card is open
-    var openCard = document.querySelector('.workers-body[style*="display: block"], .workers-body[style*="display:block"]');
-    var openEmpKey = openCard ? openCard.getAttribute('data-empkey') : null;
-    
-    await _origSetWorkerOutcome(workerId, outcome);
-    
-    // Re-open the employer card that was open
-    if (openEmpKey) {
-        setTimeout(function() {
-            var body = document.querySelector('.workers-body[data-empkey="' + openEmpKey + '"]');
-            if (body) {
-                body.style.display = 'block';
-                var chev = document.getElementById('chev-' + openEmpKey);
-                if (chev) chev.style.transform = 'rotate(180deg)';
-                _openEmpKey = openEmpKey;
-            }
-        }, 100);
-    }
-    // Force re-save using google.script.run with latest worker data
-    var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
-  if (w) {
-        console.log('💾 Saving outcomes:', w.WorkerID, w.WorkerOutcomes, w.ProcessingStage);
-        google.script.run
-            .withSuccessHandler(function(r){ console.log('✅ Outcomes saved:', r); })
-            .withFailureHandler(function(e){ console.warn('⚠️ Outcomes save failed:', e); })
-            .gsrUpdateWorkerOutcomes(
-                w.WorkerID,
-                w.WorkerOutcomes || '',
-                w.WorkerOutcomeDates || '',
-                w.ProcessingStage || ''
-            );
-    }
-};
-})();
-</script>
 
 </body>
 </html>
