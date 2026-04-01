@@ -54,7 +54,9 @@
         .tab-btn[data-tab="ready_visa"].active { background: linear-gradient(135deg, #4caf50, #2e7d32); }
         .tab-btn[data-tab="ready_visa"] .tab-count { background: #e8f5e9; color: #2e7d32; }
         .tab-btn[data-tab="ready_visa"].active .tab-count { background: rgba(255,255,255,0.3); color: white; }
-        .tab-btn[data-tab="waiting_ticket"].active { background: linear-gradient(135deg, #00bcd4, #00838f); }
+        .tab-btn[data-tab="selected"].active { background: linear-gradient(135deg, #43a047, #1b5e20); }
+        .tab-btn[data-tab="selected"] .tab-count { background: #e8f5e9; color: #1b5e20; }
+        .tab-btn[data-tab="selected"].active .tab-count { background: rgba(255,255,255,0.3); color: white; }
         .tab-btn[data-tab="waiting_ticket"] .tab-count { background: #e0f7fa; color: #00838f; }
         .tab-btn[data-tab="waiting_ticket"].active .tab-count { background: rgba(255,255,255,0.3); color: white; }
         .employer-card { background: white; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); overflow: hidden; }
@@ -107,7 +109,7 @@
         </div>
         <div class="toolbar">
             <button class="btn-refresh" onclick="refreshData()">🔄 Refresh</button>
-            <button class="btn-dashboard" onclick="window.location.href='Dashboard.html'">🏠 Dashboard</button>
+            <button class="btn-dashboard" onclick="window.open(SCRIPT_URL + '?page=Dashboard', '_blank')">🏠 Dashboard</button>
             <button class="btn-agencies" onclick="window.location.href='Local_Agencies_Manager.html'">🏛️ Local Agencies</button>
             <button onclick="debugData()" style="padding:10px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;background:#ffc107;color:#000;">🔍 Debug</button>
             <button onclick="showManualProcess()" style="padding:10px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;background:#9c27b0;color:white;">📋 Send Selected → Process</button>
@@ -121,7 +123,7 @@
             <button class="tab-btn" data-tab="ready_visa" onclick="switchTab('ready_visa')">✅ Ready Visa <span class="tab-count" id="count-ready_visa">0</span></button>
             <button class="tab-btn" data-tab="waiting_ticket" onclick="switchTab('waiting_ticket')">🎫 Waiting Ticket <span class="tab-count" id="count-waiting_ticket">0</span></button>
             <button class="tab-btn" disabled style="opacity:0.4;cursor:not-allowed;">📅 Arrival Dates</button>
-            <button class="tab-btn" disabled style="opacity:0.8;background:linear-gradient(135deg,#2196f3,#1565c0);color:white;">✅ Selected <span class="tab-count" id="count-selected" style="background:rgba(255,255,255,0.3);color:white;">0</span></button>
+            <button class="tab-btn" data-tab="selected" onclick="switchTab('selected')">✅ Selected <span class="tab-count" id="count-selected">0</span></button>
         </div>
         <!-- Outcome Status Tabs Row -->
         <div class="tabs-bar-outcome">
@@ -160,6 +162,7 @@
         
         var STAGES = {
             processing:     { label: 'Processing',     icon: '🔄', color: '#2196f3', gradient: 'linear-gradient(135deg, #2196f3, #1565c0)' },
+            selected:       { label: 'Selected',       icon: '✅', color: '#43a047', gradient: 'linear-gradient(135deg, #43a047, #1b5e20)' },
             preapproval:    { label: 'Preapproval',     icon: '📋', color: '#9c27b0', gradient: 'linear-gradient(135deg, #9c27b0, #7b1fa2)' },
             waiting_visa:   { label: 'Waiting Visa',    icon: '⏳', color: '#2196f3', gradient: 'linear-gradient(135deg, #2196f3, #1565c0)' },
             ready_visa:     { label: 'Ready Visas',     icon: '✅', color: '#4caf50', gradient: 'linear-gradient(135deg, #4caf50, #2e7d32)' },
@@ -183,11 +186,17 @@
             });
         }
         function getWorkersByStage(stage) {
-            var all = getProcessingWorkers();
-            if (stage !== 'processing') {
-                all = all.filter(function(w) { return w.ProcessingStage === stage; });
-            }
-            // Apply outcome tab filter
+           var all = getProcessingWorkers();
+           if (stage === 'selected') {
+               return allWorkers.filter(function(w) {
+                  var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+                  return outs.indexOf('selected') >= 0;
+             });
+               return all; // ← skip outcome filter for Selected tab
+          } else if (stage !== 'processing') {
+              all = all.filter(function(w) { return w.ProcessingStage === stage; });
+          }
+         // Apply outcome tab filter
             if (currentOutcomeTab === 'all' || !currentOutcomeTab) {
                 // All tab — hide terminal/final outcomes (they belong only in their own tabs)
                 all = all.filter(function(w) {
@@ -3306,14 +3315,20 @@
     }
 
     window.getWorkersByStage = function(stage) {
-        var all = getProcessingWorkers();
-        if (stage === 'processing') {
-            all = all.filter(function(w) { return w.ProcessingStage === 'processing' || !w.ProcessingStage; });
-        } else {
-            all = all.filter(function(w) { return w.ProcessingStage === stage; });
-        }
-        return filterWorkers(all, currentOutcomeTab || 'all');
-    };
+    if (stage === 'selected') {
+        return allWorkers.filter(function(w) {
+            var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+            return outs.indexOf('selected') >= 0;
+        });
+    }
+    var all = getProcessingWorkers();
+    if (stage === 'processing') {
+        all = all.filter(function(w) { return w.ProcessingStage === 'processing' || !w.ProcessingStage; });
+    } else {
+        all = all.filter(function(w) { return w.ProcessingStage === stage; });
+    }
+    return filterWorkers(all, currentOutcomeTab || 'all');
+};
 
     window.wfFilterProc = function(filterId) {
         currentOutcomeTab = filterId;
