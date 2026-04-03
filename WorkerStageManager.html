@@ -1,0 +1,277 @@
+<script>
+/* ════════════════════════════════════════════════════════════════
+   WORKER STAGE MANAGER — v1.0
+   Shared utility for all worker stage transitions in MGSDB2026.
+
+   USAGE (in any page):
+     WorkerStageManager.select(worker, employer, agency)
+     WorkerStageManager.unlink(worker)
+     WorkerStageManager.process(worker)
+     WorkerStageManager.preApproval(worker)
+     WorkerStageManager.waitingVisa(worker)
+     WorkerStageManager.waitingTicket(worker)
+     WorkerStageManager.arrive(worker)
+     WorkerStageManager.setLocal(worker)
+     WorkerStageManager.move(worker)
+     WorkerStageManager.cancel(worker)
+     WorkerStageManager.unfit(worker)
+     WorkerStageManager.runaway(worker)
+     WorkerStageManager.sendHome(worker)
+     WorkerStageManager.archive(worker)
+
+   All functions return a Promise (CloudDB.saveRow result).
+   All functions update WorkerOutcomes array automatically.
+════════════════════════════════════════════════════════════════ */
+
+var WorkerStageManager = (function() {
+    'use strict';
+
+    /* ── Stage Definitions ─────────────────────────────────────
+       Mirrors SC config in Workers_Manager for consistency
+    ─────────────────────────────────────────────────────────── */
+    var STAGES = {
+        pending:       { label: 'Pending',        icon: '⏳', processingStage: 'pending'       },
+        accepted:      { label: 'Accepted',        icon: '✅', processingStage: 'accepted'      },
+        refused:       { label: 'Refused',         icon: '✖️', processingStage: 'refused'       },
+        selected:      { label: 'Selected',        icon: '☑️', processingStage: 'selected'      },
+        preapproval:   { label: 'Pre-Approval',    icon: '📋', processingStage: 'preapproval'   },
+        waitingvisa:   { label: 'Waiting Visa',    icon: '🛂', processingStage: 'waitingvisa'   },
+        waitingticket: { label: 'Waiting Ticket',  icon: '🎫', processingStage: 'waitingticket' },
+        arrived:       { label: 'Arrived',         icon: '✈️', processingStage: 'arrived'       },
+        local:         { label: 'Local',           icon: '🏠', processingStage: 'local'         },
+        moved:         { label: 'Moved',           icon: '🔀', processingStage: 'moved'         },
+        cancelled:     { label: 'Cancelled',       icon: '❌', processingStage: 'cancelled'     },
+        unfit:         { label: 'Unfit',           icon: '🚫', processingStage: 'unfit'         },
+        runaway:       { label: 'Run Away',        icon: '🏃', processingStage: 'runaway'       },
+        senthome:      { label: 'Sent Home',       icon: '🛫', processingStage: 'senthome'      },
+        archived:      { label: 'Archived',        icon: '🗄️', processingStage: 'archived'      }
+    };
+
+    /* ── Private Helpers ───────────────────────────────────── */
+
+    // Add a stage to WorkerOutcomes array (prepend, no duplicates)
+    function _addOutcome(worker, stage) {
+        var outs = [];
+        try { outs = JSON.parse(worker.WorkerOutcomes || '[]'); } catch(e) { outs = []; }
+        if (outs.indexOf(stage) === -1) outs.unshift(stage);
+        worker.WorkerOutcomes = JSON.stringify(outs);
+    }
+
+    // Remove a stage from WorkerOutcomes array
+    function _removeOutcome(worker, stage) {
+        var outs = [];
+        try { outs = JSON.parse(worker.WorkerOutcomes || '[]'); } catch(e) { outs = []; }
+        outs = outs.filter(function(o) { return o !== stage; });
+        worker.WorkerOutcomes = JSON.stringify(outs);
+    }
+
+    // Clear all outcomes
+    function _clearOutcomes(worker) {
+        worker.WorkerOutcomes = '[]';
+    }
+
+    // Save to cloud
+    function _save(worker) {
+        if (typeof CloudDB !== 'undefined' && CloudDB.ready) {
+            return CloudDB.saveRow('Workers', worker);
+        }
+        return Promise.resolve(null);
+    }
+
+    // Log stage change
+    function _log(worker, stage) {
+        var code = worker.WorkerCode || ('Worker #' + worker.WorkerID);
+        console.log('📋 Stage → [' + stage.toUpperCase() + '] for ' + code);
+    }
+
+    /* ════════════════════════════════════════════════════════
+       PUBLIC STAGE FUNCTIONS
+    ════════════════════════════════════════════════════════ */
+    return {
+
+        /* ── Get current stage ─────────────────────────────── */
+        getStage: function(worker) {
+            return worker.ProcessingStage || 'pending';
+        },
+
+        /* ── Get stage config ──────────────────────────────── */
+        getConfig: function(stage) {
+            return STAGES[stage] || STAGES.pending;
+        },
+
+        /* ── 1. SELECT — link worker to employer ───────────── */
+        select: function(worker, employer, agency) {
+            _log(worker, 'selected');
+            worker.EmployerCode    = employer.EmployerCode || '';
+            worker.EmployerID      = employer.EmployerID   || '';
+            worker.AgencyCode      = (agency && agency.AgencyCode)
+                                     ? agency.AgencyCode
+                                     : (employer.AgencyCode || (employer.EmployerCode ? employer.EmployerCode.split('-')[0] : ''));
+            worker.AgencyID        = (agency && agency.AgencyID)
+                                     ? agency.AgencyID
+                                     : (employer.AgencyID || '');
+            worker.Selected        = true;
+            worker.Processing      = false;
+            worker.ProcessingStage = 'selected';
+            worker.SelectedDate    = new Date().toISOString();
+            _addOutcome(worker, 'selected');
+            return _save(worker);
+        },
+
+        /* ── 2. UNLINK — remove worker from employer ────────── */
+        unlink: function(worker) {
+            _log(worker, 'unlinked → accepted');
+            worker.EmployerCode    = '';
+            worker.EmployerID      = '';
+            worker.AgencyCode      = '';
+            worker.AgencyID        = '';
+            worker.Selected        = false;
+            worker.Processing      = false;
+            worker.ProcessingStage = '';
+            worker.SelectedDate    = '';
+            _clearOutcomes(worker);
+            return _save(worker);
+        },
+
+        /* ── 3. PRE-APPROVAL — send to processing ───────────── */
+        preApproval: function(worker) {
+            _log(worker, 'preapproval');
+            worker.Processing      = true;
+            worker.ProcessingStage = 'preapproval';
+            _addOutcome(worker, 'preapproval');
+            return _save(worker);
+        },
+
+        /* ── 4. WAITING VISA ────────────────────────────────── */
+        waitingVisa: function(worker) {
+            _log(worker, 'waitingvisa');
+            worker.Processing      = true;
+            worker.ProcessingStage = 'waitingvisa';
+            _addOutcome(worker, 'waitingvisa');
+            return _save(worker);
+        },
+
+        /* ── 5. WAITING TICKET ──────────────────────────────── */
+        waitingTicket: function(worker) {
+            _log(worker, 'waitingticket');
+            worker.Processing      = true;
+            worker.ProcessingStage = 'waitingticket';
+            _addOutcome(worker, 'waitingticket');
+            return _save(worker);
+        },
+
+        /* ── 6. ARRIVE ──────────────────────────────────────── */
+        arrive: function(worker) {
+            _log(worker, 'arrived');
+            worker.Processing      = false;
+            worker.Arrived         = true;
+            worker.ProcessingStage = 'arrived';
+            worker.ArrivalDate     = new Date().toISOString();
+            _addOutcome(worker, 'arrived');
+            return _save(worker);
+        },
+
+        /* ── 7. LOCAL ───────────────────────────────────────── */
+        setLocal: function(worker) {
+            _log(worker, 'local');
+            worker.Processing      = false;
+            worker.ProcessingStage = 'local';
+            _addOutcome(worker, 'local');
+            return _save(worker);
+        },
+
+        /* ── 8. MOVED ───────────────────────────────────────── */
+        move: function(worker) {
+            _log(worker, 'moved');
+            worker.Processing      = false;
+            worker.ProcessingStage = 'moved';
+            _addOutcome(worker, 'moved');
+            return _save(worker);
+        },
+
+        /* ── 9. CANCEL ──────────────────────────────────────── */
+        cancel: function(worker) {
+            _log(worker, 'cancelled');
+            worker.Processing      = false;
+            worker.Selected        = false;
+            worker.ProcessingStage = 'cancelled';
+            worker.EmployerCode    = '';
+            worker.EmployerID      = '';
+            worker.AgencyCode      = '';
+            worker.AgencyID        = '';
+            _addOutcome(worker, 'cancelled');
+            return _save(worker);
+        },
+
+        /* ── 10. UNFIT ──────────────────────────────────────── */
+        unfit: function(worker) {
+            _log(worker, 'unfit');
+            worker.Processing      = false;
+            worker.ProcessingStage = 'unfit';
+            _addOutcome(worker, 'unfit');
+            return _save(worker);
+        },
+
+        /* ── 11. RUNAWAY ────────────────────────────────────── */
+        runaway: function(worker) {
+            _log(worker, 'runaway');
+            worker.Processing      = false;
+            worker.ProcessingStage = 'runaway';
+            _addOutcome(worker, 'runaway');
+            return _save(worker);
+        },
+
+        /* ── 12. SENT HOME ──────────────────────────────────── */
+        sendHome: function(worker) {
+            _log(worker, 'senthome');
+            worker.Processing      = false;
+            worker.ProcessingStage = 'senthome';
+            _addOutcome(worker, 'senthome');
+            return _save(worker);
+        },
+
+        /* ── 13. ARCHIVE ────────────────────────────────────── */
+        archive: function(worker) {
+            _log(worker, 'archived');
+            worker.Processing      = false;
+            worker.Archived        = true;
+            worker.ProcessingStage = 'archived';
+            _addOutcome(worker, 'archived');
+            return _save(worker);
+        },
+
+        /* ── UTILITY: Check if worker is in a stage ─────────── */
+        isStage: function(worker, stage) {
+            return worker.ProcessingStage === stage;
+        },
+
+        /* ── UTILITY: Check if worker is locked ─────────────── */
+        isLocked: function(worker) {
+            return worker.Locked === true || worker.Locked === 'true';
+        },
+
+        /* ── UTILITY: Check if worker is selected ───────────── */
+        isSelected: function(worker) {
+            return worker.Selected === true || worker.Selected === 'true';
+        },
+
+        /* ── UTILITY: Check if worker is processing ─────────── */
+        isProcessing: function(worker) {
+            return worker.Processing === true || worker.Processing === 'true';
+        },
+
+        /* ── UTILITY: Get outcomes array ─────────────────────── */
+        getOutcomes: function(worker) {
+            try { return JSON.parse(worker.WorkerOutcomes || '[]'); } catch(e) { return []; }
+        },
+
+        /* ── UTILITY: Has outcome ────────────────────────────── */
+        hasOutcome: function(worker, stage) {
+            return this.getOutcomes(worker).indexOf(stage) !== -1;
+        }
+    };
+
+})();
+
+console.log('✅ WorkerStageManager v1.0 loaded');
+</script>
