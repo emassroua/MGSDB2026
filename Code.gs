@@ -104,18 +104,9 @@ function doGet(e) {
   }
 }
 
-try { body = JSON.parse(e.postData.contents); } catch (parseErr) {
-  // Twilio sends form-encoded — parse it properly
-  try {
-    body = {};
-    var pairs = e.postData.contents.split('&');
-    pairs.forEach(function(pair) {
-      var kv = pair.split('=');
-      if (kv[0]) body[decodeURIComponent(kv[0])] = decodeURIComponent((kv[1]||'').replace(/\+/g,' '));
-    });
-    if (Object.keys(body).length === 0) body = e.parameter || {};
-  } catch(e2) { body = {}; }
-}
+// ============================================================
+// RESPONSE BUILDER
+// ============================================================
 
 function buildResponse(data) {
   try {
@@ -147,18 +138,15 @@ function buildResponse(data) {
 }
 
 // ============================================================
-// REQUEST ROUTER  — FIX: removed all duplicate cases + stray token
+// REQUEST ROUTER
 // ============================================================
 
 function handleRequest(params) {
   var action = params.action || '';
   switch (action) {
-    case 'statusCallback': return handleStatusCallback(params);
-    case 'statusCallback':   return handleStatusCallback(e.parameter || params);
-    case 'saveQuickReplies': return saveQuickReplies(params.data);
-    case 'getQuickReplies':  return getQuickReplies();
-    case 'saveQuickReplies': return saveQuickReplies(params.data);
-    case 'getQuickReplies':  return getQuickReplies();
+    case 'statusCallback':           return handleStatusCallback(params);
+    case 'saveQuickReplies':         return saveQuickReplies(params.data);
+    case 'getQuickReplies':          return getQuickReplies();
     case 'getAll':                   return actionGetAll(params);
     case 'saveRow':                  return actionSaveRow(params);
     case 'saveAll':                  return actionSaveAll(params);
@@ -461,37 +449,16 @@ function actionUploadFile(params) {
       }
     }
     var isReport = fileName.indexOf('Report_') === 0;
-var isPassport = fileName.indexOf('Passport') >= 0;
-if (!isReport && !isPassport) {
-    var existingFiles = entityFolder.getFilesByName(fileName);
-    while (existingFiles.hasNext()) existingFiles.next().setTrashed(true);
-}
+    if (!isReport) {
+      var existingFiles = entityFolder.getFilesByName(fileName);
+      while (existingFiles.hasNext()) existingFiles.next().setTrashed(true);
+    }
     var blob    = Utilities.newBlob(Utilities.base64Decode(fileData), mimeType, fileName);
     var file    = entityFolder.createFile(blob);
     var fileUrl = file.getUrl();
     var folderId = entityFolder.getId();
     try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) {}
-    Logger.log('actionUploadFile called: fileName=' + fileName + ' workerID=' + params.workerID);
-if (fileName.indexOf('Passport') >= 0 && params.workerID) {
-    try {
-        var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Workers');
-        if (sheet) {
-            var data = sheet.getDataRange().getValues();
-            var headers = data[0];
-            var workerIDCol = headers.indexOf('WorkerID');
-            var passportURLCol = headers.indexOf('PassportFileURL');
-            if (workerIDCol >= 0 && passportURLCol >= 0) {
-                for (var i = 1; i < data.length; i++) {
-                    if (String(data[i][workerIDCol]) === String(params.workerID)) {
-                        sheet.getRange(i + 1, passportURLCol + 1).setValue(fileUrl);
-                        break;
-                    }
-                }
-            }
-        }
-    } catch(e) { Logger.log('PassportFileURL save error: ' + e.message); }
-}
-return { success: true, fileUrl: fileUrl, fileName: fileName, folderId: folderId, folderUrl: 'https://drive.google.com/drive/folders/' + folderId };
+    return { success: true, fileUrl: fileUrl, fileName: fileName, folderId: folderId, folderUrl: 'https://drive.google.com/drive/folders/' + folderId };
   } catch (e) {
     return { success: false, error: e.message };
   }
@@ -817,7 +784,7 @@ function gsrClearSheet(sheetName) {
 }
 
 function gsrGetPageUrl(page) {
-    return ScriptApp.getService().getUrl() + '?page=' + page;
+  return ScriptApp.getService().getUrl() + '?page=' + page;
 }
 
 function gsrUploadFile(fileNameOrData, base64Data, mimeType, folderId) {
@@ -828,9 +795,7 @@ function gsrUploadFile(fileNameOrData, base64Data, mimeType, folderId) {
 function gsrPost(jsonString) {
   var data = {};
   try { data = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString; } catch(e) { return { success: false, error: 'Invalid JSON: ' + e.message }; }
-  Logger.log('gsrPost received: action=' + data.action + ' workerID=' + data.workerID + ' fileName=' + data.fileName);
 
-  // Handle deleteFolder here directly
   if (data.action === 'deleteFolder') {
     var fId = data.folderId || '';
     if (!fId && data.folderName) {
@@ -1002,7 +967,7 @@ function getTemplateRules() {
 }
 
 // ============================================================
-// sendNow — FIX: added missing var ss declaration
+// sendNow
 // ============================================================
 
 function sendNow(params) {
@@ -1017,7 +982,7 @@ function sendNow(params) {
 
     var result = sendTwilioMessage_(phone, text, mediaURL);
 
-    var ss    = SpreadsheetApp.getActiveSpreadsheet();  // FIX: was missing
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
     var log   = ss.getSheetByName('Messages');
     var now   = new Date();
     var msgID = 'MSG' + now.getTime();
@@ -1061,7 +1026,7 @@ function sendNow(params) {
 function sendTwilioMessage_(to, body, mediaURL) {
   var TWILIO_SID   = 'AC47f2e9614496b77eaba98866a6f8ef02';
   var TWILIO_TOKEN = '1db1564cc75f9f74fc60677ee7031d1f';
-  var FROM = 'whatsapp:+15559153006';
+  var FROM = 'whatsapp:+14155238886';
 
   var toPhone = to.toString()
     .replace(/\s/g, '')
@@ -1093,7 +1058,7 @@ function sendTwilioMessage_(to, body, mediaURL) {
 }
 
 // ============================================================
-// DELETE MESSAGE — NEW
+// deleteMessage
 // ============================================================
 
 function deleteMessage(params) {
@@ -1126,7 +1091,7 @@ function deleteMessage(params) {
 }
 
 // ============================================================
-// PROCESS PENDING MESSAGES — NEW
+// processPendingMessages
 // ============================================================
 
 function processPendingMessages() {
@@ -1155,7 +1120,6 @@ function processPendingMessages() {
       var status = (data[i][colStatus] || '').toString().trim();
       if (status !== 'Pending') continue;
 
-      // Only send if scheduled date <= today
       if (colSchedDate !== -1 && data[i][colSchedDate]) {
         var sd = new Date(data[i][colSchedDate]); sd.setHours(0,0,0,0);
         if (sd > today) continue;
@@ -1185,7 +1149,7 @@ function processPendingMessages() {
 }
 
 // ============================================================
-// SCHEDULE MESSAGE
+// scheduleMessage
 // ============================================================
 
 function scheduleMessage(params) {
@@ -1220,7 +1184,7 @@ function scheduleMessage(params) {
 }
 
 // ============================================================
-// GET MESSAGES
+// getMessages
 // ============================================================
 
 function getMessages() {
@@ -1263,7 +1227,6 @@ function getMessagingAssignments() {
   } catch(e) { return { success: false, data: {} }; }
 }
 
-// FIX: was completely missing
 function saveMessagingAssignments(data) {
   try {
     var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -1302,7 +1265,7 @@ function getQuickReplies() {
 }
 
 // ============================================================
-// GET TEMPLATES PUBLIC
+// TEMPLATES
 // ============================================================
 
 function getTemplatesPublic() {
@@ -1329,10 +1292,6 @@ function getTemplatesPublic() {
     return { success: false, error: e.message, data: [] };
   }
 }
-
-// ============================================================
-// TEMPLATE CRUD — NEW
-// ============================================================
 
 function getTemplates() { return getTemplatesPublic(); }
 
@@ -1837,43 +1796,8 @@ function gsrCleanDriveFolders(parentType) {
 }
 
 // ============================================================
-// TEST FUNCTIONS
+// INCOMING WHATSAPP
 // ============================================================
-
-function testTwilioSend() {
-  var result = sendTwilioMessage_('+9613823339', 'Test message from MGSDB2026');
-  Logger.log(JSON.stringify(result));
-}
-
-function testGetMessages() {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sheet = ss.getSheetByName('Messages');
-  Logger.log('TEST - Sheet: ' + (sheet ? sheet.getName() : 'NULL'));
-  Logger.log('TEST - Rows: ' + (sheet ? sheet.getLastRow() : 0));
-}
-
-function testGetTemplates() { Logger.log(JSON.stringify(getTemplates())); }
-
-function testAutoDebug() {
-  var result    = getTemplatesPublic();
-  var templates = (result && result.data) ? result.data : [];
-  Logger.log('Templates count: ' + templates.length);
-  templates.forEach(function(t) {
-    Logger.log(t.TemplateID + ' | ' + t.TemplateName + ' | Active:' + t.Active + ' | Trigger:' + t.TriggerEvent);
-  });
-}
-
-function testGsrGetAll() {
-  var result = gsrGetAll('Suppliers');
-  Logger.log('Result type: ' + typeof result);
-  Logger.log('Result: ' + JSON.stringify(result));
-}
-
-function testActionGetAll() {
-  var result = actionGetAll({ sheet: 'Suppliers' });
-  Logger.log('Result type: ' + typeof result);
-  Logger.log('Result: ' + JSON.stringify(result));
-}
 
 function handleIncomingWhatsApp(params) {
   Logger.log('INCOMING CALLED — params: ' + JSON.stringify(params));
@@ -1900,6 +1824,10 @@ function handleIncomingWhatsApp(params) {
     .setMimeType(ContentService.MimeType.XML);
 }
 
+// ============================================================
+// STATUS CALLBACK
+// ============================================================
+
 function handleStatusCallback(params) {
   try {
     var status  = params.MessageStatus || '';
@@ -1923,6 +1851,10 @@ function handleStatusCallback(params) {
   } catch(e) { Logger.log('statusCallback error: ' + e.message); }
   return { success: true };
 }
+
+// ============================================================
+// doPost
+// ============================================================
 
 function doPost(e) {
   try {
@@ -1970,41 +1902,51 @@ function doPost(e) {
   }
 }
 
+// ============================================================
+// TEST FUNCTIONS
+// ============================================================
+
+function testTwilioSend() {
+  var result = sendTwilioMessage_('+9613823339', 'Test message from MGSDB2026');
+  Logger.log(JSON.stringify(result));
+}
+
+function testGetMessages() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Messages');
+  Logger.log('TEST - Sheet: ' + (sheet ? sheet.getName() : 'NULL'));
+  Logger.log('TEST - Rows: ' + (sheet ? sheet.getLastRow() : 0));
+}
+
+function testGetTemplates() { Logger.log(JSON.stringify(getTemplates())); }
+
+function testAutoDebug() {
+  var result    = getTemplatesPublic();
+  var templates = (result && result.data) ? result.data : [];
+  Logger.log('Templates count: ' + templates.length);
+  templates.forEach(function(t) {
+    Logger.log(t.TemplateID + ' | ' + t.TemplateName + ' | Active:' + t.Active + ' | Trigger:' + t.TriggerEvent);
+  });
+}
+
+function testGsrGetAll() {
+  var result = gsrGetAll('Suppliers');
+  Logger.log('Result type: ' + typeof result);
+  Logger.log('Result: ' + JSON.stringify(result));
+}
+
+function testActionGetAll() {
+  var result = actionGetAll({ sheet: 'Suppliers' });
+  Logger.log('Result type: ' + typeof result);
+  Logger.log('Result: ' + JSON.stringify(result));
+}
+
 function testIncoming() {
   handleIncomingWhatsApp({
     From: 'whatsapp:+9613755199',
     Body: 'Test incoming message',
     ProfileName: 'Test Contact'
   });
-}
-
-function handleStatusCallback(params) {
-  try {
-    var status = params.MessageStatus || '';
-    var sid    = params.MessageSid    || '';
-    var ss     = SpreadsheetApp.openById(SPREADSHEET_ID);
-    var sheet  = ss.getSheetByName('Messages');
-    if (!sheet || !sid) return { success: true };
-    var data    = sheet.getDataRange().getValues();
-    var headers = data[0];
-    var colStatus = headers.indexOf('Status');
-    var colErr    = headers.indexOf('ErrorMessage');
-    for (var i = 1; i < data.length; i++) {
-      if (String(data[i][0]) === sid) {
-        if (colStatus !== -1) sheet.getRange(i+1, colStatus+1).setValue(status);
-        if ((status === 'failed' || status === 'undelivered') && colErr !== -1)
-          sheet.getRange(i+1, colErr+1).setValue('Delivery failed: ' + status);
-        break;
-      }
-    }
-  } catch(e) { Logger.log('statusCallback error: ' + e.message); }
-  return { success: true };
-}
-
-function testGetMessages() {
-  var result = getMessages();
-  Logger.log('Count: ' + result.data.length);
-  Logger.log('First: ' + JSON.stringify(result.data[0]));
 }
 
 function testMessagesDebug() {
@@ -2043,76 +1985,6 @@ function testGetEmployers() {
   Logger.log('First row: ' + JSON.stringify(result.data ? result.data[0] : null));
 }
 
-function testGsrGetAll() {
-  var result = gsrGetAll('Employers');
-  Logger.log('Success: ' + result.success);
-  Logger.log('Count: ' + (result.data ? result.data.length : 0));
-}
-
-function testPayloadSize() {
-  var result = actionGetAll({ sheet: 'Employers' });
-  var json = JSON.stringify(result.data);
-  Logger.log('Total bytes: ' + json.length);
-  Logger.log('Per row avg: ' + Math.round(json.length / result.data.length));
-  
-  // Test with just 10 rows
-  var small = result.data.slice(-10);
-  Logger.log('10 rows bytes: ' + JSON.stringify(small).length);
-}
-function testReducedSize() {
-  var result = actionGetAll({ sheet: 'Employers' });
-  var reduced = result.data.map(function(row) {
-    return {
-      EmployerID: row.EmployerID,
-      EmployerCode: row.EmployerCode,
-      EFN: row.EFN,
-      MobileNumber: row.MobileNumber,
-      City: row.City,
-      AgencyCode: row.AgencyCode,
-      SyncStatus: row.SyncStatus,
-      EmployerFolderID: row.EmployerFolderID,
-      RequiredDocuments: row.RequiredDocuments,
-      UploadedDocuments: row.UploadedDocuments,
-      Disabled: row.Disabled
-    };
-  });
-  Logger.log('Reduced bytes: ' + JSON.stringify(reduced).length);
-  Logger.log('Reduced per row: ' + Math.round(JSON.stringify(reduced).length / reduced.length));
-}
-function testMinimalSize() {
-  var result = actionGetAll({ sheet: 'Employers' });
-  var reduced = result.data.map(function(row) {
-    return {
-      EmployerID: row.EmployerID,
-      EmployerCode: row.EmployerCode,
-      EFN: row.EFN,
-      MobileNumber: row.MobileNumber,
-      City: row.City,
-      AgencyCode: row.AgencyCode,
-      SyncStatus: row.SyncStatus,
-      EmployerFolderID: row.EmployerFolderID,
-      RequiredDocuments: row.RequiredDocuments,
-      Disabled: row.Disabled
-    };
-  });
-  Logger.log('Minimal bytes: ' + JSON.stringify(reduced).length);
-}
-function testTinySize() {
-  var result = actionGetAll({ sheet: 'Employers' });
-  var reduced = result.data.map(function(row) {
-    return {
-      EmployerID: row.EmployerID,
-      EmployerCode: row.EmployerCode,
-      EFN: row.EFN,
-      MobileNumber: row.MobileNumber,
-      City: row.City,
-      AgencyCode: row.AgencyCode,
-      SyncStatus: row.SyncStatus,
-      Disabled: row.Disabled
-    };
-  });
-  Logger.log('Tiny bytes: ' + JSON.stringify(reduced).length);
-}
 function testGsrReturn() {
   var result = gsrGetAll('Employers');
   Logger.log('Type: ' + typeof result);
@@ -2121,80 +1993,121 @@ function testGsrReturn() {
   Logger.log('JSON size: ' + JSON.stringify(result).length);
 }
 
-function gsrCreateSupplierFolder(folderName) {
-  try {
-    function _getOrCreate(parent, name) {
-      var folders = parent.getFoldersByName(name);
-      if (folders.hasNext()) return folders.next();
-      return parent.createFolder(name);
-    }
-    var root = DriveApp.getRootFolder();
-    var docs = _getOrCreate(root, 'Documents');
-    var suppliersFolder = _getOrCreate(docs, 'suppliers');
-    var today = new Date();
-    var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-    var folderWithDate = folderName + ' ' + dateStr;
-    var suppFolder = _getOrCreate(suppliersFolder, folderWithDate);
-    return { success: true, folderId: suppFolder.getId(), folderUrl: suppFolder.getUrl(), folderName: folderWithDate };
-  } catch(e) {
-    return { success: false, error: e.toString() };
-  }
+function testPayloadSize() {
+  var result = actionGetAll({ sheet: 'Employers' });
+  var json = JSON.stringify(result.data);
+  Logger.log('Total bytes: ' + json.length);
+  Logger.log('Per row avg: ' + Math.round(json.length / result.data.length));
+  var small = result.data.slice(-10);
+  Logger.log('10 rows bytes: ' + JSON.stringify(small).length);
 }
-function gsrGetOrCreateSupplierFolder(supplierCode, supplierName) {
-  try {
-    Logger.log('gsrGetOrCreateSupplierFolder called: ' + supplierCode + ' | ' + supplierName);
-    
-    // Search for Suppliers folder anywhere in Drive
-    var suppliersFolders = DriveApp.getFoldersByName('Suppliers');
-    var suppliersFolder = null;
-    
-    while (suppliersFolders.hasNext()) {
-      var f = suppliersFolders.next();
-      Logger.log('Found Suppliers folder: ' + f.getName() + ' | ID: ' + f.getId());
-      suppliersFolder = f; // take the first one found
-      break;
-    }
-    
-    // If Suppliers folder not found, create it under Documents
-    if (!suppliersFolder) {
-      Logger.log('Suppliers folder not found — creating it');
-      var docsFolders = DriveApp.getFoldersByName('Documents');
-      var docsFolder = null;
-      if (docsFolders.hasNext()) {
-        docsFolder = docsFolders.next();
-      } else {
-        docsFolder = DriveApp.createFolder('Documents');
-      }
-      suppliersFolder = docsFolder.createFolder('Suppliers');
-    }
-    
-    // Now get or create the supplier subfolder
-    var folderName = (supplierCode || 'Unknown') + ' ' + (supplierName || 'Unknown');
-    Logger.log('Looking for subfolder: ' + folderName);
-    
-    var existing = suppliersFolder.getFoldersByName(folderName);
-    if (existing.hasNext()) {
-      var found = existing.next();
-      Logger.log('Found existing folder: ' + found.getId());
-      return found.getId();
-    } else {
-      var created = suppliersFolder.createFolder(folderName);
-      Logger.log('Created new folder: ' + created.getId());
-      return created.getId();
-    }
-  } catch(e) {
-    Logger.log('Error in gsrGetOrCreateSupplierFolder: ' + e.toString());
-    return null;
-  }
-}
-function gsrUpdateWorkerOutcomes(workerId, workerOutcomes, workerOutcomeDates, processingStage) {
-  return actionSaveRow({ 
-    sheet: 'Workers', 
-    data: { 
-      WorkerID: workerId,
-      WorkerOutcomes: workerOutcomes,
-      WorkerOutcomeDates: workerOutcomeDates || '',
-      ProcessingStage: processingStage || ''
-    } 
+
+function testReducedSize() {
+  var result = actionGetAll({ sheet: 'Employers' });
+  var reduced = result.data.map(function(row) {
+    return {
+      EmployerID: row.EmployerID, EmployerCode: row.EmployerCode, EFN: row.EFN,
+      MobileNumber: row.MobileNumber, City: row.City, AgencyCode: row.AgencyCode,
+      SyncStatus: row.SyncStatus, EmployerFolderID: row.EmployerFolderID,
+      RequiredDocuments: row.RequiredDocuments, UploadedDocuments: row.UploadedDocuments,
+      Disabled: row.Disabled
+    };
   });
+  Logger.log('Reduced bytes: ' + JSON.stringify(reduced).length);
+  Logger.log('Reduced per row: ' + Math.round(JSON.stringify(reduced).length / reduced.length));
+}
+
+function testMinimalSize() {
+  var result = actionGetAll({ sheet: 'Employers' });
+  var reduced = result.data.map(function(row) {
+    return {
+      EmployerID: row.EmployerID, EmployerCode: row.EmployerCode, EFN: row.EFN,
+      MobileNumber: row.MobileNumber, City: row.City, AgencyCode: row.AgencyCode,
+      SyncStatus: row.SyncStatus, EmployerFolderID: row.EmployerFolderID,
+      RequiredDocuments: row.RequiredDocuments, Disabled: row.Disabled
+    };
+  });
+  Logger.log('Minimal bytes: ' + JSON.stringify(reduced).length);
+}
+
+function testTinySize() {
+  var result = actionGetAll({ sheet: 'Employers' });
+  var reduced = result.data.map(function(row) {
+    return {
+      EmployerID: row.EmployerID, EmployerCode: row.EmployerCode, EFN: row.EFN,
+      MobileNumber: row.MobileNumber, City: row.City, AgencyCode: row.AgencyCode,
+      SyncStatus: row.SyncStatus, Disabled: row.Disabled
+    };
+  });
+  Logger.log('Tiny bytes: ' + JSON.stringify(reduced).length);
+}
+
+function fixEmployerCodes() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Employers');
+  if (!sheet) { Logger.log('Employers sheet not found'); return; }
+  
+  var data    = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var colID   = headers.indexOf('EmployerID');
+  var colCode = headers.indexOf('EmployerCode');
+  var colAC   = headers.indexOf('AgencyCode');
+  
+  if (colID === -1 || colCode === -1 || colAC === -1) {
+    Logger.log('Missing columns: EmployerID=' + colID + ' EmployerCode=' + colCode + ' AgencyCode=' + colAC);
+    return;
+  }
+  
+  var fixed = 0;
+  for (var i = 1; i < data.length; i++) {
+    var empID    = data[i][colID];
+    var agCode   = data[i][colAC];
+    if (!empID || !agCode) continue;
+    var newCode  = String(agCode).trim() + '-' + String(empID).trim();
+    sheet.getRange(i + 1, colCode + 1).setValue(newCode);
+    fixed++;
+  }
+  Logger.log('Fixed ' + fixed + ' employer codes.');
+}
+function fixEmployerAgencyCodes() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var empSheet = ss.getSheetByName('Employers');
+  var agSheet  = ss.getSheetByName('Local_Agencies');
+  if (!empSheet || !agSheet) { Logger.log('Sheet not found'); return; }
+
+  var empData = empSheet.getDataRange().getValues();
+  var agData  = agSheet.getDataRange().getValues();
+  var empH    = empData[0];
+  var agH     = agData[0];
+
+  var colEmpAgID   = empH.indexOf('AgencyID');
+  var colEmpAgCode = empH.indexOf('AgencyCode');
+  var colEmpCode   = empH.indexOf('EmployerCode');
+  var colAgID      = agH.indexOf('AgencyID');
+  var colAgCode    = agH.indexOf('AgencyCode');
+
+  var agMap = {};
+  for (var i = 1; i < agData.length; i++) {
+    var aid = String(agData[i][colAgID]).trim();
+    var ac  = String(agData[i][colAgCode]).trim();
+    if (aid && ac) agMap[aid] = ac;
+  }
+
+  var fixed = 0;
+  for (var r = 1; r < empData.length; r++) {
+    var agencyID  = String(empData[r][colEmpAgID] || '').trim();
+    var agencyCode = agMap[agencyID];
+    if (!agencyCode && empData[r][colEmpCode]) {
+      // fallback: extract from EmployerCode
+      agencyCode = String(empData[r][colEmpCode]).split('-')[0];
+    }
+    if (agencyCode) {
+      empSheet.getRange(r + 1, colEmpAgCode + 1).setValue(agencyCode);
+      fixed++;
+    }
+  }
+  Logger.log('Fixed AgencyCode for ' + fixed + ' employers.');
+}
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
