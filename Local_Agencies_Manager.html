@@ -1449,8 +1449,9 @@ function toggleWorkersList(employerId) {
 function loadWorkersForEmployer(employerId, container) {
   const empWorkers = allWorkers.filter(function(w) {
     var isSelected = w.Selected === true || w.Selected === 'true';
-    var matchesEmp = (employer.EmployerID && String(w.EmployerID) === String(employerId)) ||
-                     (employer.EmployerCode && w.EmployerCode && String(w.EmployerCode) === String(employer.EmployerCode));
+    var emp2 = employers.find(function(e){ return String(e.EmployerID) === String(employerId); });
+    var matchesEmp = (String(w.EmployerID) === String(employerId)) ||
+                     (emp2 && w.EmployerCode && String(w.EmployerCode) === String(emp2.EmployerCode));
     return isSelected && matchesEmp;
 });
 
@@ -1650,6 +1651,9 @@ async function sendWorkerToProcess(workerCode, workerId, employerId) {
 
     worker.Processing      = true;
     worker.ProcessingStage = 'processing';
+    if (currentAgency) { worker.AgencyCode = currentAgency.AgencyCode; worker.AgencyID = currentAgency.AgencyID; }
+    var _emp = employers.find(function(e) { return String(e.EmployerID) === String(employerId); });
+    if (_emp) { worker.EmployerCode = _emp.EmployerCode; worker.EmployerID = _emp.EmployerID; }
     const _outs = (() => { try { return JSON.parse(worker.WorkerOutcomes || '[]'); } catch(e) { return []; } })();
     if (_outs.indexOf('selected') === -1) _outs.unshift('selected');
     worker.WorkerOutcomes = JSON.stringify(_outs);
@@ -1692,9 +1696,15 @@ async function unlinkWorker(workerCode, employerId) {
     });
 
     if (worker) {
-        worker.EmployerCode = null;
-        worker.EmployerID   = null;
-        worker.Selected     = false;
+        worker.EmployerCode    = '';
+        worker.EmployerID      = '';
+        worker.AgencyCode      = '';
+        worker.AgencyID        = '';
+        worker.Selected        = false;
+        worker.Processing      = false;
+        worker.ProcessingStage = '';
+        worker.WorkerOutcomes  = '';
+        worker.SelectedDate    = '';
         localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
         if (CloudDB.ready) {
             CloudDB.saveRow('Workers', worker).then(r => {
@@ -1893,6 +1903,8 @@ function linkWorkerToEmployer() {
 
     worker.EmployerCode = currentEmployer.EmployerCode;
     worker.EmployerID   = currentEmployer.EmployerID;
+    worker.AgencyCode   = currentAgency ? currentAgency.AgencyCode : '';
+    worker.AgencyID     = currentAgency ? currentAgency.AgencyID   : '';
     worker.Selected     = true;
 
     console.log('🔗 Linking worker', workerCode, '→ employer', currentEmployer.EmployerCode);
@@ -3020,19 +3032,26 @@ window.linkWorkerToEmployer = async function(){
     if(!confirmed) return; // ← user pressed Cancel — do nothing
 
     // ── SAVE ──────────────────────────────────────────────
-    worker.EmployerCode = currentEmployer.EmployerCode;
-    worker.EmployerID   = currentEmployer.EmployerID;
-    worker.Selected     = true;
+    worker.EmployerCode    = currentEmployer.EmployerCode;
+    worker.EmployerID      = currentEmployer.EmployerID;
+    worker.Selected        = true;
+    worker.Processing      = false;
+    worker.ProcessingStage = 'selected';
+    worker.SelectedDate    = new Date().toISOString();
+    var _outs = [];
+    try { _outs = JSON.parse(worker.WorkerOutcomes || '[]'); } catch(e) { _outs = []; }
+    if(_outs.indexOf('selected') === -1) _outs.unshift('selected');
+    worker.WorkerOutcomes = JSON.stringify(_outs);
 
     localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
+
+    closeAddWorkerPopup();
 
     if(typeof CloudDB !== 'undefined' && CloudDB.ready){
         CloudDB.saveRow('Workers', worker).then(function(r){
             if(r && r.success) console.log('☁️ Worker synced after linking:', workerCode);
         });
     }
-
-    closeAddWorkerPopup();
     alert('✅ Worker Linked!\n\n👷 '+workerName+'\n🔑 '+workerCode+
           '\n💼 '+currentEmployer.EmployerName+
           '\n\n📋 Worker appears in the "Selected TEMP" tab.');
@@ -3304,6 +3323,170 @@ setTimeout(function(){
 
 })();
 </script>
+<script>
+var WorkerStageManager = (function() {
+    'use strict';
 
-</body>
+    function _addOutcome(worker, stage) {
+        var outs = [];
+        try { outs = JSON.parse(worker.WorkerOutcomes || '[]'); } catch(e) { outs = []; }
+        if (outs.indexOf(stage) === -1) outs.unshift(stage);
+        worker.WorkerOutcomes = JSON.stringify(outs);
+    }
+
+    function _clearOutcomes(worker) {
+        worker.WorkerOutcomes = '[]';
+    }
+
+    function _save(worker) {
+        if (typeof CloudDB !== 'undefined' && CloudDB.ready) {
+            return CloudDB.saveRow('Workers', worker);
+        }
+        return Promise.resolve(null);
+    }
+
+    function _log(worker, stage) {
+        var code = worker.WorkerCode || ('Worker #' + worker.WorkerID);
+        console.log('📋 Stage → [' + stage.toUpperCase() + '] for ' + code);
+    }
+
+    return {
+
+        select: function(worker, employer, agency) {
+            _log(worker, 'selected');
+            worker.EmployerCode    = employer.EmployerCode || '';
+            worker.EmployerID      = employer.EmployerID   || '';
+            worker.AgencyCode      = (agency && agency.AgencyCode) ? agency.AgencyCode : (employer.AgencyCode || (employer.EmployerCode ? employer.EmployerCode.split('-')[0] : ''));
+            worker.AgencyID        = (agency && agency.AgencyID)   ? agency.AgencyID   : (employer.AgencyID || '');
+            worker.Selected        = true;
+            worker.Processing      = false;
+            worker.ProcessingStage = 'selected';
+            worker.SelectedDate    = new Date().toISOString();
+            _addOutcome(worker, 'selected');
+            return _save(worker);
+        },
+
+        unlink: function(worker) {
+            _log(worker, 'unlinked');
+            worker.EmployerCode    = '';
+            worker.EmployerID      = '';
+            worker.AgencyCode      = '';
+            worker.AgencyID        = '';
+            worker.Selected        = false;
+            worker.Processing      = false;
+            worker.ProcessingStage = '';
+            worker.SelectedDate    = '';
+            _clearOutcomes(worker);
+            return _save(worker);
+        },
+
+        preApproval: function(worker) {
+            _log(worker, 'preapproval');
+            worker.Processing      = true;
+            worker.ProcessingStage = 'preapproval';
+            _addOutcome(worker, 'preapproval');
+            return _save(worker);
+        },
+
+        waitingVisa: function(worker) {
+            _log(worker, 'waitingvisa');
+            worker.Processing      = true;
+            worker.ProcessingStage = 'waitingvisa';
+            _addOutcome(worker, 'waitingvisa');
+            return _save(worker);
+        },
+
+        waitingTicket: function(worker) {
+            _log(worker, 'waitingticket');
+            worker.Processing      = true;
+            worker.ProcessingStage = 'waitingticket';
+            _addOutcome(worker, 'waitingticket');
+            return _save(worker);
+        },
+
+        arrive: function(worker) {
+            _log(worker, 'arrived');
+            worker.Processing      = false;
+            worker.Arrived         = true;
+            worker.ProcessingStage = 'arrived';
+            worker.ArrivalDate     = new Date().toISOString();
+            _addOutcome(worker, 'arrived');
+            return _save(worker);
+        },
+
+        setLocal: function(worker) {
+            _log(worker, 'local');
+            worker.Processing      = false;
+            worker.ProcessingStage = 'local';
+            _addOutcome(worker, 'local');
+            return _save(worker);
+        },
+
+        move: function(worker) {
+            _log(worker, 'moved');
+            worker.Processing      = false;
+            worker.ProcessingStage = 'moved';
+            _addOutcome(worker, 'moved');
+            return _save(worker);
+        },
+
+        cancel: function(worker) {
+            _log(worker, 'cancelled');
+            worker.Processing      = false;
+            worker.Selected        = false;
+            worker.ProcessingStage = 'cancelled';
+            worker.EmployerCode    = '';
+            worker.EmployerID      = '';
+            worker.AgencyCode      = '';
+            worker.AgencyID        = '';
+            _addOutcome(worker, 'cancelled');
+            return _save(worker);
+        },
+
+        unfit: function(worker) {
+            _log(worker, 'unfit');
+            worker.Processing      = false;
+            worker.ProcessingStage = 'unfit';
+            _addOutcome(worker, 'unfit');
+            return _save(worker);
+        },
+
+        runaway: function(worker) {
+            _log(worker, 'runaway');
+            worker.Processing      = false;
+            worker.ProcessingStage = 'runaway';
+            _addOutcome(worker, 'runaway');
+            return _save(worker);
+        },
+
+        sendHome: function(worker) {
+            _log(worker, 'senthome');
+            worker.Processing      = false;
+            worker.ProcessingStage = 'senthome';
+            _addOutcome(worker, 'senthome');
+            return _save(worker);
+        },
+
+        archive: function(worker) {
+            _log(worker, 'archived');
+            worker.Processing      = false;
+            worker.Archived        = true;
+            worker.ProcessingStage = 'archived';
+            _addOutcome(worker, 'archived');
+            return _save(worker);
+        },
+
+        isLocked:     function(worker) { return worker.Locked     === true || worker.Locked     === 'true'; },
+        isSelected:   function(worker) { return worker.Selected   === true || worker.Selected   === 'true'; },
+        isProcessing: function(worker) { return worker.Processing === true || worker.Processing === 'true'; },
+        isStage:      function(worker, stage) { return worker.ProcessingStage === stage; },
+        getOutcomes:  function(worker) { try { return JSON.parse(worker.WorkerOutcomes || '[]'); } catch(e) { return []; } },
+        hasOutcome:   function(worker, stage) { return this.getOutcomes(worker).indexOf(stage) !== -1; },
+        getStage:     function(worker) { return worker.ProcessingStage || 'pending'; }
+    };
+
+})();
+
+console.log('✅ WorkerStageManager v1.0 loaded');
+</script>
 </html>
