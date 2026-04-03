@@ -1650,6 +1650,9 @@ async function sendWorkerToProcess(workerCode, workerId, employerId) {
 
     worker.Processing      = true;
     worker.ProcessingStage = 'processing';
+    if (currentAgency) { worker.AgencyCode = currentAgency.AgencyCode; worker.AgencyID = currentAgency.AgencyID; }
+    var _emp = employers.find(function(e) { return String(e.EmployerID) === String(employerId); });
+    if (_emp) { worker.EmployerCode = _emp.EmployerCode; worker.EmployerID = _emp.EmployerID; }
     const _outs = (() => { try { return JSON.parse(worker.WorkerOutcomes || '[]'); } catch(e) { return []; } })();
     if (_outs.indexOf('selected') === -1) _outs.unshift('selected');
     worker.WorkerOutcomes = JSON.stringify(_outs);
@@ -1893,6 +1896,8 @@ function linkWorkerToEmployer() {
 
     worker.EmployerCode = currentEmployer.EmployerCode;
     worker.EmployerID   = currentEmployer.EmployerID;
+    worker.AgencyCode   = currentAgency ? currentAgency.AgencyCode : '';
+    worker.AgencyID     = currentAgency ? currentAgency.AgencyID   : '';
     worker.Selected     = true;
 
     console.log('🔗 Linking worker', workerCode, '→ employer', currentEmployer.EmployerCode);
