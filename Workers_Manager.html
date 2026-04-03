@@ -1397,6 +1397,8 @@
                                 </div>
                                 <input type="text" id="PassportScanPath" readonly placeholder="Passport scan path..." style="background: #f8f9fa; padding: 7px; font-size: 12px; width: 100%;">
                             </div>
+                            <input type="hidden" id="PassportFileURL" value="">
+                            </div>
                             
                             <!-- Other Documents Card -->
                             <div style="grid-column: 1 / -1; margin-top: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px;">
@@ -5206,6 +5208,7 @@
                     IDNumber: document.getElementById('IDNumber').value,
                     DocumentType: document.getElementById('DocumentType') ? document.getElementById('DocumentType').value : '',
                     PassportScanPath: document.getElementById('PassportScanPath') ? document.getElementById('PassportScanPath').value : '',
+                    PassportFileURL: document.getElementById('PassportFileURL') ? document.getElementById('PassportFileURL').value : '',
                     IDScanPath: document.getElementById('IDScanPath') ? document.getElementById('IDScanPath').value : '',
                     PassportExpiryDate: document.getElementById('PassportExpiryDate') ? document.getElementById('PassportExpiryDate').value : '',
                     WorkerFolder: currentWorker ? currentWorker.WorkerFolder : '',
@@ -5827,9 +5830,11 @@
             if (statusMsg) { statusMsg.textContent = '📤 Uploading...'; statusMsg.style.display = 'block'; }
 
             var base64Data = await fileToBase64(file);
+            console.log('🔑 workerID being sent:', currentWorker ? currentWorker.WorkerID : 'NULL - currentWorker is empty');
             var result = await gsrCall({
                 action: 'uploadFile', folderName: folderName, fileName: fileName,
-                fileData: base64Data, mimeType: file.type, parentFolder: 'workers'
+                fileData: base64Data, mimeType: file.type, parentFolder: 'workers',
+                workerID: (typeof currentWorker !== 'undefined' && currentWorker) ? currentWorker.WorkerID : ''
             });
 
             if (result && result.error) {
@@ -6144,6 +6149,11 @@ if (cloudData.suppliers && cloudData.suppliers.length > 0) {
             var result = await uploadToGoogleDrive(file, folderName, fileName);
             if (result.success) {
                 document.getElementById('PassportScanPath').value = folderName + '/' + fileName;
+                if (result.fileUrl) { 
+                    document.getElementById('PassportFileURL').value = result.fileUrl;
+                    if (currentWorker) currentWorker.PassportFileURL = result.fileUrl;
+           }
+                if (result.fileUrl) { document.getElementById('PassportFileURL').value = result.fileUrl; }
                 if (fileInfo) { fileInfo.textContent = '✅ Passport scan uploaded'; fileInfo.style.color = '#28a745'; }
                 document.getElementById('openFolderBtn').style.display = 'inline-block';
                 silentSaveWorker();
@@ -6413,9 +6423,17 @@ if (cloudData.suppliers && cloudData.suppliers.length > 0) {
                 console.log('📁 FolderID saved:', result.folderId);
             }
 
+            var fileUrl = (result && (result.fileUrl || result.url)) || '';
+            // Save PassportFileURL to currentWorker immediately
+            if (fileUrl && fileName.indexOf('Passport') >= 0) {
+                if (currentWorker) currentWorker.PassportFileURL = fileUrl;
+                var urlField = document.getElementById('PassportFileURL');
+                if (urlField) urlField.value = fileUrl;
+                console.log('🛂 PassportFileURL saved:', fileUrl);
+            }
             return {
                 success: true,
-                fileUrl: (result && (result.fileUrl || result.url)) || '',
+                fileUrl: fileUrl,
                 folderId: (result && result.folderId) || '',
                 message: 'Uploaded!'
             };
@@ -6549,7 +6567,8 @@ window.uploadToGoogleDrive = async function(file, folderName, fileName) {
             } catch(e) { folderId = ''; }
         }
         
-        console.log('📤 Upload:', fileName, '→', folderName, '| folderId:', folderId || '(new)');
+        var _wid = document.getElementById('WorkerID') ? document.getElementById('WorkerID').value : 'NOT FOUND';
+         console.log('📤 Upload:', fileName, '→', folderName, '| folderId:', folderId || '(new)', '| WorkerID field:', _wid);
         
         var result = await new Promise(function(resolve) {
             google.script.run
@@ -6562,7 +6581,8 @@ window.uploadToGoogleDrive = async function(file, folderName, fileName) {
                     fileData: base64Data,
                     mimeType: file.type,
                     parentFolder: 'workers',
-                    folderId: folderId
+                    folderId: folderId,
+                    workerID: document.getElementById('WorkerID') ? document.getElementById('WorkerID').value : ''
                 }));
         });
 
@@ -6576,9 +6596,16 @@ window.uploadToGoogleDrive = async function(file, folderName, fileName) {
         if (result && result.folderId) {
             _saveFolderIdForWorker(wid, result.folderId);
         }
+        var fileUrl = (result && (result.fileUrl || result.url)) || '';
+        if (fileUrl && fileName.indexOf('Passport') >= 0) {
+            if (currentWorker) currentWorker.PassportFileURL = fileUrl;
+            var urlField = document.getElementById('PassportFileURL');
+            if (urlField) urlField.value = fileUrl;
+            console.log('🛂 PassportFileURL saved:', fileUrl);
+        }
         return {
             success: true,
-            fileUrl: (result && (result.fileUrl || result.url)) || '',
+            fileUrl: fileUrl,
             folderId: (result && result.folderId) || '',
             message: 'Uploaded!'
         };
