@@ -1695,22 +1695,10 @@ async function unlinkWorker(workerCode, employerId) {
         return c === workerCode;
     });
 
-    if (worker) {
-        worker.EmployerCode    = '';
-        worker.EmployerID      = '';
-        worker.AgencyCode      = '';
-        worker.AgencyID        = '';
-        worker.Selected        = false;
-        worker.Processing      = false;
-        worker.ProcessingStage = '';
-        worker.WorkerOutcomes  = '';
-        worker.SelectedDate    = '';
-        localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
-        if (CloudDB.ready) {
-            CloudDB.saveRow('Workers', worker).then(r => {
-                if (r && r.success) console.log('☁️ Worker unlinked & synced:', workerCode);
-            });
-        }
+  if (worker) {
+        WorkerStageManager.unlink(worker).then(function(r) {
+            if (r && r.success) console.log('☁️ Worker unlinked & synced:', workerCode);
+        });
         const wc = document.getElementById('workers-content-' + employerId);
         if (wc) loadWorkersForEmployer(employerId, wc);
         renderEmployersTable();
@@ -1719,7 +1707,6 @@ async function unlinkWorker(workerCode, employerId) {
         alert('❌ Worker not found!');
     }
 }
-
 function quickAddWorker(employerId) {
     const employer = employers.find(e => String(e.EmployerID) === String(employerId));
     if (!employer) { alert('❌ Employer not found!'); return; }
@@ -3031,27 +3018,12 @@ window.linkWorkerToEmployer = async function(){
 
     if(!confirmed) return; // ← user pressed Cancel — do nothing
 
-    // ── SAVE ──────────────────────────────────────────────
-    worker.EmployerCode    = currentEmployer.EmployerCode;
-    worker.EmployerID      = currentEmployer.EmployerID;
-    worker.Selected        = true;
-    worker.Processing      = false;
-    worker.ProcessingStage = 'selected';
-    worker.SelectedDate    = new Date().toISOString();
-    var _outs = [];
-    try { _outs = JSON.parse(worker.WorkerOutcomes || '[]'); } catch(e) { _outs = []; }
-    if(_outs.indexOf('selected') === -1) _outs.unshift('selected');
-    worker.WorkerOutcomes = JSON.stringify(_outs);
-
-    localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
+    // ── SAVE via WorkerStageManager ────────────────────────
+    WorkerStageManager.select(worker, currentEmployer, currentAgency).then(function(r){
+        if(r && r.success) console.log('☁️ Worker linked & synced:', workerCode);
+    });
 
     closeAddWorkerPopup();
-
-    if(typeof CloudDB !== 'undefined' && CloudDB.ready){
-        CloudDB.saveRow('Workers', worker).then(function(r){
-            if(r && r.success) console.log('☁️ Worker synced after linking:', workerCode);
-        });
-    }
     alert('✅ Worker Linked!\n\n👷 '+workerName+'\n🔑 '+workerCode+
           '\n💼 '+currentEmployer.EmployerName+
           '\n\n📋 Worker appears in the "Selected TEMP" tab.');
