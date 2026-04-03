@@ -461,16 +461,37 @@ function actionUploadFile(params) {
       }
     }
     var isReport = fileName.indexOf('Report_') === 0;
-    if (!isReport) {
-      var existingFiles = entityFolder.getFilesByName(fileName);
-      while (existingFiles.hasNext()) existingFiles.next().setTrashed(true);
-    }
+var isPassport = fileName.indexOf('Passport') >= 0;
+if (!isReport && !isPassport) {
+    var existingFiles = entityFolder.getFilesByName(fileName);
+    while (existingFiles.hasNext()) existingFiles.next().setTrashed(true);
+}
     var blob    = Utilities.newBlob(Utilities.base64Decode(fileData), mimeType, fileName);
     var file    = entityFolder.createFile(blob);
     var fileUrl = file.getUrl();
     var folderId = entityFolder.getId();
     try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) {}
-    return { success: true, fileUrl: fileUrl, fileName: fileName, folderId: folderId, folderUrl: 'https://drive.google.com/drive/folders/' + folderId };
+    Logger.log('actionUploadFile called: fileName=' + fileName + ' workerID=' + params.workerID);
+if (fileName.indexOf('Passport') >= 0 && params.workerID) {
+    try {
+        var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Workers');
+        if (sheet) {
+            var data = sheet.getDataRange().getValues();
+            var headers = data[0];
+            var workerIDCol = headers.indexOf('WorkerID');
+            var passportURLCol = headers.indexOf('PassportFileURL');
+            if (workerIDCol >= 0 && passportURLCol >= 0) {
+                for (var i = 1; i < data.length; i++) {
+                    if (String(data[i][workerIDCol]) === String(params.workerID)) {
+                        sheet.getRange(i + 1, passportURLCol + 1).setValue(fileUrl);
+                        break;
+                    }
+                }
+            }
+        }
+    } catch(e) { Logger.log('PassportFileURL save error: ' + e.message); }
+}
+return { success: true, fileUrl: fileUrl, fileName: fileName, folderId: folderId, folderUrl: 'https://drive.google.com/drive/folders/' + folderId };
   } catch (e) {
     return { success: false, error: e.message };
   }
@@ -807,6 +828,7 @@ function gsrUploadFile(fileNameOrData, base64Data, mimeType, folderId) {
 function gsrPost(jsonString) {
   var data = {};
   try { data = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString; } catch(e) { return { success: false, error: 'Invalid JSON: ' + e.message }; }
+  Logger.log('gsrPost received: action=' + data.action + ' workerID=' + data.workerID + ' fileName=' + data.fileName);
 
   // Handle deleteFolder here directly
   if (data.action === 'deleteFolder') {
@@ -1039,7 +1061,7 @@ function sendNow(params) {
 function sendTwilioMessage_(to, body, mediaURL) {
   var TWILIO_SID   = 'AC47f2e9614496b77eaba98866a6f8ef02';
   var TWILIO_TOKEN = '1db1564cc75f9f74fc60677ee7031d1f';
-  var FROM = 'whatsapp:+14155238886';
+  var FROM = 'whatsapp:+15559153006';
 
   var toPhone = to.toString()
     .replace(/\s/g, '')
@@ -2097,4 +2119,82 @@ function testGsrReturn() {
   Logger.log('Success: ' + result.success);
   Logger.log('Count: ' + (result.data ? result.data.length : 'no data'));
   Logger.log('JSON size: ' + JSON.stringify(result).length);
+}
+
+function gsrCreateSupplierFolder(folderName) {
+  try {
+    function _getOrCreate(parent, name) {
+      var folders = parent.getFoldersByName(name);
+      if (folders.hasNext()) return folders.next();
+      return parent.createFolder(name);
+    }
+    var root = DriveApp.getRootFolder();
+    var docs = _getOrCreate(root, 'Documents');
+    var suppliersFolder = _getOrCreate(docs, 'suppliers');
+    var today = new Date();
+    var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var folderWithDate = folderName + ' ' + dateStr;
+    var suppFolder = _getOrCreate(suppliersFolder, folderWithDate);
+    return { success: true, folderId: suppFolder.getId(), folderUrl: suppFolder.getUrl(), folderName: folderWithDate };
+  } catch(e) {
+    return { success: false, error: e.toString() };
+  }
+}
+function gsrGetOrCreateSupplierFolder(supplierCode, supplierName) {
+  try {
+    Logger.log('gsrGetOrCreateSupplierFolder called: ' + supplierCode + ' | ' + supplierName);
+    
+    // Search for Suppliers folder anywhere in Drive
+    var suppliersFolders = DriveApp.getFoldersByName('Suppliers');
+    var suppliersFolder = null;
+    
+    while (suppliersFolders.hasNext()) {
+      var f = suppliersFolders.next();
+      Logger.log('Found Suppliers folder: ' + f.getName() + ' | ID: ' + f.getId());
+      suppliersFolder = f; // take the first one found
+      break;
+    }
+    
+    // If Suppliers folder not found, create it under Documents
+    if (!suppliersFolder) {
+      Logger.log('Suppliers folder not found — creating it');
+      var docsFolders = DriveApp.getFoldersByName('Documents');
+      var docsFolder = null;
+      if (docsFolders.hasNext()) {
+        docsFolder = docsFolders.next();
+      } else {
+        docsFolder = DriveApp.createFolder('Documents');
+      }
+      suppliersFolder = docsFolder.createFolder('Suppliers');
+    }
+    
+    // Now get or create the supplier subfolder
+    var folderName = (supplierCode || 'Unknown') + ' ' + (supplierName || 'Unknown');
+    Logger.log('Looking for subfolder: ' + folderName);
+    
+    var existing = suppliersFolder.getFoldersByName(folderName);
+    if (existing.hasNext()) {
+      var found = existing.next();
+      Logger.log('Found existing folder: ' + found.getId());
+      return found.getId();
+    } else {
+      var created = suppliersFolder.createFolder(folderName);
+      Logger.log('Created new folder: ' + created.getId());
+      return created.getId();
+    }
+  } catch(e) {
+    Logger.log('Error in gsrGetOrCreateSupplierFolder: ' + e.toString());
+    return null;
+  }
+}
+function gsrUpdateWorkerOutcomes(workerId, workerOutcomes, workerOutcomeDates, processingStage) {
+  return actionSaveRow({ 
+    sheet: 'Workers', 
+    data: { 
+      WorkerID: workerId,
+      WorkerOutcomes: workerOutcomes,
+      WorkerOutcomeDates: workerOutcomeDates || '',
+      ProcessingStage: processingStage || ''
+    } 
+  });
 }
