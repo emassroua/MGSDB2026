@@ -787,7 +787,6 @@ if (cloudData.workers && cloudData.workers.length > 0) {
                 }
             });
             allWorkers = cloudData.workers;
-            localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
             console.log('☁️ Workers from cloud:', allWorkers.length);
         }
     } catch(e) {
@@ -1636,7 +1635,6 @@ async function sendAllToProcessing() {
         if (CloudDB.ready) { try { await CloudDB.saveRow('Workers', workers[i]); } catch(e) {} }
         count++;
     }
-    localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
     alert('✅ ' + count + ' workers sent to Processing!\n\n🔄 They now appear in Processing Manager.');
     renderSelectedTemp();
 }
@@ -1657,7 +1655,6 @@ async function sendWorkerToProcess(workerCode, workerId, employerId) {
     if (_outs.indexOf('selected') === -1) _outs.unshift('selected');
     worker.WorkerOutcomes = JSON.stringify(_outs);
     worker.SelectedDate   = new Date().toISOString();
-    localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
 
     if (CloudDB.ready) {
         CloudDB.saveRow('Workers', worker).then(r => {
@@ -1695,14 +1692,19 @@ async function unlinkWorker(workerCode, employerId) {
     });
 
     if (worker) {
-        worker.EmployerCode = null;
-        worker.EmployerID   = null;
+        worker.EmployerCode = '';
+        worker.EmployerID   = '';
+        worker.AgencyCode   = '';
+        worker.AgencyID     = '';
         worker.Selected     = false;
-        localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
         if (CloudDB.ready) {
-            CloudDB.saveRow('Workers', worker).then(r => {
-                if (r && r.success) console.log('☁️ Worker unlinked & synced:', workerCode);
-            });
+            const r = await CloudDB.saveRow('Workers', worker);
+            if (r && r.success) {
+                console.log('☁️ Worker unlinked & synced:', workerCode);
+            } else {
+                alert('⚠️ Cloud save failed — please try again.');
+                return;
+            }
         }
         const wc = document.getElementById('workers-content-' + employerId);
         if (wc) loadWorkersForEmployer(employerId, wc);
@@ -1711,7 +1713,6 @@ async function unlinkWorker(workerCode, employerId) {
     } else {
         alert('❌ Worker not found!');
     }
-}
 
 function quickAddWorker(employerId) {
     const employer = employers.find(e => String(e.EmployerID) === String(employerId));
@@ -1901,8 +1902,7 @@ function linkWorkerToEmployer() {
     worker.Selected     = true;
 
     console.log('🔗 Linking worker', workerCode, '→ employer', currentEmployer.EmployerCode);
-    localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
-
+  
     if (CloudDB.ready) {
         CloudDB.saveRow('Workers', worker).then(r => {
             if (r && r.success) console.log('☁️ Worker synced after linking:', workerCode);
@@ -3027,9 +3027,9 @@ window.linkWorkerToEmployer = async function(){
     // ── SAVE ──────────────────────────────────────────────
     worker.EmployerCode = currentEmployer.EmployerCode;
     worker.EmployerID   = currentEmployer.EmployerID;
+    worker.AgencyCode   = currentAgency ? currentAgency.AgencyCode : (currentEmployer.AgencyCode || '');
+    worker.AgencyID     = currentAgency ? currentAgency.AgencyID   : (currentEmployer.AgencyID   || '');
     worker.Selected     = true;
-
-    localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
 
     if(typeof CloudDB !== 'undefined' && CloudDB.ready){
         CloudDB.saveRow('Workers', worker).then(function(r){
@@ -3085,8 +3085,6 @@ window.cancelAllForEmployer = async function(employerCode, employerName){
         w.Selected     = false;
         unlinked++;
     });
-
-    localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
 
     // Cloud sync all at once
     if(typeof CloudDB !== 'undefined' && CloudDB.ready){
@@ -3230,7 +3228,6 @@ window.cancelOneWorker = async function(workerCode, workerId){
     w.EmployerCode = null;
     w.EmployerID   = null;
     w.Selected     = false;
-    localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
     if(typeof CloudDB !== 'undefined' && CloudDB.ready){
         CloudDB.saveRow('Workers', w).catch(function(){});
     }
