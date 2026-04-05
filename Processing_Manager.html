@@ -141,7 +141,6 @@
             <button class="otab-btn" data-otab="unfit" onclick="switchOutcomeTab('unfit')">🚫 10.Unfit <span class="otab-count" id="ocount-unfit">0</span></button>
             <button class="otab-btn" data-otab="runaway" onclick="switchOutcomeTab('runaway')">🏃 11.RunAway <span class="otab-count" id="ocount-runaway">0</span></button>
             <button class="otab-btn" data-otab="senthome" onclick="switchOutcomeTab('senthome')">🛫 12.SendHome <span class="otab-count" id="ocount-senthome">0</span></button>
-            <button class="otab-btn" data-otab="archived" onclick="switchOutcomeTab('archived')">🗄️ 13.Archived <span class="otab-count" id="ocount-archived">0</span></button>
             <button class="otab-btn" data-otab="selected" onclick="switchOutcomeTab('selected')">✅ All Selected <span class="otab-count" id="ocount-selected">0</span></button>
             <button class="otab-btn" disabled style="opacity:0.4;cursor:not-allowed;">📅 Arrival Dates</button>
         </div>
@@ -460,6 +459,7 @@
         }
 
         function renderTab() {
+            var _savedOpenKey = _openEmpKey;
             var search = (document.getElementById('searchBox').value || '').toLowerCase();
             var stage = STAGES[currentTab] || STAGES['processing'];
             var workers = search ? getProcessingWorkers() : getWorkersByStage(currentTab);
@@ -956,6 +956,13 @@
                 html += '</div></div>';
             });
             content.innerHTML = html;
+            if(_savedOpenKey) {
+                var body = document.querySelector('.workers-body[data-empkey="' + _savedOpenKey + '"]');
+                var chevron = document.getElementById('chev-' + _savedOpenKey);
+                if(body) { body.style.display = 'block'; }
+                if(chevron) { chevron.style.transform = 'rotate(180deg)'; }
+                _openEmpKey = _savedOpenKey;
+            }
         }
         
         async function moveToStage(workerId, newStage) {
@@ -1453,12 +1460,19 @@
 
                 // ── Auto stage mapping ────────────────────────────────────
                 var stageMap = {
-                    'selected':      { stage: 'processing',      remove: [] },
-                    'preapproval':   { stage: 'preapproval',     remove: ['selected'] },
-                    'immigration':   { stage: 'preapproval',     remove: ['selected'] },
-                    'waitingvisa':   { stage: 'waiting_visa',    remove: ['selected', 'preapproval', 'immigration'] },
-                    'waitingticket': { stage: 'waiting_ticket',  remove: ['selected', 'preapproval', 'immigration', 'waitingvisa'] },
-                    'arrived':       { stage: 'waiting_ticket',  remove: ['selected', 'preapproval', 'immigration', 'waitingvisa', 'waitingticket'] }
+                   'selected':      { stage: 'processing',      remove: [] },
+                   'preapproval':   { stage: 'preapproval',     remove: ['selected'] },
+                   'immigration':   { stage: 'preapproval',     remove: ['selected'] },
+                   'waitingvisa':   { stage: 'waiting_visa',    remove: ['selected', 'preapproval', 'immigration'] },
+                   'waitingticket': { stage: 'waiting_ticket',  remove: ['selected', 'preapproval', 'immigration', 'waitingvisa'] },
+                   'arrived':       { stage: 'arrived',         remove: ['selected', 'preapproval', 'immigration', 'waitingvisa', 'waitingticket'] },
+                   'cancelled':     { stage: 'cancelled',       remove: [] },
+                   'local':         { stage: 'local',           remove: [] },
+                   'moved':         { stage: 'moved',           remove: [] },
+                   'unfit':         { stage: 'unfit',           remove: [] },
+                   'runaway':       { stage: 'runaway',         remove: [] },
+                   'senthome':      { stage: 'senthome',        remove: [] },
+                   'archived':      { stage: 'archived',        remove: [] }
                 };
                 if (stageMap[outcome]) {
                     w.ProcessingStage = stageMap[outcome].stage;
@@ -1542,12 +1556,44 @@
         async function markArrived(workerId) {
             var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
             if (!w) { alert('❌ Worker not found!'); return; }
-            if (!confirm('✈️ Mark as Arrived?\n\nWorker: ' + (w.WFullName || w.WorkerFirstName))) return;
-            w.Processing = false; w.ProcessingStage = ''; w.Arrived = true;
-            _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
-            if (cloudReady) { try { await CloudDB.saveRow('Workers', w); } catch(e) {} }
-            alert('✅ Arrived!\n\n✈️ ' + (w.WFullName || w.WorkerFirstName));
-            updateCounts(); renderTab();
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+            modal.innerHTML =
+                '<div style="background:white;border-radius:14px;padding:30px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
+                '<h3 style="color:#28a745;margin-bottom:20px;font-size:20px;">✈️ Mark as Arrived</h3>' +
+                '<div style="background:#f0fff4;padding:12px;border-radius:8px;margin-bottom:15px;font-size:13px;color:#155724;"><strong>Worker:</strong> ' + (w.WFullName || w.WorkerFirstName) + '</div>' +
+                '<div style="margin-bottom:14px;"><label style="font-weight:700;font-size:13px;color:#333;display:block;margin-bottom:5px;">📅 Arrival Date *</label>' +
+                '<input type="date" id="arrivalDateInput" style="width:100%;padding:10px;border:2px solid #28a745;border-radius:7px;font-size:14px;" value="' + new Date().toISOString().split('T')[0] + '"></div>' +
+                '<div style="margin-bottom:14px;"><label style="font-weight:700;font-size:13px;color:#333;display:block;margin-bottom:5px;">🎫 Ticket Number</label>' +
+                '<input type="text" id="ticketNumberInput" placeholder="Enter ticket number..." style="width:100%;padding:10px;border:2px solid #e9ecef;border-radius:7px;font-size:14px;"></div>' +
+                '<div style="margin-bottom:20px;"><label style="font-weight:700;font-size:13px;color:#333;display:block;margin-bottom:5px;">📝 Notes</label>' +
+                '<input type="text" id="arrivalNotesInput" placeholder="Optional notes..." style="width:100%;padding:10px;border:2px solid #e9ecef;border-radius:7px;font-size:14px;"></div>' +
+                '<div style="display:flex;gap:10px;">' +
+                '<button id="confirmArrivedBtn" style="flex:1;padding:12px;background:#28a745;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">✈️ Confirm Arrived</button>' +
+                '<button id="cancelArrivedBtn" style="flex:1;padding:12px;background:#6c757d;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">Cancel</button>' +
+                '</div></div>';
+
+            document.body.appendChild(modal);
+            document.getElementById('cancelArrivedBtn').onclick = function(){ document.body.removeChild(modal); };
+            document.getElementById('confirmArrivedBtn').onclick = async function(){
+                var arrivalDate = document.getElementById('arrivalDateInput').value;
+                var ticketNumber = document.getElementById('ticketNumberInput').value.trim();
+                var notes = document.getElementById('arrivalNotesInput').value.trim();
+                if(!arrivalDate){ alert('❌ Arrival date is required!'); return; }
+                w.Processing = false; w.ProcessingStage = ''; w.Arrived = true;
+                w.ArrivalDate = arrivalDate;
+                if(ticketNumber) w.TicketNumber = ticketNumber;
+                if(notes) w.ArrivalNotes = notes;
+                var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+                if(outs.indexOf('arrived') === -1) outs.unshift('arrived');
+                w.WorkerOutcomes = JSON.stringify(outs);
+                _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
+                if(cloudReady){ try { await CloudDB.saveRow('Workers', w); } catch(e){} }
+                document.body.removeChild(modal);
+                alert('✅ Arrived!\n\n✈️ ' + (w.WFullName || w.WorkerFirstName) + '\n📅 ' + arrivalDate + (ticketNumber ? '\n🎫 ' + ticketNumber : ''));
+                updateCounts(); renderTab();
+            };
         }
         
         async function removeFromProcessing(workerId) {
@@ -3258,8 +3304,7 @@
         { id: 'moved',      num: '4',  icon: '🔀', label: 'Moved',     color: '#7c3aed' },
         { id: 'unfit',      num: '5',  icon: '🚫', label: 'Unfit',     color: '#e65100' },
         { id: 'runaway',    num: '6',  icon: '🏃', label: 'RunAway',   color: '#b71c1c' },
-        { id: 'senthome',   num: '7',  icon: '🛫', label: 'SendHome',  color: '#4a148c' },
-        { id: 'archived',   num: '8',  icon: '🗄️', label: 'Archived',  color: '#475569' }
+        { id: 'senthome',   num: '7',  icon: '🛫', label: 'SendHome',  color: '#4a148c' }
     ];
 
     var oldBar = document.querySelector('.tabs-bar-outcome');
