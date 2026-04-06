@@ -1671,6 +1671,7 @@ async function sendWorkerToProcess(workerCode, workerId, employerId) {
     if (container) loadWorkersForEmployer(employerId, container);
     renderEmployersTable();
     updateSelectedTempCount();
+    renderSelectedTemp();
 }
 
 async function unlinkWorker(workerCode, employerId) {
@@ -3219,6 +3220,7 @@ window.cancelOneWorker = async function(workerCode, workerId){
             // Update in-memory worker so sync doesn't overwrite
             var idx = allWorkers.findIndex(function(wk){ return wk.WorkerID === workerId; });
             if(idx >= 0) allWorkers[idx] = w;
+            google.script.run.clearWorkerField(workerId, 'WorkerOutcomes');
             console.log('☁️ Worker unlinked:', workerCode);
             alert('✅ Selection cancelled for '+name+'.');
             renderSelectedTemp();
