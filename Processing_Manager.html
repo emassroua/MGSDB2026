@@ -255,7 +255,7 @@
                         allEmployers = result.employers;
                         if (result.agencies) allAgencies = result.agencies;
                         updateCounts();
-                        renderTab();
+                        if(!_openEmpKey) renderTab();
                         var el = document.getElementById('cloudStatus');
                         if (el) {
                             var t = new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -272,75 +272,78 @@
         // ── End Auto-sync ────────────────────────────────────────
 
         async function init() {
+            // Show cached data immediately
             var s1 = _ls.get('mgsdb_workers');
             var s2 = _ls.get('mgsdb_employers');
-            var s3 = _ls.get('mgsdb_local_agencies');
             if (s1) try { allWorkers = JSON.parse(s1); } catch(e) {}
             if (s2) try { allEmployers = JSON.parse(s2); } catch(e) {}
-            if (s3) try { allAgencies = JSON.parse(s3); } catch(e) {}
-            
-            // Show local data immediately while cloud loads
             updateCounts();
             renderTab();
             document.getElementById('loadingOverlay').style.display = 'none';
-            
-            // Then try cloud with 15s timeout
-            try {
-                var timeout = new Promise(function(_, reject) { setTimeout(function() { reject(new Error('timeout')); }, 15000); });
-                var c = await Promise.race([CloudDB.loadAll(), timeout]);
-                if (c.workers && c.workers.length > 0) {
-                    // Preserve local Processing data that cloud may not have yet
-                    var localMap = {};
-                    allWorkers.forEach(function(w) {
-                        if ((w.Processing === true || w.Processing === 'true') || (w.Locked === true || w.Locked === 'true')) {
-                            localMap[w.WorkerID] = { Processing: w.Processing, ProcessingStage: w.ProcessingStage || 'processing', Locked: w.Locked, LockedDate: w.LockedDate, InvoiceNumber: w.InvoiceNumber, InvoiceDate: w.InvoiceDate, InvoiceAmount: w.InvoiceAmount, InvoiceNotes: w.InvoiceNotes };
-                        }
-                    });
-                    c.workers.forEach(function(w) {
-                        var local = localMap[w.WorkerID];
-                        if (local) {
-                            if (!(w.Processing === true || w.Processing === 'true') && (local.Processing === true || local.Processing === 'true')) {
-                                w.Processing = true;
-                                w.ProcessingStage = local.ProcessingStage;
-                            }
-                            if (!(w.Locked === true || w.Locked === 'true') && (local.Locked === true || local.Locked === 'true')) {
-                                w.Locked = true;
-                                w.LockedDate = local.LockedDate;
-                                w.InvoiceNumber = local.InvoiceNumber;
-                                w.InvoiceDate = local.InvoiceDate;
-                                w.InvoiceAmount = local.InvoiceAmount;
-                                w.InvoiceNotes = local.InvoiceNotes;
-                            }
-                            CloudDB.saveRow('Workers', w).catch(function(){});
-                        }
-                    });
-                    allWorkers = c.workers;
-                    _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
-                }
-                if (c.employers && c.employers.length > 0) { allEmployers = c.employers; _ls.set('mgsdb_employers', JSON.stringify(allEmployers)); }
-                if (c.agencies && c.agencies.length > 0) { allAgencies = c.agencies; }
-                if (c.suppliers && c.suppliers.length > 0) { allSuppliers = c.suppliers; }
-                if (c.fees && c.fees.length > 0) { allFees = c.fees; }
 
-                // Load background data silently after page is visible
-                CloudDB.loadBackground().then(function(b) {
-                     if (b.agencies && b.agencies.length > 0) { allAgencies = b.agencies; }
-                     if (b.suppliers && b.suppliers.length > 0) { allSuppliers = b.suppliers; }
-                     if (b.fees && b.fees.length > 0) { allFees = b.fees; }
-                     updateCounts(); renderTab();
-               }).catch(function(){});
-                cloudReady = true;
-                document.getElementById('cloudStatus').textContent = '☁️ Cloud';
-                document.getElementById('cloudStatus').style.background = '#d4edda';
-                document.getElementById('cloudStatus').style.color = '#155724';
-                updateCounts();
-                renderTab();
-            } catch(e) {
-                console.warn('Cloud load failed:', e);
-                document.getElementById('cloudStatus').textContent = '📦 Offline';
-                document.getElementById('cloudStatus').style.background = '#fff3cd';
-                document.getElementById('cloudStatus').style.color = '#856404';
+            // Load fresh data via google.script.run (fast)
+            var done = 0;
+            var total = 3;
+            function check() {
+                done++;
+                if(done === total) {
+                    cloudReady = true;
+                    updateCounts();
+                    if(!_openEmpKey) renderTab();
+                    document.getElementById('cloudStatus').textContent = '☁️ Cloud';
+                    document.getElementById('cloudStatus').style.background = '#d4edda';
+                    document.getElementById('cloudStatus').style.color = '#155724';
+                    startAutoSync();
+                }
             }
+
+            google.script.run
+                .withSuccessHandler(function(data){
+                    var fresh = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+                    if(fresh.length > 0) {
+                        // Preserve local Processing/Locked flags
+                        var localMap = {};
+                        allWorkers.forEach(function(w) {
+                            if(w.Processing===true||w.Processing==='true'||w.Locked===true||w.Locked==='true') {
+                                localMap[w.WorkerID] = w;
+                            }
+                        });
+                        fresh.forEach(function(w) {
+                            var lw = localMap[w.WorkerID];
+                            if(lw) {
+                                if(!(w.Processing===true||w.Processing==='true') && (lw.Processing===true||lw.Processing==='true')) {
+                                    w.Processing = true; w.ProcessingStage = lw.ProcessingStage;
+                                }
+                                if(!(w.Locked===true||w.Locked==='true') && (lw.Locked===true||lw.Locked==='true')) {
+                                    w.Locked = true; w.LockedDate = lw.LockedDate;
+                                }
+                            }
+                        });
+                        allWorkers = fresh;
+                        _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
+                    }
+                    check();
+                })
+                .withFailureHandler(function(){ check(); })
+                .gsrGetAll('Workers');
+
+            google.script.run
+                .withSuccessHandler(function(data){
+                    var fresh = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+                    if(fresh.length > 0) { allEmployers = fresh; _ls.set('mgsdb_employers', JSON.stringify(allEmployers)); }
+                    check();
+                })
+                .withFailureHandler(function(){ check(); })
+                .gsrGetAll('Employers');
+
+            google.script.run
+                .withSuccessHandler(function(data){
+                    var fresh = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+                    if(fresh.length > 0) allAgencies = fresh;
+                    check();
+                })
+                .withFailureHandler(function(){ check(); })
+                .gsrGetAll('Local_Agencies');
         }
         
         function updateCounts() {
@@ -523,7 +526,7 @@
                 var isOpen = (_openEmpKey === empKey);
                 html += '<div class="employer-card">';
                 html += '<div class="employer-header" style="background:' + bannerBg + ';" onclick="toggleEmployerCard(\'' + safeKey + '\')">';
-                html += '<h3>💼 ' + empName + ' <span style="font-size:12px;font-weight:500;opacity:0.8">(' + ew.length + ' worker' + (ew.length !== 1 ? 's' : '') + ')</span>' + (agName ? ' <span style="font-size:12px;opacity:0.8">(🏛️ ' + agName + ')</span>' : '') + movedFromNames + '</h3>';
+                html += '<h3>💼 ' + empName + ' <span style="font-size:12px;font-weight:500;opacity:0.8">(' + empCode + ')</span> <span style="font-size:12px;font-weight:500;opacity:0.8">(' + ew.length + ' worker' + (ew.length !== 1 ? 's' : '') + ')</span>' + (agName ? ' <span style="font-size:12px;opacity:0.8">(🏛️ ' + agName + ')</span>' : '') + movedFromNames + '</h3>';
                 html += '<div style="display:flex;align-items:center;gap:8px;">';
                 html += '<button onclick="event.stopPropagation();generateEmployerReport(\'' + empCode.replace(/'/g,"\\'") + '\')" style="padding:5px 12px;background:rgba(255,255,255,0.25);border:1.5px solid rgba(255,255,255,0.6);color:white;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">📊 Report</button>';
                 html += '<span id="chev-' + empKey + '" style="font-size:20px;font-weight:900;transition:transform 0.25s;display:inline-block;transform:' + (isOpen ? 'rotate(180deg)' : 'rotate(0deg)') + '">⌄</span>';
@@ -3511,43 +3514,14 @@ CloudDB.saveRow = function(sheetName, rowData){
 /* ── Re-run init now that CloudDB is fixed ──────────────── */
 document.getElementById('loadingOverlay').style.display = 'flex';
 
-CloudDB.loadAll().then(function(c){
-    if(c.workers && c.workers.length > 0){
-        // Preserve any Processing flags from prior local state
-        allWorkers   = c.workers;
-    }
-    if(c.employers && c.employers.length > 0) allEmployers = c.employers;
-    if(c.agencies  && c.agencies.length  > 0) allAgencies  = c.agencies;
-    if(c.suppliers && c.suppliers.length > 0) allSuppliers = c.suppliers;
-    if(c.fees      && c.fees.length      > 0) allFees      = c.fees;
-
-    cloudReady = true;
-    startAutoSync();
-
-    var procCount = allWorkers.filter(function(w){
-        return w.Processing===true||w.Processing==='true'||w.Processing==='TRUE';
-    }).length;
-
-    console.log('✅ Cloud fix: workers loaded:', allWorkers.length);
-    console.log('   Processing workers:', procCount);
-
-    var cs = document.getElementById('cloudStatus');
-    if(cs){
-        cs.textContent = '☁️ Cloud — ' + allWorkers.length + ' workers';
-        cs.style.background = '#d4edda';
-        cs.style.color = '#155724';
-    }
-
-    updateCounts();
-    renderTab();
-    document.getElementById('loadingOverlay').style.display = 'none';
-
-}).catch(function(e){
-    console.error('Cloud fix load failed:', e);
-    document.getElementById('loadingOverlay').style.display = 'none';
-    var cs = document.getElementById('cloudStatus');
-    if(cs){ cs.textContent = '❌ Load failed'; cs.style.background='#f8d7da'; cs.style.color='#721c24'; }
-});
+// Data already loaded by init() — just start auto-sync and update UI
+cloudReady = true;
+startAutoSync();
+updateCounts();
+if(!_openEmpKey) renderTab();
+document.getElementById('loadingOverlay').style.display = 'none';
+console.log('✅ Cloud fix applied');
+console.log('   Processing workers:', allWorkers.filter(function(w){ return w.Processing===true||w.Processing==='true'; }).length);
 
 console.log('✅ Processing Manager cloud fix applied');
 // ── Silent background sync every 30 seconds ──────────────
@@ -3563,7 +3537,12 @@ function silentSync() {
                     else allWorkers.push(fw);
                 });
                 updateCounts();
-                renderTab();
+                if(!_openEmpKey) {
+                    renderTab();
+                } else {
+                    // Card is open — just update counts, don't rebuild HTML
+                    console.log('🔄 Silent sync — skipping renderTab (card open)');
+                }
                 console.log('🔄 Silent sync complete:', fresh.length, 'workers');
             }
         })
@@ -3571,9 +3550,9 @@ function silentSync() {
         .gsrGetAll('Workers');
 }
 
-// Start auto-sync every 30 seconds
-setInterval(silentSync, 30000);
-console.log('🔄 Auto-sync started — every 5 seconds');
+// startAutoSync() handles syncing — silentSync disabled to avoid duplicate
+// setInterval(silentSync, 30000);
+console.log('🔄 Auto-sync via startAutoSync only');
 
 window.createSupplierVoucher = async function(worker, invNumber, empName, workerName) {
     var supplier = allSuppliers.find(function(s) {
