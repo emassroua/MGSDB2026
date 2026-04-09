@@ -913,8 +913,10 @@
         <!-- Form Panel -->
         <div class="form-panel">
             <div class="form-header">
-                <h1>👤 Worker Management</h1>
-                <p>Add, Edit, Delete - All changes save automatically!</p>
+                 <div>
+                     <h1>👤 Worker Management</h1>
+                     <p>Add, Edit, Delete - All changes save automatically!</p>
+                 </div>
             </div>
             
             <div class="form-toolbar">
@@ -1672,10 +1674,16 @@
             },
             
             // Load all data from a sheet
-            async loadSheet(sheetName) {
-                var result = await this.get({ action: 'getAll', sheet: sheetName });
-                if (result && result.success) return result.data;
-                return null;
+            loadSheet(sheetName) {
+                return new Promise(function(resolve) {
+                    google.script.run
+                        .withSuccessHandler(function(data){
+                            var d = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+                            resolve(d.length > 0 ? d : null);
+                        })
+                        .withFailureHandler(function(){ resolve(null); })
+                        .gsrGetAll(sheetName);
+                });
             },
             
             // Save a single row to a sheet
@@ -2051,7 +2059,7 @@
             var cloudBadge = document.getElementById('cloudStatus');
             if (cloudBadge) {
                 if (CloudDB.ready) {
-                    cloudBadge.textContent = '\u2601\uFE0F Cloud';
+                    cloudBadge.textContent = '\u2601\uFE0F Cloud ' + new Date().toLocaleTimeString();
                     cloudBadge.style.background = '#d4edda';
                     cloudBadge.style.color = '#155724';
                 } else {
@@ -3645,8 +3653,14 @@
             try {
                 var cloudNext = await CloudDB.getNextID('Workers');
                 if (cloudNext && cloudNext > 0) {
-                    nextId = cloudNext;
-                    console.log('\u2601\uFE0F Next Worker ID from cloud:', nextId);
+                    // Take the MAX of cloud and local to never go backwards
+                    var localMax = 0;
+                    for (var ci = 0; ci < workers.length; ci++) {
+                        var cid = parseInt(workers[ci].WorkerID) || 0;
+                        if (cid > localMax) localMax = cid;
+                    }
+                    nextId = Math.max(cloudNext, localMax + 1);
+                    console.log('☁️ Next Worker ID — cloud:', cloudNext, 'local max:', localMax, 'using:', nextId);
                 } else {
                     throw new Error('No cloud response');
                 }
@@ -6066,7 +6080,7 @@ if (cloudData.suppliers && cloudData.suppliers.length > 0) {
             // Update cloud status badge
             var cloudBadge = document.getElementById('cloudStatus');
             if (cloudBadge) {
-                cloudBadge.textContent = '☁️ Cloud';
+                cloudBadge.textContent = '☁️ Cloud ' + new Date().toLocaleTimeString();
                 cloudBadge.style.background = '#d4edda';
                 cloudBadge.style.color = '#155724';
             }
@@ -8064,6 +8078,7 @@ var SC = {
     selected:      { label:'Selected',  icon:'☑️', color:'#004085', bg:'#cce5ff',  bd:'#4facfe' },
     preapproval:   { label:'Pre-Appr',  icon:'📋', color:'#4a1942', bg:'#f3e8ff',  bd:'#9333ea' },
     waitingvisa:   { label:'W.Visa',    icon:'🛂', color:'#1e3a5f', bg:'#dbeafe',  bd:'#3b82f6' },
+    readyvisa:     { label:'Ready Visa',icon:'🟢', color:'#14532d', bg:'#dcfce7',  bd:'#16a34a' },
     waitingticket: { label:'W.Ticket',  icon:'🎫', color:'#1a3a2a', bg:'#d1fae5',  bd:'#10b981' },
     arrived:       { label:'Arrived',   icon:'✈️', color:'#0c5460', bg:'#d1ecf1',  bd:'#17a2b8' },
     local:         { label:'Local',     icon:'🏠', color:'#3d4a2e', bg:'#ecfdf5',  bd:'#22c55e' },
@@ -8075,7 +8090,7 @@ var SC = {
     archived:      { label:'Archived',  icon:'🗄️', color:'#92400e', bg:'#fef3c7',  bd:'#f59e0b' },
 };
 var ORDER = ['all','pending','accepted','refused','selected','preapproval',
-    'waitingvisa','waitingticket','arrived','local','moved','cancelled',
+    'waitingvisa','readyvisa','waitingticket','arrived','local','moved','cancelled',
     'unfit','runaway','senthome','archived'];
 
 /* ════════════════════════════════════════════════════
@@ -8114,30 +8129,38 @@ function workerStatus(w){
     };
     if(wfs && wfsMap[wfs]) return wfsMap[wfs];
 
-   // WorkerOutcomes array (pipeline steps) — terminal states always show
+   // WorkerOutcomes array — terminal states always show first
     if(_hasO(w,'senthome'))      return 'senthome';
     if(_hasO(w,'runaway'))       return 'runaway';
     if(_hasO(w,'unfit'))         return 'unfit';
     if(_hasO(w,'arrived'))       return 'arrived';
     if(_hasO(w,'cancelled'))     return 'cancelled';
 
-    // For pipeline steps — if worker is Accepted, show as Accepted in Workers Manager
-    // Pipeline tracking is handled by Processing Manager
-    if(_T(w.AcceptedByAdmin)) return 'accepted';
+    // Check ProcessingStage field directly
+    var ps = String(w.ProcessingStage || '').toLowerCase().trim();
+    if(ps === 'preapproval')                             return 'preapproval';
+    if(ps === 'waitingvisa'   || ps === 'waiting_visa')  return 'waitingvisa';
+    if(ps === 'readyvisa'     || ps === 'ready_visa')    return 'readyvisa';
+    if(ps === 'waitingticket' || ps === 'waiting_ticket') return 'waitingticket';
+    if(ps === 'arrived')                                 return 'arrived';
+    if(ps === 'local')                                   return 'local';
+    if(ps === 'selected' && w.EmployerCode)              return 'selected';
 
+    // WorkerOutcomes progression
     if(_hasO(w,'moved'))         return 'moved';
     if(_hasO(w,'waitingticket')) return 'waitingticket';
+    if(_hasO(w,'readyvisa'))     return 'readyvisa';
     if(_hasO(w,'waitingvisa') || _hasO(w,'immigration')) return 'waitingvisa';
     if(_hasO(w,'preapproval'))   return 'preapproval';
-    if(_hasO(w,'selected') || _hasO(w,'available')) return 'selected';
+    if((_hasO(w,'selected') || _hasO(w,'available')) && w.EmployerCode) return 'selected';
 
     // Direct boolean fields
-    if(_T(w.AcceptedByAdmin))    return 'accepted';
-    if(_T(w.RefusedByAdmin))     return 'refused';
-    if(_T(w.Arrived))            return 'arrived';
-    if(_T(w.Local))              return 'local';
-    if(_T(w.Cancelled))          return 'cancelled';
-    if(_T(w.Selected))           return 'selected';
+    if(_T(w.AcceptedByAdmin)) return 'accepted';
+    if(_T(w.RefusedByAdmin))  return 'refused';
+    if(_T(w.Arrived))         return 'arrived';
+    if(_T(w.Local))           return 'local';
+    if(_T(w.Cancelled))       return 'cancelled';
+    if(_T(w.Selected) && w.EmployerCode) return 'selected';
 
     return 'pending';
 }
@@ -8162,7 +8185,7 @@ function supplierMatch(w, supplierId){
 /* ════════════════════════════════════════════════════
    4. ACTIVE FILTER STATE
 ════════════════════════════════════════════════════ */
-window._wmSF = window._wmSF || 'all'; // status filter key
+window._wmSF = window._wmSF || 'accepted'; // status filter key
 
 /* ════════════════════════════════════════════════════
    5. INJECT TAB BAR (once, below search)
@@ -8363,6 +8386,184 @@ setTimeout(function(){
     }, 400);
 })();
 </script>
+<script>
+setTimeout(function(){
+    var sb = document.querySelector('.status-bar');
+    var header = document.querySelector('.form-header');
+    if(!sb || !header) return;
+    sb.style.cssText = 'padding:8px 15px;background:rgba(255,255,255,0.15);border-top:none;border-radius:8px;margin-left:auto;display:flex;gap:10px;align-items:center;';
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'flex-start';
+    header.appendChild(sb);
+    console.log('✅ Status bar moved to header');
+}, 600);
+</script>
+<script>
+(function(){
+'use strict';
 
+<script>
+(function(){
+'use strict';
+
+/* ── Admin password check ───────────────────────────── */
+function checkAdminPass() {
+    var pass = prompt('🔒 Admin Password Required:');
+    if(!pass) return false;
+    if(pass !== 'masr3434') { alert('❌ Wrong password!'); return false; }
+    return true;
+}
+
+/* ── SET LOCAL ──────────────────────────────────────── */
+window.setWorkerLocal = function(workerId) {
+    var w = workers.find(function(wk){ return String(wk.WorkerID) === String(workerId); });
+    if(!w){ alert('❌ Worker not found!'); return; }
+    if(!checkAdminPass()) return;
+    if(!confirm('🏠 Set worker "' + (w.WFullName||w.WorkerFirstName||'Worker') + '" as LOCAL?\n\nThis means the worker will stay in Lebanon and work locally.')) return;
+    WorkerStageManager.setLocal(w).then(function(r){
+        if(r && r.success){
+            var idx = workers.findIndex(function(wk){ return String(wk.WorkerID)===String(workerId); });
+            if(idx >= 0) workers[idx] = w;
+            alert('✅ Worker set as Local successfully!');
+            if(typeof renderWorkerList === 'function') renderWorkerList();
+        } else { alert('⚠️ Save failed. Please try again.'); }
+    });
+};
+
+/* ── SET UNFIT ──────────────────────────────────────── */
+window.setWorkerUnfit = function(workerId) {
+    var w = workers.find(function(wk){ return String(wk.WorkerID) === String(workerId); });
+    if(!w){ alert('❌ Worker not found!'); return; }
+    if(!checkAdminPass()) return;
+    var reason = prompt('🚫 Unfit Reason:\n\nEnter reason for marking as unfit:');
+    if(!reason) return;
+    w.UnfitReason = reason;
+    WorkerStageManager.unfit(w).then(function(r){
+        if(r && r.success){
+            var idx = workers.findIndex(function(wk){ return String(wk.WorkerID)===String(workerId); });
+            if(idx >= 0) workers[idx] = w;
+            alert('✅ Worker marked as Unfit.');
+            if(typeof renderWorkerList === 'function') renderWorkerList();
+        } else { alert('⚠️ Save failed. Please try again.'); }
+    });
+};
+
+/* ── SET RUNAWAY ────────────────────────────────────── */
+window.setWorkerRunaway = function(workerId) {
+    var w = workers.find(function(wk){ return String(wk.WorkerID) === String(workerId); });
+    if(!w){ alert('❌ Worker not found!'); return; }
+    if(!checkAdminPass()) return;
+    if(!confirm('🏃 Mark worker "' + (w.WFullName||w.WorkerFirstName||'Worker') + '" as RunAway?')) return;
+    WorkerStageManager.runaway(w).then(function(r){
+        if(r && r.success){
+            var idx = workers.findIndex(function(wk){ return String(wk.WorkerID)===String(workerId); });
+            if(idx >= 0) workers[idx] = w;
+            alert('✅ Worker marked as RunAway.');
+            if(typeof renderWorkerList === 'function') renderWorkerList();
+        } else { alert('⚠️ Save failed. Please try again.'); }
+    });
+};
+
+/* ── SEND HOME ──────────────────────────────────────── */
+window.setWorkerSentHome = function(workerId) {
+    var w = workers.find(function(wk){ return String(wk.WorkerID) === String(workerId); });
+    if(!w){ alert('❌ Worker not found!'); return; }
+    if(!checkAdminPass()) return;
+    if(!confirm('🛫 Send worker "' + (w.WFullName||w.WorkerFirstName||'Worker') + '" back home?')) return;
+    WorkerStageManager.sendHome(w).then(function(r){
+        if(r && r.success){
+            var idx = workers.findIndex(function(wk){ return String(wk.WorkerID)===String(workerId); });
+            if(idx >= 0) workers[idx] = w;
+            alert('✅ Worker marked as Sent Home.');
+            if(typeof renderWorkerList === 'function') renderWorkerList();
+        } else { alert('⚠️ Save failed. Please try again.'); }
+    });
+};
+
+/* ── Inject transition buttons when worker is selected ── */
+var _origSelectWorker = window.selectWorker;
+window.selectWorker = function(w) {
+    if(typeof _origSelectWorker === 'function') _origSelectWorker(w);
+    setTimeout(function(){
+        // Remove existing stage buttons
+        ['setLocalBtn','setUnfitBtn','setRunawayBtn','setSentHomeBtn'].forEach(function(id){
+            var el = document.getElementById(id);
+            if(el) el.remove();
+        });
+
+        if(!w || !window.WorkerStageManager) return;
+        var allowed = WorkerStageManager.getAllowedTransitions(w);
+        if(!allowed || !allowed.length) return;
+
+        var toolbar = document.querySelector('.form-toolbar');
+        if(!toolbar) return;
+
+        // Set Local button
+        if(allowed.indexOf('local') !== -1){
+            var btn = document.createElement('button');
+            btn.id = 'setLocalBtn';
+            btn.innerHTML = '🏠 Set Local';
+            btn.style.cssText = 'padding:12px 24px;background:linear-gradient(135deg,#22c55e,#16a34a);color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(34,197,94,0.4);';
+            btn.onclick = function(){ setWorkerLocal(w.WorkerID); };
+            toolbar.appendChild(btn);
+        }
+
+        // Unfit button
+        if(allowed.indexOf('unfit') !== -1){
+            var btn2 = document.createElement('button');
+            btn2.id = 'setUnfitBtn';
+            btn2.innerHTML = '🚫 Unfit';
+            btn2.style.cssText = 'padding:12px 24px;background:linear-gradient(135deg,#f97316,#ea580c);color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;';
+            btn2.onclick = function(){ setWorkerUnfit(w.WorkerID); };
+            toolbar.appendChild(btn2);
+        }
+
+        // Runaway button
+        if(allowed.indexOf('runaway') !== -1){
+            var btn3 = document.createElement('button');
+            btn3.id = 'setRunawayBtn';
+            btn3.innerHTML = '🏃 RunAway';
+            btn3.style.cssText = 'padding:12px 24px;background:linear-gradient(135deg,#b91c1c,#991b1b);color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;';
+            btn3.onclick = function(){ setWorkerRunaway(w.WorkerID); };
+            toolbar.appendChild(btn3);
+        }
+
+        // Sent Home button
+        if(allowed.indexOf('senthome') !== -1){
+            var btn4 = document.createElement('button');
+            btn4.id = 'setSentHomeBtn';
+            btn4.innerHTML = '🛫 Send Home';
+            btn4.style.cssText = 'padding:12px 24px;background:linear-gradient(135deg,#475569,#334155);color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;';
+            btn4.onclick = function(){ setWorkerSentHome(w.WorkerID); };
+            toolbar.appendChild(btn4);
+        }
+
+    }, 300);
+};
+
+console.log('✅ Stage transition buttons patch loaded');
+})();
+</script>
+<script>
+(function(){
+    // Auto-refresh workers from cloud every 30 seconds
+    setInterval(function(){
+        if(typeof google === 'undefined' || !google.script) return;
+        google.script.run
+            .withSuccessHandler(function(data){
+                var fresh = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+                if(fresh.length > 0){
+                    workers = fresh;
+                    if(typeof renderWorkerList === 'function') renderWorkerList();
+                    console.log('🔄 Workers auto-refreshed:', fresh.length);
+                }
+            })
+            .withFailureHandler(function(e){ console.warn('Auto-refresh failed:', e); })
+            .gsrGetAll('Workers');
+    }, 30000);
+    console.log('✅ Workers auto-refresh started (every 30s)');
+})();
+</script>
 </body>
 </html>
