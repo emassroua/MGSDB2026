@@ -2764,7 +2764,8 @@ var WORKFLOW = [
     { id: 'selected',      num: '4',  icon: '☑️', label: 'Selected',   color: '#3b82f6', type: 'outcome' },
     { id: 'preapproval',   num: '5',  icon: '📋', label: 'Pre-Appr',   color: '#9c27b0', type: 'outcome' },
     { id: 'waitingvisa',   num: '6',  icon: '🛂', label: 'W.Visa',     color: '#2196f3', type: 'outcome' },
-    { id: 'waitingticket', num: '7',  icon: '🎫', label: 'W.Ticket',   color: '#00bcd4', type: 'outcome' },
+    { id: 'readyvisa',     num: '7',  icon: '🟢', label: 'Ready Visa', color: '#16a34a', type: 'outcome' },
+    { id: 'waitingticket', num: '8',  icon: '🎫', label: 'W.Ticket',   color: '#00bcd4', type: 'outcome' },
     { id: 'arrived',       num: '8',  icon: '✈️', label: 'Arrived',    color: '#16a34a', type: 'outcome' },
     { id: 'local',         num: '9',  icon: '🏠', label: 'Local',      color: '#6b7280', type: 'tag' },
     { id: 'moved',         num: '10', icon: '🔀', label: 'Moved',      color: '#7c3aed', type: 'tag' },
@@ -2849,6 +2850,7 @@ function getWorkerCategory(w){
     // Progression (immigration → waitingvisa since they are the same)
     if(outs.indexOf('arrived')>=0)        return 'arrived';
     if(outs.indexOf('waitingticket')>=0)  return 'waitingticket';
+    if(outs.indexOf('readyvisa')>=0)      return 'readyvisa';
     if(outs.indexOf('waitingvisa')>=0)    return 'waitingvisa';
     if(outs.indexOf('immigration')>=0)    return 'waitingvisa'; // immigration = waitingvisa
     if(outs.indexOf('preapproval')>=0)    return 'preapproval';
