@@ -57,6 +57,7 @@
         .tab-btn[data-tab="selected"].active { background: linear-gradient(135deg, #43a047, #1b5e20); }
         .tab-btn[data-tab="selected"] .tab-count { background: #e8f5e9; color: #1b5e20; }
         .tab-btn[data-tab="selected"].active .tab-count { background: rgba(255,255,255,0.3); color: white; }
+        .tab-btn[data-tab="waiting_ticket"].active { background: linear-gradient(135deg, #00bcd4, #00838f); }
         .tab-btn[data-tab="waiting_ticket"] .tab-count { background: #e0f7fa; color: #00838f; }
         .tab-btn[data-tab="waiting_ticket"].active .tab-count { background: rgba(255,255,255,0.3); color: white; }
         .employer-card { background: white; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); overflow: hidden; }
@@ -122,27 +123,18 @@
             <button class="tab-btn" data-tab="waiting_visa" onclick="switchTab('waiting_visa')">⏳ Waiting Visa <span class="tab-count" id="count-waiting_visa">0</span></button>
             <button class="tab-btn" data-tab="ready_visa" onclick="switchTab('ready_visa')">✅ Ready Visa <span class="tab-count" id="count-ready_visa">0</span></button>
             <button class="tab-btn" data-tab="waiting_ticket" onclick="switchTab('waiting_ticket')">🎫 Waiting Ticket <span class="tab-count" id="count-waiting_ticket">0</span></button>
-            <button class="tab-btn" disabled style="opacity:0.4;cursor:not-allowed;">📅 Arrival Dates</button>
+            <button class="tab-btn" data-tab="arrived" onclick="switchTab('arrived')">✈️ Arrived <span class="tab-count" id="count-arrived">0</span></button>
             <button class="tab-btn" data-tab="selected" onclick="switchTab('selected')">✅ Selected <span class="tab-count" id="count-selected">0</span></button>
         </div>
         <!-- Outcome Status Tabs Row -->
         <div class="tabs-bar-outcome">
             <span class="otab-label">Filter:</span>
-            <button class="otab-btn active" data-otab="all" onclick="switchOutcomeTab('all')">📋 All <span class="otab-count" id="ocount-all">0</span></button>
-            <button class="otab-btn" data-otab="processing" onclick="switchOutcomeTab('processing')">🔄 1.Processing <span class="otab-count" id="ocount-processing">0</span></button>
-            <button class="otab-btn" data-otab="preapproval" onclick="switchOutcomeTab('preapproval')">📋 2.Pre-Appr <span class="otab-count" id="ocount-preapproval">0</span></button>
-            <button class="otab-btn" data-otab="immigration" onclick="switchOutcomeTab('immigration')">🛂 3.Immigration <span class="otab-count" id="ocount-immigration">0</span></button>
-            <button class="otab-btn" data-otab="waitingvisa" onclick="switchOutcomeTab('waitingvisa')">⏳ 4.W.Visa <span class="otab-count" id="ocount-waitingvisa">0</span></button>
-            <button class="otab-btn" data-otab="waitingticket" onclick="switchOutcomeTab('waitingticket')">🎫 5.W.Ticket <span class="otab-count" id="ocount-waitingticket">0</span></button>
-            <button class="otab-btn" data-otab="cancelled" onclick="switchOutcomeTab('cancelled')">❌ 6.Cancelled <span class="otab-count" id="ocount-cancelled">0</span></button>
-            <button class="otab-btn" data-otab="arrived" onclick="switchOutcomeTab('arrived')">✈️ 7.Arrived <span class="otab-count" id="ocount-arrived">0</span></button>
-            <button class="otab-btn" data-otab="local" onclick="switchOutcomeTab('local')">🏠 8.Local <span class="otab-count" id="ocount-local">0</span></button>
-            <button class="otab-btn" data-otab="moved" onclick="switchOutcomeTab('moved')">🔀 9.Moved <span class="otab-count" id="ocount-moved">0</span></button>
-            <button class="otab-btn" data-otab="unfit" onclick="switchOutcomeTab('unfit')">🚫 10.Unfit <span class="otab-count" id="ocount-unfit">0</span></button>
-            <button class="otab-btn" data-otab="runaway" onclick="switchOutcomeTab('runaway')">🏃 11.RunAway <span class="otab-count" id="ocount-runaway">0</span></button>
-            <button class="otab-btn" data-otab="senthome" onclick="switchOutcomeTab('senthome')">🛫 12.SendHome <span class="otab-count" id="ocount-senthome">0</span></button>
-            <button class="otab-btn" data-otab="selected" onclick="switchOutcomeTab('selected')">✅ All Selected <span class="otab-count" id="ocount-selected">0</span></button>
-            <button class="otab-btn" disabled style="opacity:0.4;cursor:not-allowed;">📅 Arrival Dates</button>
+            <button class="otab-btn" data-otab="cancelled" onclick="switchOutcomeTab('cancelled')">❌ Cancelled <span class="otab-count" id="ocount-cancelled">0</span></button>
+            <button class="otab-btn" data-otab="local" onclick="switchOutcomeTab('local')">🏠 Local <span class="otab-count" id="ocount-local">0</span></button>
+            <button class="otab-btn" data-otab="moved" onclick="switchOutcomeTab('moved')">🔀 Moved <span class="otab-count" id="ocount-moved">0</span></button>
+            <button class="otab-btn" data-otab="unfit" onclick="switchOutcomeTab('unfit')">🚫 Unfit <span class="otab-count" id="ocount-unfit">0</span></button>
+            <button class="otab-btn" data-otab="runaway" onclick="switchOutcomeTab('runaway')">🏃 RunAway <span class="otab-count" id="ocount-runaway">0</span></button>
+            <button class="otab-btn" data-otab="senthome" onclick="switchOutcomeTab('senthome')">🛫 SendHome <span class="otab-count" id="ocount-senthome">0</span></button>
         </div>
 
               <div id="tabContent"></div>
@@ -162,12 +154,14 @@
         var STAGES = {
             processing:     { label: 'Processing',     icon: '🔄', color: '#2196f3', gradient: 'linear-gradient(135deg, #2196f3, #1565c0)' },
             selected:       { label: 'Selected',       icon: '✅', color: '#43a047', gradient: 'linear-gradient(135deg, #43a047, #1b5e20)' },
-            preapproval:    { label: 'Preapproval',     icon: '📋', color: '#9c27b0', gradient: 'linear-gradient(135deg, #9c27b0, #7b1fa2)' },
-            waiting_visa:   { label: 'Waiting Visa',    icon: '⏳', color: '#2196f3', gradient: 'linear-gradient(135deg, #2196f3, #1565c0)' },
-            ready_visa:     { label: 'Ready Visas',     icon: '✅', color: '#4caf50', gradient: 'linear-gradient(135deg, #4caf50, #2e7d32)' },
-            waiting_ticket: { label: 'Waiting Ticket',  icon: '🎫', color: '#00bcd4', gradient: 'linear-gradient(135deg, #00bcd4, #00838f)' }
+            preapproval:    { label: 'Preapproval',    icon: '📋', color: '#9c27b0', gradient: 'linear-gradient(135deg, #9c27b0, #7b1fa2)' },
+            waiting_visa:   { label: 'Waiting Visa',   icon: '⏳', color: '#2196f3', gradient: 'linear-gradient(135deg, #2196f3, #1565c0)' },
+            ready_visa:     { label: 'Ready Visas',    icon: '✅', color: '#4caf50', gradient: 'linear-gradient(135deg, #4caf50, #2e7d32)' },
+            waiting_ticket: { label: 'Waiting Ticket', icon: '🎫', color: '#00bcd4', gradient: 'linear-gradient(135deg, #00bcd4, #00838f)' },
+            arrived:        { label: 'Arrived',        icon: '✈️', color: '#28a745', gradient: 'linear-gradient(135deg, #28a745, #1a6e2e)' }
         };
         var NEXT_STAGE = { processing: 'preapproval', preapproval: 'waiting_visa', waiting_visa: 'ready_visa', ready_visa: 'waiting_ticket', waiting_ticket: null };
+var ARRIVED_STAGES = ['arrived'];
         
         var CloudDB = {
             async get(p) { var u = SCRIPT_URL + '?' + new URLSearchParams(p).toString(); var r = await fetch(u); return await r.json(); },
@@ -567,7 +561,6 @@
                         { key:'waitingvisa',   icon:'⏳', label:'4. Waiting Visa' },
                         { key:'waitingticket', icon:'🎫', label:'5. Waiting Ticket' },
                         { key:'cancelled',   icon:'❌', label:'6. Cancelled' },
-                        { key:'arrived',     icon:'✈️', label:'7. Arrived' },
                         { key:'local',       icon:'🏠', label:'8. Local' },
                         { key:'moved',       icon:'🔀', label:'9. Moved to Other Employer' },
                         { key:'unfit',       icon:'🚫', label:'10. Unfit' },
@@ -1559,40 +1552,114 @@
 
             var modal = document.createElement('div');
             modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+            modal._entryFile = null;
             modal.innerHTML =
-                '<div style="background:white;border-radius:14px;padding:30px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
-                '<h3 style="color:#28a745;margin-bottom:20px;font-size:20px;">✈️ Mark as Arrived</h3>' +
-                '<div style="background:#f0fff4;padding:12px;border-radius:8px;margin-bottom:15px;font-size:13px;color:#155724;"><strong>Worker:</strong> ' + (w.WFullName || w.WorkerFirstName) + '</div>' +
-                '<div style="margin-bottom:14px;"><label style="font-weight:700;font-size:13px;color:#333;display:block;margin-bottom:5px;">📅 Arrival Date *</label>' +
-                '<input type="date" id="arrivalDateInput" style="width:100%;padding:10px;border:2px solid #28a745;border-radius:7px;font-size:14px;" value="' + new Date().toISOString().split('T')[0] + '"></div>' +
-                '<div style="margin-bottom:14px;"><label style="font-weight:700;font-size:13px;color:#333;display:block;margin-bottom:5px;">🎫 Ticket Number</label>' +
-                '<input type="text" id="ticketNumberInput" placeholder="Enter ticket number..." style="width:100%;padding:10px;border:2px solid #e9ecef;border-radius:7px;font-size:14px;"></div>' +
-                '<div style="margin-bottom:20px;"><label style="font-weight:700;font-size:13px;color:#333;display:block;margin-bottom:5px;">📝 Notes</label>' +
-                '<input type="text" id="arrivalNotesInput" placeholder="Optional notes..." style="width:100%;padding:10px;border:2px solid #e9ecef;border-radius:7px;font-size:14px;"></div>' +
+                '<div style="background:white;border-radius:14px;width:500px;max-width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
+                '<div style="background:linear-gradient(135deg,#28a745,#1a6e2e);color:white;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;">' +
+                '<div><div style="font-weight:700;font-size:16px;">✈️ Mark as Arrived</div>' +
+                '<div style="font-size:12px;opacity:0.9;margin-top:2px;">' + (w.WFullName||w.WorkerFirstName) + '</div></div>' +
+                '<button onclick="this.closest(\'.modal-arrived\') || document.querySelector(\'[id^=arrivedModal]\') && document.querySelector(\'[id^=arrivedModal]\').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:20px;cursor:pointer;border-radius:6px;padding:2px 8px;" id="closeArrivedBtn">&times;</button>' +
+                '</div>' +
+                '<div style="padding:20px;display:flex;flex-direction:column;gap:14px;">' +
+                '<div style="background:#f0fff4;padding:10px 14px;border-radius:8px;font-size:13px;color:#155724;border-left:3px solid #28a745;"><strong>Worker:</strong> ' + (w.WFullName||w.WorkerFirstName) + '</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+                '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Arrival Date *</label>' +
+                '<input type="date" id="arrivalDateInput" value="' + new Date().toISOString().split('T')[0] + '" onchange="var d=new Date(this.value);d.setDate(d.getDate()+89);document.getElementById(\'entryValidUntil\').value=d.toISOString().split(\'T\')[0];" style="padding:9px 12px;border:2px solid #28a745;border-radius:8px;font-size:14px;">' +
+                '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Entry Valid Until (+89 days)</label>' +
+                '<input type="date" id="entryValidUntil" style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;background:#f9f9f9;">' +
+                '</div>' +
+                '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Ticket Number</label>' +
+                '<input type="text" id="ticketNumberInput" placeholder="Enter ticket number..." style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:inherit;">' +
+                '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:6px;">' +
+                '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Entry Visa Copy</label>' +
+                '<div id="evDropZone" ondragover="event.preventDefault();this.style.background=\'#f0fff4\';this.style.borderColor=\'#28a745\';" ondragleave="this.style.background=\'#fafafa\';this.style.borderColor=\'#ccc\';" ondrop="event.preventDefault();this.style.background=\'#fafafa\';this.style.borderColor=\'#ccc\';handleEVDrop(event.dataTransfer.files);" onclick="document.getElementById(\'evFileInput\').click();" style="border:2px dashed #ccc;border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fafafa;transition:all 0.2s;">' +
+                '<div style="font-size:24px;margin-bottom:4px;">📎</div>' +
+                '<div style="font-size:13px;font-weight:600;color:#555;">Drag & drop or click to browse</div>' +
+                '<div style="font-size:11px;color:#999;margin-top:3px;">Entry visa stamp / document</div>' +
+                '<div id="evFileName" style="margin-top:6px;font-size:12px;font-weight:700;color:#28a745;"></div>' +
+                '</div>' +
+                '<input type="file" id="evFileInput" accept="image/*,.pdf" style="display:none;" onchange="handleEVDrop(this.files)">' +
+                '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Notes</label>' +
+                '<input type="text" id="arrivalNotesInput" placeholder="Optional notes..." style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:inherit;">' +
+                '</div>' +
                 '<div style="display:flex;gap:10px;">' +
-                '<button id="confirmArrivedBtn" style="flex:1;padding:12px;background:#28a745;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">✈️ Confirm Arrived</button>' +
-                '<button id="cancelArrivedBtn" style="flex:1;padding:12px;background:#6c757d;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">Cancel</button>' +
+                '<button id="cancelArrivedBtn" style="flex:1;padding:12px;background:#6c757d;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Cancel</button>' +
+                '<button id="confirmArrivedBtn" style="flex:2;padding:12px;background:linear-gradient(135deg,#28a745,#1a6e2e);color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">✈️ Confirm Arrived</button>' +
+                '</div>' +
                 '</div></div>';
 
             document.body.appendChild(modal);
+
+            // Auto-calculate entry valid until on load
+            var d = new Date(); d.setDate(d.getDate()+89);
+            document.getElementById('entryValidUntil').value = d.toISOString().split('T')[0];
+
+            document.getElementById('closeArrivedBtn').onclick = function(){ document.body.removeChild(modal); };
             document.getElementById('cancelArrivedBtn').onclick = function(){ document.body.removeChild(modal); };
+
             document.getElementById('confirmArrivedBtn').onclick = async function(){
                 var arrivalDate = document.getElementById('arrivalDateInput').value;
+                var entryValid = document.getElementById('entryValidUntil').value;
                 var ticketNumber = document.getElementById('ticketNumberInput').value.trim();
                 var notes = document.getElementById('arrivalNotesInput').value.trim();
+                var btn = document.getElementById('confirmArrivedBtn');
                 if(!arrivalDate){ alert('❌ Arrival date is required!'); return; }
-                w.Processing = false; w.ProcessingStage = ''; w.Arrived = true;
-                w.ArrivalDate = arrivalDate;
-                if(ticketNumber) w.TicketNumber = ticketNumber;
-                if(notes) w.ArrivalNotes = notes;
-                var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
-                if(outs.indexOf('arrived') === -1) outs.unshift('arrived');
-                w.WorkerOutcomes = JSON.stringify(outs);
+
+                btn.disabled=true; btn.textContent='⏳ Saving...'; btn.style.background='#ccc';
+
+                // Upload entry visa if provided
+                var entryFile = _evFile;
+                _evFile = null;
+                if (entryFile) {
+                    var emp = allEmployers.find(function(e){ return String(e.EmployerCode)===String(w.EmployerCode)||String(e.EmployerID)===String(w.EmployerID); });
+                    var folderId = emp ? (emp.EmployerFolderID||'') : '';
+                    var folderName = emp ? (emp.EmployerFolderName||emp.EFN||emp.EmployerName||w.EmployerCode||'Unknown') : (w.EmployerCode||'Unknown');
+                    var wCode = w.WorkerCode||(w.SupplierCode?w.SupplierCode+'-'+String(w.WorkerID).padStart(4,'0'):'ID-'+w.WorkerID);
+                    var ext = entryFile.name.split('.').pop()||'jpg';
+                    var fileName = 'EntryVisa_'+wCode+'_'+arrivalDate+'.'+ext;
+                    var zone = document.getElementById('evDropZone');
+                    var evPct=0;
+                    var evTimer=setInterval(function(){
+                        evPct=Math.min(evPct+Math.random()*8,92);
+                        if(zone) zone.innerHTML='<div style="font-size:13px;font-weight:600;color:#28a745;margin-bottom:6px;">⏳ Uploading...</div>'+
+                            '<div style="background:#e0e0e0;border-radius:10px;height:12px;width:100%;overflow:hidden;">'+
+                            '<div style="background:linear-gradient(135deg,#28a745,#1a6e2e);height:100%;border-radius:10px;width:'+Math.round(evPct)+'%"></div></div>'+
+                            '<div style="font-size:12px;color:#555;margin-top:4px;">'+Math.round(evPct)+'%</div>';
+                    },300);
+                    try {
+                        var base64=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(entryFile);});
+                        var resp=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'uploadFile',folderId:folderId,folderName:folderName,fileName:fileName,fileData:base64,mimeType:entryFile.type||'application/octet-stream',parentType:'employers'})});
+                        var result=await resp.json();
+                        clearInterval(evTimer);
+                        if(result.success){ w.EntryVisaURL=result.fileUrl||result.url||''; if(zone) zone.innerHTML='<div style="font-size:12px;font-weight:700;color:#28a745;">✅ 100% — Uploaded!</div>'; }
+                    } catch(e){ clearInterval(evTimer); console.warn('Entry visa upload failed:',e); }
+                }
+
+                w.Processing=true; w.ProcessingStage='arrived'; w.Arrived=true;
+                w.ArrivalDate=arrivalDate;
+                w.EntryValidUntil=entryValid;
+                if(ticketNumber) w.TicketNumber=ticketNumber;
+                if(notes) w.ArrivalNotes=notes;
+                var outs=[]; try{ outs=JSON.parse(w.WorkerOutcomes||'[]'); }catch(e){}
+                if(outs.indexOf('arrived')===-1) outs.unshift('arrived');
+                w.WorkerOutcomes=JSON.stringify(outs);
                 _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
-                if(cloudReady){ try { await CloudDB.saveRow('Workers', w); } catch(e){} }
-                document.body.removeChild(modal);
-                alert('✅ Arrived!\n\n✈️ ' + (w.WFullName || w.WorkerFirstName) + '\n📅 ' + arrivalDate + (ticketNumber ? '\n🎫 ' + ticketNumber : ''));
-                updateCounts(); renderTab();
+                if(cloudReady){ try{ await CloudDB.saveRow('Workers',w); }catch(e){} }
+
+                btn.textContent='✅ Done'; btn.style.background='#28a745';
+                setTimeout(function(){
+                    document.body.removeChild(modal);
+                    alert('✅ Arrived!\n\n✈️ '+(w.WFullName||w.WorkerFirstName)+'\n📅 '+arrivalDate+'\n🗓️ Entry valid until: '+entryValid+(ticketNumber?'\n🎫 '+ticketNumber:''));
+                    updateCounts(); renderTab();
+                },800);
             };
         }
         
@@ -3299,12 +3366,11 @@
     'use strict';
   var WORKFLOW = [
         { id: 'cancelled',  num: '1',  icon: '❌', label: 'Cancelled', color: '#dc3545' },
-        { id: 'arrived',    num: '2',  icon: '✈️', label: 'Arrived',   color: '#16a34a' },
-        { id: 'local',      num: '3',  icon: '🏠', label: 'Local',     color: '#6b7280' },
-        { id: 'moved',      num: '4',  icon: '🔀', label: 'Moved',     color: '#7c3aed' },
-        { id: 'unfit',      num: '5',  icon: '🚫', label: 'Unfit',     color: '#e65100' },
-        { id: 'runaway',    num: '6',  icon: '🏃', label: 'RunAway',   color: '#b71c1c' },
-        { id: 'senthome',   num: '7',  icon: '🛫', label: 'SendHome',  color: '#4a148c' }
+        { id: 'local',      num: '2',  icon: '🏠', label: 'Local',     color: '#6b7280' },
+        { id: 'moved',      num: '3',  icon: '🔀', label: 'Moved',     color: '#7c3aed' },
+        { id: 'unfit',      num: '4',  icon: '🚫', label: 'Unfit',     color: '#e65100' },
+        { id: 'runaway',    num: '5',  icon: '🏃', label: 'RunAway',   color: '#b71c1c' },
+        { id: 'senthome',   num: '6',  icon: '🛫', label: 'SendHome',  color: '#4a148c' }
     ];
 
     var oldBar = document.querySelector('.tabs-bar-outcome');
@@ -3371,9 +3437,17 @@
             return outs.indexOf('selected') >= 0;
         });
     }
+    
     var all = getProcessingWorkers();
     if (stage === 'processing') {
-        all = all.filter(function(w) { return w.ProcessingStage === 'processing' || !w.ProcessingStage; });
+        all = all.filter(function(w) {
+            var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+            var hasAdvanced = outs.indexOf('preapproval') >= 0 || outs.indexOf('waitingvisa') >= 0 ||
+                outs.indexOf('readyvisa') >= 0 || outs.indexOf('waitingticket') >= 0 ||
+                outs.indexOf('arrived') >= 0 || outs.indexOf('cancelled') >= 0 ||
+                outs.indexOf('unfit') >= 0 || outs.indexOf('runaway') >= 0 || outs.indexOf('senthome') >= 0;
+            return !hasAdvanced;
+        });
     } else {
         all = all.filter(function(w) { return w.ProcessingStage === stage; });
     }
@@ -3394,7 +3468,42 @@
             var sp = btn.querySelector('span');
             if (sp) sp.style.background = active ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.08)';
         });
-        updateCounts(); renderTab();
+        updateCounts();
+        // Render filtered employer cards
+        var allProc = getProcessingWorkers();
+        var filtered = filterWorkers(allProc, filterId);
+        var content = document.getElementById('tabContent');
+        if (!content) return;
+        if (filtered.length === 0) {
+            content.innerHTML = '<div class="empty-state"><h2>' + (WORKFLOW.find(function(c){return c.id===filterId;})||{icon:'📋'}).icon + ' No workers in this category</h2></div>';
+            return;
+        }
+        var groups = {};
+        filtered.forEach(function(w) {
+            var k = w.EmployerCode || w.EmployerID || 'unassigned';
+            if (!groups[k]) groups[k] = [];
+            groups[k].push(w);
+        });
+        var html = '';
+        Object.keys(groups).forEach(function(empCode) {
+            var ew = groups[empCode];
+            var emp = allEmployers.find(function(e){ return String(e.EmployerCode) === String(empCode); });
+            var empName = emp ? (emp.EFN || emp.EmployerName || empCode) : empCode;
+            var cat = WORKFLOW.find(function(c){return c.id===filterId;}) || {color:'#667eea'};
+            html += '<div class="employer-card"><div class="employer-header" style="background:linear-gradient(135deg,' + cat.color + ',' + cat.color + 'cc);">';
+            html += '<h3>💼 ' + empName + '</h3><span class="employer-badge">' + ew.length + ' worker(s)</span></div>';
+            html += '<div class="workers-body">';
+            ew.forEach(function(w) {
+                var name = w.WFullName || w.WorkerFirstName || 'Unknown';
+                var wCode = w.WorkerCode || (w.SupplierCode ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'ID-' + w.WorkerID);
+                html += '<div class="worker-row"><div class="worker-info">';
+                html += '<div class="worker-name">' + name + '</div>';
+                html += '<div class="worker-details">Code: <span>' + wCode + '</span> | Nationality: ' + (w.Nationality||'N/A') + ' | Stage: <span>' + (w.ProcessingStage||'N/A') + '</span></div>';
+                html += '</div></div>';
+            });
+            html += '</div></div>';
+        });
+        content.innerHTML = html;
     };
 
     var _origUpdateCounts = window.updateCounts;
@@ -3417,7 +3526,14 @@
         var tv = getWorkersByStage(currentTab), st = STAGES[currentTab], eg = {};
         tv.forEach(function(w) { eg[w.EmployerCode || w.EmployerID || 'x'] = true; });
         var selCount = allProc.filter(function(w){ var o=[]; try{o=JSON.parse(w.WorkerOutcomes||'[]')}catch(e){} return o.indexOf('selected')>=0; }).length;
-        var procCount = allProc.filter(function(w){ return w.ProcessingStage === 'processing' || !w.ProcessingStage; }).length;
+        var procCount = allProc.filter(function(w){
+            var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+            var hasAdvanced = outs.indexOf('preapproval') >= 0 || outs.indexOf('waitingvisa') >= 0 ||
+                outs.indexOf('readyvisa') >= 0 || outs.indexOf('waitingticket') >= 0 ||
+                outs.indexOf('arrived') >= 0 || outs.indexOf('cancelled') >= 0 ||
+                outs.indexOf('unfit') >= 0 || outs.indexOf('runaway') >= 0 || outs.indexOf('senthome') >= 0;
+            return !hasAdvanced;
+        }).length;
         document.getElementById('totalProcessing').textContent = '✅ ' + selCount + ' Selected';
         (document.getElementById('count-processing')||{textContent:''}).textContent = procCount;
         (document.getElementById('count-selected')||{textContent:''}).textContent = selCount;
@@ -3681,6 +3797,8 @@ window.createSupplierVoucher = async function(worker, invNumber, empName, worker
 // Override setWorkerOutcome save to use google.script.run
 var _origSetWorkerOutcome = window.setWorkerOutcome;
 window.setWorkerOutcome = async function(workerId, outcome) {
+    // Block waitingvisa outcome pill — must go through upload popup
+    if (outcome === 'waitingvisa') { showPreApprovalUploadPopup(workerId); return; }
     // Remember which employer card is open
     var openCard = document.querySelector('.workers-body[style*="display: block"], .workers-body[style*="display:block"]');
     var openEmpKey = openCard ? openCard.getAttribute('data-empkey') : null;
@@ -3715,6 +3833,739 @@ window.setWorkerOutcome = async function(workerId, outcome) {
     }
 };
 })();
+</script>
+
+<script>
+// ── Pre-Approval Upload Popup ──────────────────────────
+var _paFiles = [];
+// Disable all outcome pills — display only
+// Update arrived count and handle arrived tab
+var _origUpdateCounts = window.updateCounts;
+window.updateCounts = function() {
+    if (typeof _origUpdateCounts === 'function') _origUpdateCounts.apply(this, arguments);
+    var arrCount = allWorkers.filter(function(w){ return w.ProcessingStage === 'arrived'; }).length;
+    var el = document.getElementById('count-arrived');
+    if (el) el.textContent = arrCount;
+    // Fix processing count to exclude arrived
+    var procEl = document.getElementById('count-processing');
+    if (procEl) {
+        var procCount = allWorkers.filter(function(w){
+            var ps = w.ProcessingStage || '';
+            return (w.Processing === true || w.Processing === 'true')
+                && ps !== 'arrived'
+                && ps !== 'cancelled'
+                && ps !== 'unfit'
+                && ps !== 'runaway'
+                && ps !== 'senthome'
+                && ps !== 'local';
+        }).length;
+        procEl.textContent = procCount;
+    }
+    // Selected = all workers in system except moved
+    var selEl = document.getElementById('count-selected');
+    if (selEl) {
+        var selCount = parseInt(procEl ? procEl.textContent : 0) +
+            parseInt((document.getElementById('count-arrived')||{textContent:0}).textContent) +
+            allWorkers.filter(function(w){
+                var outs = []; try { outs = JSON.parse(w.WorkerOutcomes||'[]'); } catch(e) {}
+                return outs.indexOf('cancelled') >= 0 || outs.indexOf('unfit') >= 0 || 
+                       outs.indexOf('runaway') >= 0 || outs.indexOf('senthome') >= 0 || 
+                       outs.indexOf('local') >= 0;
+            }).length;
+        selEl.textContent = selCount;
+    }
+};
+
+// Handle arrived tab rendering
+var _origSwitchTab = window.switchTab;
+window.switchTab = function(tab) {
+    if (tab === 'arrived') {
+        currentTab = 'arrived';
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        var btn = document.querySelector('.tab-btn[data-tab="arrived"]');
+        if (btn) btn.classList.add('active');
+        var workers = allWorkers.filter(function(w){ return w.ProcessingStage === 'arrived'; });
+        var content = document.getElementById('tabContent');
+        if (!content) return;
+        if (workers.length === 0) { content.innerHTML = '<div class="empty-state"><h2>✈️ No Arrived Workers</h2><p>Workers appear here after being marked as arrived.</p></div>'; return; }
+        var groups = {};
+        workers.forEach(function(w) {
+            var k = w.EmployerCode || 'unassigned';
+            if (!groups[k]) groups[k] = [];
+            groups[k].push(w);
+        });
+        var html = '';
+        Object.keys(groups).forEach(function(empCode) {
+            var ew = groups[empCode];
+            var emp = allEmployers.find(function(e){ return String(e.EmployerCode) === String(empCode); });
+            var empName = emp ? (emp.EFN || emp.EmployerName || empCode) : empCode;
+            html += '<div class="employer-card">';
+            html += '<div class="employer-header" style="background:linear-gradient(135deg,#28a745,#1a6e2e);">';
+            html += '<h3>💼 ' + empName + '</h3>';
+            html += '<span class="employer-badge">' + ew.length + ' arrived</span>';
+            html += '</div><div class="workers-body">';
+            ew.forEach(function(w) {
+                var name = w.WFullName || w.WorkerFirstName || 'Unknown';
+                var wCode = w.WorkerCode || (w.SupplierCode ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'ID-' + w.WorkerID);
+                var arrDate = w.ArrivalDate || '';
+                var entryValid = w.EntryValidUntil || '';
+                html += '<div class="worker-row" style="border-left-color:#28a745;">';
+                html += '<div class="worker-info">';
+                html += '<div class="worker-name">✈️ ' + name + '</div>';
+                html += '<div class="worker-details">Code: <span>' + wCode + '</span> | Nationality: ' + (w.Nationality||'N/A') + (arrDate ? ' | Arrived: <span>' + arrDate + '</span>' : '') + (entryValid ? ' | Entry valid until: <span style="color:#dc3545;">' + entryValid + '</span>' : '') + '</div>';
+                html += '</div></div>';
+            });
+            html += '</div></div>';
+        });
+        content.innerHTML = html;
+        return;
+    }
+    if (typeof _origSwitchTab === 'function') _origSwitchTab.apply(this, arguments);
+};
+var paStyle = document.createElement('style');
+paStyle.textContent = '.outcome-bar .obtn { pointer-events: none !important; cursor: default !important; opacity: 0.85; } .tab-btn[data-tab="arrived"].active { background: linear-gradient(135deg, #28a745, #1a6e2e); color: white; }';
+(document.head || document.body).appendChild(paStyle);
+window.moveToStage = async function(workerId, newStage) {
+    if (newStage === 'waiting_visa') { showPreApprovalUploadPopup(workerId); return; }
+    var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
+    if (!w) return;
+    if (newStage === 'preapproval') { showInvoicePopup(w); return; }
+    var ns = STAGES[newStage];
+    if (!confirm(ns.icon + ' Move to ' + ns.label + '?\n\nWorker: ' + (w.WFullName || w.WorkerFirstName))) return;
+    w.ProcessingStage = newStage;
+    _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
+    google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).gsrSaveRow('Workers', w);
+    updateCounts(); renderTab();
+};
+
+function showPreApprovalUploadPopup(workerId) {
+    var existing = document.getElementById('paPopup'); if (existing) existing.remove();
+    _paFiles = [];
+    var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
+    if (!w) return;
+    var name = w.WFullName || w.WorkerFirstName || 'Worker';
+    var wCode = w.WorkerCode || (w.SupplierCode ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'ID-' + w.WorkerID);
+    var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(w.EmployerCode) || String(e.EmployerID) === String(w.EmployerID); });
+    var folderId = emp ? (emp.EmployerFolderID || '') : '';
+    var folderName = emp ? (emp.EmployerFolderName || emp.EFN || emp.EmployerName || w.EmployerCode || 'Unknown') : (w.EmployerCode || 'Unknown');
+    var ov = document.createElement('div');
+    ov.id = 'paPopup';
+    ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    ov._folderId = folderId; ov._folderName = folderName;
+    ov.innerHTML =
+        '<div style="background:white;border-radius:14px;width:520px;max-width:95%;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;">' +
+            '<div style="background:linear-gradient(135deg,#9c27b0,#7b1fa2);color:white;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">' +
+                '<div><div style="font-weight:700;font-size:16px;">📋 Pre-Approval Documents</div>' +
+                '<div style="font-size:12px;opacity:0.9;margin-top:3px;">' + name + ' &nbsp;|&nbsp; ' + wCode + '</div></div>' +
+                '<button onclick="document.getElementById(\'paPopup\').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:20px;cursor:pointer;border-radius:6px;padding:2px 8px;">&times;</button>' +
+            '</div>' +
+            '<div style="padding:20px;display:flex;flex-direction:column;gap:12px;">' +
+                '<div style="background:#f3e5f5;padding:10px 14px;border-radius:8px;font-size:12px;color:#7b1fa2;border-left:3px solid #9c27b0;">⚠️ Upload pre-approval document(s) and confirm before moving to Waiting Visa.</div>' +
+
+                '<div id="paDropZone" ' +
+                    'ondragover="event.preventDefault();this.style.background=\'#f3e5f5\';this.style.borderColor=\'#9c27b0\';" ' +
+                    'ondragleave="this.style.background=\'#fafafa\';this.style.borderColor=\'#ccc\';" ' +
+                    'ondrop="event.preventDefault();this.style.background=\'#fafafa\';this.style.borderColor=\'#ccc\';handlePADrop(event.dataTransfer.files);" ' +
+                    'onclick="document.getElementById(\'paFileInput\').click();" ' +
+                    'style="border:2px dashed #ccc;border-radius:10px;padding:24px;text-align:center;cursor:pointer;background:#fafafa;transition:all 0.2s;">' +
+                    '<div style="font-size:32px;margin-bottom:8px;">📎</div>' +
+                    '<div style="font-size:13px;font-weight:600;color:#555;">Drag & drop or click to browse</div>' +
+                    '<div style="font-size:11px;color:#999;margin-top:4px;">PDF, JPG, PNG — multiple files allowed</div>' +
+                '</div>' +
+                '<input type="file" id="paFileInput" accept="image/*,.pdf" multiple style="display:none;" onchange="handlePADrop(this.files)">' +
+                '<div id="paFileList" style="display:flex;flex-direction:column;gap:6px;"></div>' +
+
+                '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#f3e5f5;border-radius:8px;border:2px solid #e0e0e0;" id="paConfirmRow">' +
+                    '<input type="checkbox" id="paConfirmCheck" onchange="updatePABtn()" style="width:20px;height:20px;accent-color:#9c27b0;cursor:pointer;flex-shrink:0;">' +
+                    '<label for="paConfirmCheck" style="font-size:13px;font-weight:600;color:#7b1fa2;cursor:pointer;margin:0;">I confirm pre-approval documents have been uploaded and are correct</label>' +
+                '</div>' +
+
+                '<div id="paStatus" style="font-size:12px;color:#666;text-align:center;"></div>' +
+                '<div style="display:flex;gap:10px;">' +
+                    '<button onclick="document.getElementById(\'paPopup\').remove()" style="flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;background:white;font-weight:600;font-size:14px;cursor:pointer;color:#666;">Cancel</button>' +
+                    '<button id="paConfirmBtn" onclick="uploadPAAndMove(' + workerId + ')" disabled style="flex:2;padding:10px;background:#ccc;color:white;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:not-allowed;">📤 Upload & Move to Waiting Visa</button>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+}
+
+function handlePADrop(files) {
+    if (!files || !files.length) return;
+    for (var i = 0; i < files.length; i++) _paFiles.push(files[i]);
+    renderPAList();
+}
+
+function renderPAList() {
+    var list = document.getElementById('paFileList');
+    if (list) list.innerHTML = _paFiles.map(function(f, i) {
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f3e5f5;border-radius:8px;font-size:13px;">' +
+            '<span>📄 ' + f.name + '</span>' +
+            '<button onclick="_paFiles.splice(' + i + ',1);renderPAList();updatePABtn();" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:16px;">✕</button>' +
+        '</div>';
+    }).join('');
+    updatePABtn();
+}
+
+function updatePABtn() {
+    var btn = document.getElementById('paConfirmBtn');
+    var chk = document.getElementById('paConfirmCheck');
+    if (!btn || !chk) return;
+    var ready = _paFiles.length > 0 && chk.checked;
+    btn.disabled = !ready;
+    btn.style.background = ready ? 'linear-gradient(135deg,#9c27b0,#7b1fa2)' : '#ccc';
+    btn.style.cursor = ready ? 'pointer' : 'not-allowed';
+}
+async function uploadPAAndMove(workerId) {
+    var popup = document.getElementById('paPopup');
+    var folderId = popup ? popup._folderId : '';
+    var folderName = popup ? popup._folderName : '';
+    var status = document.getElementById('paStatus');
+    var btn = document.getElementById('paConfirmBtn');
+    var chk = document.getElementById('paConfirmCheck');
+    if (_paFiles.length === 0) { if (status) status.textContent = '⚠️ Add at least one file.'; return; }
+    if (!chk || !chk.checked) { if (status) status.textContent = '⚠️ Please check the confirmation box.'; return; }
+    var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
+    if (!w) return;
+    var wCode = w.WorkerCode || (w.SupplierCode ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'ID-' + w.WorkerID);
+    btn.disabled = true; btn.style.background = '#ccc'; btn.textContent = '⏳ Uploading...';
+    var existingCount = parseInt(w.PreApprovalCount || 0);
+    for (var i = 0; i < _paFiles.length; i++) {
+        var file = _paFiles[i];
+        var ext = file.name.split('.').pop() || 'pdf';
+        var fileName = 'PreApproval_' + (existingCount + i + 1) + '_' + wCode + '.' + ext;
+        if (status) status.textContent = '';
+        var zone = document.getElementById('paDropZone');
+        var paPct = 0;
+        var paTimer = setInterval(function() {
+            paPct = Math.min(paPct + Math.random() * 8, 92);
+            if (zone) zone.innerHTML = '<div style="font-size:13px;font-weight:600;color:#7b1fa2;margin-bottom:6px;">⏳ Uploading file ' + (i+1) + ' of ' + _paFiles.length + '...</div>' +
+                '<div style="background:#e0e0e0;border-radius:10px;height:12px;width:100%;overflow:hidden;">' +
+                '<div style="background:linear-gradient(135deg,#9c27b0,#7b1fa2);height:100%;border-radius:10px;width:' + Math.round(paPct) + '%"></div></div>' +
+                '<div style="font-size:12px;color:#555;margin-top:4px;">' + Math.round(paPct) + '%</div>';
+        }, 300);
+        try {
+            var base64 = await new Promise(function(res, rej) { var r = new FileReader(); r.onload = function() { res(r.result.split(',')[1]); }; r.onerror = rej; r.readAsDataURL(file); });
+            var resp = await fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ action:'uploadFile', folderId:folderId, folderName:folderName, fileName:fileName, fileData:base64, mimeType:file.type||'application/octet-stream', parentType:'employers' }) });
+            var result = await resp.json();
+            clearInterval(paTimer);
+            if (!result.success) { if (zone) zone.innerHTML = '<div style="font-size:13px;font-weight:600;color:#dc3545;">❌ Upload failed</div>'; if (status) status.textContent = '❌ Upload failed: ' + (result.error||'Unknown'); btn.disabled=false; btn.style.background='linear-gradient(135deg,#9c27b0,#7b1fa2)'; btn.textContent='📤 Upload & Move to Waiting Visa'; return; }
+            if (zone) zone.innerHTML = '<div style="background:#e0e0e0;border-radius:10px;height:12px;width:100%;overflow:hidden;margin-bottom:4px;"><div style="background:linear-gradient(135deg,#9c27b0,#7b1fa2);height:100%;border-radius:10px;width:100%"></div></div><div style="font-size:12px;font-weight:700;color:#7b1fa2;">✅ 100% — File ' + (i+1) + ' uploaded!</div>';
+        } catch(e) { clearInterval(paTimer); if (status) status.textContent = '❌ Error: ' + e.message; btn.disabled=false; btn.style.background='linear-gradient(135deg,#9c27b0,#7b1fa2)'; btn.textContent='📤 Upload & Move to Waiting Visa'; return; }
+    }
+    w.PreApprovalCount = existingCount + _paFiles.length;
+    w.PreApprovalConfirmed = true;
+    w.ProcessingStage = 'waiting_visa';
+    var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+    if (outs.indexOf('waitingvisa') < 0) outs.unshift('waitingvisa');
+    w.WorkerOutcomes = JSON.stringify(outs);
+    _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
+    google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).gsrSaveRow('Workers', w);
+    var zone2 = document.getElementById('paDropZone'); if (zone2) { zone2.style.borderColor = '#4caf50'; zone2.style.background = '#e8f5e9'; zone2.innerHTML = '<div style="font-size:28px;">✅</div><div style="font-size:13px;font-weight:600;color:#2e7d32;">All files uploaded successfully!</div>'; }
+    var uploadedCount = _paFiles.length;
+    var workerName = w.WFullName || w.WorkerFirstName;
+    if (btn) { btn.textContent = '✅ Done — Moved to Waiting Visa'; btn.style.background = '#4caf50'; }
+    setTimeout(function() {
+        var popupEl = document.getElementById('paPopup');
+        if (popupEl) popupEl.remove();
+        updateCounts(); renderTab();
+        alert('✅ ' + uploadedCount + ' document(s) uploaded!\n⏳ ' + workerName + ' moved to Waiting Visa.');
+    }, 800);
+}
+
+// ── Ready Visa Popup ───────────────────────────────────
+window.moveToStage = (function(orig) {
+    return async function(workerId, newStage) {
+        if (newStage === 'ready_visa') { showReadyVisaPopup(workerId); return; }
+        return orig.apply(this, arguments);
+    };
+})(window.moveToStage);
+
+function showReadyVisaPopup(workerId) {
+    var existing = document.getElementById('rvPopup'); if (existing) existing.remove();
+    var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
+    if (!w) return;
+    var name = w.WFullName || w.WorkerFirstName || 'Worker';
+    var wCode = w.WorkerCode || (w.SupplierCode ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'ID-' + w.WorkerID);
+    var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(w.EmployerCode) || String(e.EmployerID) === String(w.EmployerID); });
+    var folderId = emp ? (emp.EmployerFolderID || '') : '';
+    var folderName = emp ? (emp.EmployerFolderName || emp.EFN || emp.EmployerName || w.EmployerCode || 'Unknown') : (w.EmployerCode || 'Unknown');
+    var ov = document.createElement('div');
+    ov.id = 'rvPopup';
+    ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    ov._folderId = folderId; ov._folderName = folderName; ov._visaFile = null;
+    ov.innerHTML =
+        '<div style="background:white;border-radius:14px;width:520px;max-width:95%;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;">' +
+            '<div style="background:linear-gradient(135deg,#4caf50,#2e7d32);color:white;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">' +
+                '<div><div style="font-weight:700;font-size:16px;">🟢 Ready Visa — Enter Details</div>' +
+                '<div style="font-size:12px;opacity:0.9;margin-top:3px;">' + name + ' &nbsp;|&nbsp; ' + wCode + '</div></div>' +
+                '<button onclick="document.getElementById(\'rvPopup\').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:20px;cursor:pointer;border-radius:6px;padding:2px 8px;">&times;</button>' +
+            '</div>' +
+            '<div style="padding:20px;display:flex;flex-direction:column;gap:14px;">' +
+                '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                    '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Visa Number *</label>' +
+                    '<input type="text" id="rvVisaNum" placeholder="Enter visa number..." style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:inherit;" oninput="this.style.borderColor=this.value?\'#4caf50\':\'#e0e0e0\'">' +
+                '</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+                    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                        '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Issue Date *</label>' +
+                        '<input type="date" id="rvIssueDate" style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;" onchange="var d=new Date(this.value);d.setDate(d.getDate()+90);document.getElementById(\'rvExpiryDate\').value=d.toISOString().split(\'T\')[0];">' +
+                    '</div>' +
+                    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                        '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Expiry Date</label>' +
+                        '<input type="date" id="rvExpiryDate" style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">' +
+                    '</div>' +
+                '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:6px;">' +
+                    '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Visa Document</label>' +
+                    '<div id="rvDropZone" ondragover="event.preventDefault();this.style.background=\'#e8f5e9\';this.style.borderColor=\'#4caf50\';" ondragleave="this.style.background=\'#fafafa\';this.style.borderColor=\'#ccc\';" ondrop="event.preventDefault();this.style.background=\'#fafafa\';this.style.borderColor=\'#ccc\';handleRVDrop(event.dataTransfer.files);" onclick="document.getElementById(\'rvFileInput\').click();" style="border:2px dashed #ccc;border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:#fafafa;transition:all 0.2s;">' +
+                        '<div style="font-size:28px;margin-bottom:6px;">📎</div>' +
+                        '<div style="font-size:13px;font-weight:600;color:#555;">Drag & drop or click to browse</div>' +
+                        '<div style="font-size:11px;color:#999;margin-top:4px;">PDF, JPG, PNG</div>' +
+                        '<div id="rvFileName" style="margin-top:8px;font-size:12px;font-weight:700;color:#4caf50;"></div>' +
+                    '</div>' +
+                    '<input type="file" id="rvFileInput" accept="image/*,.pdf" style="display:none;" onchange="handleRVDrop(this.files)">' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#e8f5e9;border-radius:8px;border:2px solid #e0e0e0;">' +
+                    '<input type="checkbox" id="rvConfirmCheck" style="width:20px;height:20px;accent-color:#4caf50;cursor:pointer;flex-shrink:0;">' +
+                    '<label for="rvConfirmCheck" style="font-size:13px;font-weight:600;color:#2e7d32;cursor:pointer;margin:0;">I confirm visa details and document are correct</label>' +
+                '</div>' +
+                '<div style="display:flex;gap:10px;">' +
+                    '<button onclick="document.getElementById(\'rvPopup\').remove()" style="flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;background:white;font-weight:600;font-size:14px;cursor:pointer;color:#666;">Cancel</button>' +
+                    '<button id="rvConfirmBtn" onclick="confirmRVAndMove(' + workerId + ')" style="flex:2;padding:10px;background:linear-gradient(135deg,#4caf50,#2e7d32);color:white;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">🟢 Confirm & Move to Ready Visa</button>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+    setTimeout(function() { var el = document.getElementById('rvVisaNum'); if(el) el.focus(); }, 100);
+}
+
+function handleRVDrop(files) {
+    if (!files || !files.length) return;
+    var popup = document.getElementById('rvPopup');
+    if (popup) popup._visaFile = files[0];
+    var label = document.getElementById('rvFileName');
+    if (label) label.textContent = '✅ ' + files[0].name;
+    var zone = document.getElementById('rvDropZone');
+    if (zone) { zone.style.borderColor = '#4caf50'; zone.style.background = '#e8f5e9'; }
+}
+
+async function confirmRVAndMove(workerId) {
+    var visaNum = (document.getElementById('rvVisaNum') || {}).value.trim();
+    var issueDate = (document.getElementById('rvIssueDate') || {}).value;
+    var expiryDate = (document.getElementById('rvExpiryDate') || {}).value;
+    var chk = document.getElementById('rvConfirmCheck');
+    var popup = document.getElementById('rvPopup');
+    var visaFile = popup ? popup._visaFile : null;
+    var folderId = popup ? popup._folderId : '';
+    var folderName = popup ? popup._folderName : '';
+    if (!visaNum) { var el = document.getElementById('rvVisaNum'); if(el){el.style.borderColor='#dc3545';el.focus();} return; }
+    if (!issueDate) { var el2 = document.getElementById('rvIssueDate'); if(el2){el2.style.borderColor='#dc3545';el2.focus();} return; }
+    if (!chk || !chk.checked) { alert('⚠️ Please confirm the visa details are correct.'); return; }
+    var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
+    if (!w) return;
+    var btn = document.getElementById('rvConfirmBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; btn.style.background = '#ccc'; }
+    w.VisaNumber = visaNum; w.VisaIssueDate = issueDate; w.VisaExpiryDate = expiryDate;
+    w.ProcessingStage = 'ready_visa';
+    var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+    if (outs.indexOf('readyvisa') < 0) outs.unshift('readyvisa');
+    w.WorkerOutcomes = JSON.stringify(outs);
+    if (visaFile) {
+        var wCode = w.WorkerCode || (w.SupplierCode ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'ID-' + w.WorkerID);
+        var ext = visaFile.name.split('.').pop() || 'pdf';
+        var fileName = 'Visa_' + wCode + '_' + new Date().toISOString().replace(/[:.]/g,'-').slice(0,19) + '.' + ext;
+        var zone = document.getElementById('rvDropZone');
+        var rvPct = 0;
+        var rvTimer = setInterval(function() {
+            rvPct = Math.min(rvPct + Math.random() * 8, 92);
+            if (zone) zone.innerHTML = '<div style="font-size:13px;font-weight:600;color:#2e7d32;margin-bottom:6px;">⏳ Uploading visa...</div>' +
+                '<div style="background:#e0e0e0;border-radius:10px;height:12px;width:100%;overflow:hidden;">' +
+                '<div style="background:linear-gradient(135deg,#4caf50,#2e7d32);height:100%;border-radius:10px;width:' + Math.round(rvPct) + '%"></div></div>' +
+                '<div style="font-size:12px;color:#555;margin-top:4px;">' + Math.round(rvPct) + '%</div>';
+        }, 300);
+        try {
+            var base64 = await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(visaFile);});
+            var resp = await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'uploadFile',folderId:folderId,folderName:folderName,fileName:fileName,fileData:base64,mimeType:visaFile.type||'application/octet-stream',parentType:'employers'})});
+            var result = await resp.json();
+            clearInterval(rvTimer);
+            if (result.success) {
+                w.VisaFileURL = result.fileUrl || result.url || '';
+                if (zone) zone.innerHTML = '<div style="background:#e0e0e0;border-radius:10px;height:12px;width:100%;overflow:hidden;margin-bottom:4px;"><div style="background:linear-gradient(135deg,#4caf50,#2e7d32);height:100%;border-radius:10px;width:100%"></div></div><div style="font-size:12px;font-weight:700;color:#2e7d32;">✅ 100% — Uploaded!</div>';
+            }
+        } catch(e) { clearInterval(rvTimer); console.warn('Visa upload failed:', e); }
+    }
+    _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
+    google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).gsrSaveRow('Workers', w);
+    if (btn) { btn.textContent = '✅ Done — Moved to Ready Visa'; btn.style.background = '#4caf50'; }
+    setTimeout(function() {
+        var popupEl = document.getElementById('rvPopup');
+        if (popupEl) popupEl.remove();
+        updateCounts(); renderTab();
+        alert('🟢 Moved to Ready Visa!\n' + (w.WFullName||w.WorkerFirstName) + '\nVisa No: ' + visaNum);
+    }, 800);
+}
+
+// ── Ready Visa Popup ───────────────────────────────────
+window.moveToStage = (function(orig) {
+    return async function(workerId, newStage) {
+        if (newStage === 'ready_visa') { showReadyVisaPopup(workerId); return; }
+        return orig.apply(this, arguments);
+    };
+})(window.moveToStage);
+
+function showReadyVisaPopup(workerId) {
+    var existing = document.getElementById('rvPopup'); if (existing) existing.remove();
+    var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
+    if (!w) return;
+    var name = w.WFullName || w.WorkerFirstName || 'Worker';
+    var wCode = w.WorkerCode || (w.SupplierCode ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'ID-' + w.WorkerID);
+    var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(w.EmployerCode) || String(e.EmployerID) === String(w.EmployerID); });
+    var folderId = emp ? (emp.EmployerFolderID || '') : '';
+    var folderName = emp ? (emp.EmployerFolderName || emp.EFN || emp.EmployerName || w.EmployerCode || 'Unknown') : (w.EmployerCode || 'Unknown');
+    var ov = document.createElement('div');
+    ov.id = 'rvPopup';
+    ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    ov._folderId = folderId; ov._folderName = folderName; ov._visaFile = null;
+    ov.innerHTML =
+        '<div style="background:white;border-radius:14px;width:520px;max-width:95%;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;">' +
+            '<div style="background:linear-gradient(135deg,#4caf50,#2e7d32);color:white;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">' +
+                '<div><div style="font-weight:700;font-size:16px;">🟢 Ready Visa — Enter Details</div>' +
+                '<div style="font-size:12px;opacity:0.9;margin-top:3px;">' + name + ' &nbsp;|&nbsp; ' + wCode + '</div></div>' +
+                '<button onclick="document.getElementById(\'rvPopup\').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:20px;cursor:pointer;border-radius:6px;padding:2px 8px;">&times;</button>' +
+            '</div>' +
+            '<div style="padding:20px;display:flex;flex-direction:column;gap:14px;">' +
+                '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                    '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Visa Number *</label>' +
+                    '<input type="text" id="rvVisaNum" placeholder="Enter visa number..." style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:inherit;" oninput="this.style.borderColor=this.value?\'#4caf50\':\'#e0e0e0\'">' +
+                '</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+                    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                        '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Issue Date *</label>' +
+                        '<input type="date" id="rvIssueDate" style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;" onchange="var d=new Date(this.value);d.setDate(d.getDate()+90);document.getElementById(\'rvExpiryDate\').value=d.toISOString().split(\'T\')[0];">' +
+                    '</div>' +
+                    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                        '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Expiry Date</label>' +
+                        '<input type="date" id="rvExpiryDate" style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">' +
+                    '</div>' +
+                '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:6px;">' +
+                    '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Visa Document</label>' +
+                    '<div id="rvDropZone" ondragover="event.preventDefault();this.style.background=\'#e8f5e9\';this.style.borderColor=\'#4caf50\';" ondragleave="this.style.background=\'#fafafa\';this.style.borderColor=\'#ccc\';" ondrop="event.preventDefault();this.style.background=\'#fafafa\';this.style.borderColor=\'#ccc\';handleRVDrop(event.dataTransfer.files);" onclick="document.getElementById(\'rvFileInput\').click();" style="border:2px dashed #ccc;border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:#fafafa;transition:all 0.2s;">' +
+                        '<div style="font-size:28px;margin-bottom:6px;">📎</div>' +
+                        '<div style="font-size:13px;font-weight:600;color:#555;">Drag & drop or click to browse</div>' +
+                        '<div style="font-size:11px;color:#999;margin-top:4px;">PDF, JPG, PNG</div>' +
+                        '<div id="rvFileName" style="margin-top:8px;font-size:12px;font-weight:700;color:#4caf50;"></div>' +
+                    '</div>' +
+                    '<input type="file" id="rvFileInput" accept="image/*,.pdf" style="display:none;" onchange="handleRVDrop(this.files)">' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#e8f5e9;border-radius:8px;border:2px solid #e0e0e0;">' +
+                    '<input type="checkbox" id="rvConfirmCheck" style="width:20px;height:20px;accent-color:#4caf50;cursor:pointer;flex-shrink:0;">' +
+                    '<label for="rvConfirmCheck" style="font-size:13px;font-weight:600;color:#2e7d32;cursor:pointer;margin:0;">I confirm visa details and document are correct</label>' +
+                '</div>' +
+                '<div style="display:flex;gap:10px;">' +
+                    '<button onclick="document.getElementById(\'rvPopup\').remove()" style="flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;background:white;font-weight:600;font-size:14px;cursor:pointer;color:#666;">Cancel</button>' +
+                    '<button id="rvConfirmBtn" onclick="confirmRVAndMove(' + workerId + ')" style="flex:2;padding:10px;background:linear-gradient(135deg,#4caf50,#2e7d32);color:white;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">🟢 Confirm & Move to Ready Visa</button>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+    setTimeout(function() { var el = document.getElementById('rvVisaNum'); if(el) el.focus(); }, 100);
+}
+
+function handleRVDrop(files) {
+    if (!files || !files.length) return;
+    var popup = document.getElementById('rvPopup');
+    if (popup) popup._visaFile = files[0];
+    var label = document.getElementById('rvFileName');
+    if (label) label.textContent = '✅ ' + files[0].name;
+    var zone = document.getElementById('rvDropZone');
+    if (zone) { zone.style.borderColor = '#4caf50'; zone.style.background = '#e8f5e9'; }
+}
+
+async function confirmRVAndMove(workerId) {
+    var visaNum = (document.getElementById('rvVisaNum') || {}).value.trim();
+    var issueDate = (document.getElementById('rvIssueDate') || {}).value;
+    var expiryDate = (document.getElementById('rvExpiryDate') || {}).value;
+    var chk = document.getElementById('rvConfirmCheck');
+    var popup = document.getElementById('rvPopup');
+    var visaFile = popup ? popup._visaFile : null;
+    var folderId = popup ? popup._folderId : '';
+    var folderName = popup ? popup._folderName : '';
+    if (!visaNum) { var el = document.getElementById('rvVisaNum'); if(el){el.style.borderColor='#dc3545';el.focus();} return; }
+    if (!issueDate) { var el2 = document.getElementById('rvIssueDate'); if(el2){el2.style.borderColor='#dc3545';el2.focus();} return; }
+    if (!chk || !chk.checked) { alert('⚠️ Please confirm the visa details are correct.'); return; }
+    var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
+    if (!w) return;
+    var btn = document.getElementById('rvConfirmBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; btn.style.background = '#ccc'; }
+    w.VisaNumber = visaNum; w.VisaIssueDate = issueDate; w.VisaExpiryDate = expiryDate;
+    w.ProcessingStage = 'ready_visa';
+    var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+    if (outs.indexOf('readyvisa') < 0) outs.unshift('readyvisa');
+    w.WorkerOutcomes = JSON.stringify(outs);
+    if (visaFile) {
+        var wCode = w.WorkerCode || (w.SupplierCode ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'ID-' + w.WorkerID);
+        var ext = visaFile.name.split('.').pop() || 'pdf';
+        var fileName = 'Visa_' + wCode + '_' + new Date().toISOString().replace(/[:.]/g,'-').slice(0,19) + '.' + ext;
+        var zone = document.getElementById('rvDropZone');
+        var rvPct = 0;
+        var rvTimer = setInterval(function() {
+            rvPct = Math.min(rvPct + Math.random() * 8, 92);
+            if (zone) zone.innerHTML = '<div style="font-size:13px;font-weight:600;color:#2e7d32;margin-bottom:6px;">⏳ Uploading visa...</div>' +
+                '<div style="background:#e0e0e0;border-radius:10px;height:12px;width:100%;overflow:hidden;">' +
+                '<div style="background:linear-gradient(135deg,#4caf50,#2e7d32);height:100%;border-radius:10px;width:' + Math.round(rvPct) + '%"></div></div>' +
+                '<div style="font-size:12px;color:#555;margin-top:4px;">' + Math.round(rvPct) + '%</div>';
+        }, 300);
+        try {
+            var base64 = await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(visaFile);});
+            var resp = await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'uploadFile',folderId:folderId,folderName:folderName,fileName:fileName,fileData:base64,mimeType:visaFile.type||'application/octet-stream',parentType:'employers'})});
+            var result = await resp.json();
+            clearInterval(rvTimer);
+            if (result.success) {
+                w.VisaFileURL = result.fileUrl || result.url || '';
+                if (zone) zone.innerHTML = '<div style="background:#e0e0e0;border-radius:10px;height:12px;width:100%;overflow:hidden;margin-bottom:4px;"><div style="background:linear-gradient(135deg,#4caf50,#2e7d32);height:100%;border-radius:10px;width:100%"></div></div><div style="font-size:12px;font-weight:700;color:#2e7d32;">✅ 100% — Uploaded!</div>';
+            }
+        } catch(e) { clearInterval(rvTimer); console.warn('Visa upload failed:', e); }
+    }
+    _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
+    google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).gsrSaveRow('Workers', w);
+    if (btn) { btn.textContent = '✅ Done — Moved to Ready Visa'; btn.style.background = '#4caf50'; }
+    setTimeout(function() {
+        var popupEl = document.getElementById('rvPopup');
+        if (popupEl) popupEl.remove();
+        updateCounts(); renderTab();
+        alert('🟢 Moved to Ready Visa!\n' + (w.WFullName||w.WorkerFirstName) + '\nVisa No: ' + visaNum);
+    }, 800);
+}
+
+// ── Waiting Ticket Popup ───────────────────────────────
+window.moveToStage = (function(orig) {
+    return async function(workerId, newStage) {
+        if (newStage === 'waiting_ticket') { showWaitingTicketPopup(workerId); return; }
+        return orig.apply(this, arguments);
+    };
+})(window.moveToStage);
+
+function showWaitingTicketPopup(workerId) {
+    var existing = document.getElementById('wtPopup'); if (existing) existing.remove();
+    var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
+    if (!w) return;
+    var name = w.WFullName || w.WorkerFirstName || 'Worker';
+    var wCode = w.WorkerCode || (w.SupplierCode ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'ID-' + w.WorkerID);
+    var ov = document.createElement('div');
+    ov.id = 'wtPopup';
+    ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    ov._ticketFile = null;
+    ov.innerHTML =
+        '<div style="background:white;border-radius:14px;width:560px;max-width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);">' +
+            '<div style="background:linear-gradient(135deg,#00bcd4,#00838f);color:white;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;">' +
+                '<div><div style="font-weight:700;font-size:16px;">🎫 Waiting Ticket — Flight Details</div>' +
+                '<div style="font-size:12px;opacity:0.9;margin-top:3px;">' + name + ' &nbsp;|&nbsp; ' + wCode + '</div></div>' +
+                '<button onclick="document.getElementById(\'wtPopup\').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:20px;cursor:pointer;border-radius:6px;padding:2px 8px;">&times;</button>' +
+            '</div>' +
+            '<div style="padding:20px;display:flex;flex-direction:column;gap:14px;">' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+                    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                        '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Ticket Number *</label>' +
+                        '<input type="text" id="wtTicketNum" placeholder="e.g. TK1234..." style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:inherit;" oninput="this.style.borderColor=this.value?\'#00bcd4\':\'#e0e0e0\'">' +
+                    '</div>' +
+                    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                        '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Airlines *</label>' +
+                        '<input type="text" id="wtAirlines" placeholder="e.g. Ethiopian Airlines..." style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:inherit;" oninput="this.style.borderColor=this.value?\'#00bcd4\':\'#e0e0e0\'">' +
+                    '</div>' +
+                '</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+                    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                        '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Flight Number *</label>' +
+                        '<input type="text" id="wtFlightNum" placeholder="e.g. ET612..." style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:inherit;" oninput="this.style.borderColor=this.value?\'#00bcd4\':\'#e0e0e0\'">' +
+                    '</div>' +
+                    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                        '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Departure Airport *</label>' +
+                        '<input type="text" id="wtDepartureAirport" placeholder="e.g. Addis Ababa (ADD)..." style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:inherit;" oninput="this.style.borderColor=this.value?\'#00bcd4\':\'#e0e0e0\'">' +
+                    '</div>' +
+                '</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+                    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                        '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Departure Date & Time *</label>' +
+                        '<input type="datetime-local" id="wtDepartureDateTime" style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">' +
+                    '</div>' +
+                    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                        '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Arrival Airport *</label>' +
+                        '<input type="text" id="wtArrivalAirport" placeholder="e.g. Beirut (BEY)..." style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:inherit;" oninput="this.style.borderColor=this.value?\'#00bcd4\':\'#e0e0e0\'">' +
+                    '</div>' +
+                '</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+                    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                        '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Arrival Date & Time *</label>' +
+                        '<input type="datetime-local" id="wtArrivalDateTime" style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">' +
+                    '</div>' +
+                    '<div></div>' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#e0f7fa;border-radius:8px;border:2px solid #e0e0e0;">' +
+                    '<input type="checkbox" id="wtConfirmCheck" style="width:20px;height:20px;accent-color:#00bcd4;cursor:pointer;flex-shrink:0;">' +
+                    '<label for="wtConfirmCheck" style="font-size:13px;font-weight:600;color:#00838f;cursor:pointer;margin:0;">I confirm all flight details are correct</label>' +
+                '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:6px;">' +
+                    '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Ticket Document</label>' +
+                    '<div id="wtDropZone" ondragover="event.preventDefault();this.style.background=\'#e0f7fa\';this.style.borderColor=\'#00bcd4\';" ondragleave="this.style.background=\'#fafafa\';this.style.borderColor=\'#ccc\';" ondrop="event.preventDefault();this.style.background=\'#fafafa\';this.style.borderColor=\'#ccc\';handleWTDrop(event.dataTransfer.files);" onclick="document.getElementById(\'wtFileInput\').click();" style="border:2px dashed #ccc;border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fafafa;transition:all 0.2s;">' +
+                        '<div style="font-size:24px;margin-bottom:4px;">📎</div>' +
+                        '<div style="font-size:13px;font-weight:600;color:#555;">Drag & drop or click to browse</div>' +
+                        '<div style="font-size:11px;color:#999;margin-top:3px;">PDF, JPG, PNG</div>' +
+                        '<div id="wtFileName" style="margin-top:6px;font-size:12px;font-weight:700;color:#00bcd4;"></div>' +
+                    '</div>' +
+                    '<input type="file" id="wtFileInput" accept="image/*,.pdf" style="display:none;" onchange="handleWTDrop(this.files)">' +
+                '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:8px;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                        '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">✈️ Flight Segments / Stops</label>' +
+                        '<button onclick="addWTSegment()" style="padding:4px 12px;background:#00bcd4;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">+ Add Stop</button>' +
+                    '</div>' +
+                    '<div id="wtSegments" style="display:flex;flex-direction:column;gap:8px;"></div>' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#e0f7fa;border-radius:8px;border:2px solid #e0e0e0;">' +
+                    '<input type="checkbox" id="wtConfirmCheck" style="width:20px;height:20px;accent-color:#00bcd4;cursor:pointer;flex-shrink:0;">' +
+                    '<label for="wtConfirmCheck" style="font-size:13px;font-weight:600;color:#00838f;cursor:pointer;margin:0;">I confirm all flight details are correct</label>' +
+                '</div>' +
+                '<div style="display:flex;gap:10px;">' +
+                    '<button onclick="document.getElementById(\'wtPopup\').remove()" style="flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;background:white;font-weight:600;font-size:14px;cursor:pointer;color:#666;">Cancel</button>' +
+                    '<button id="wtConfirmBtn" onclick="confirmWTAndMove(' + workerId + ')" style="flex:2;padding:10px;background:linear-gradient(135deg,#00bcd4,#00838f);color:white;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">🎫 Confirm & Move to Waiting Ticket</button>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+    setTimeout(function() { var el = document.getElementById('wtTicketNum'); if(el) el.focus(); }, 100);
+}
+
+var _wtFile = null;
+var _evFile = null;
+function handleWTDrop(files) {
+    if (!files || !files.length) return;
+    _wtFile = files[0];
+    var label = document.getElementById('wtFileName');
+    if (label) label.textContent = '✅ ' + files[0].name;
+    var zone = document.getElementById('wtDropZone');
+    if (zone) { zone.style.borderColor = '#00bcd4'; zone.style.background = '#e0f7fa'; }
+}
+function handleEVDrop(files) {
+    if (!files || !files.length) return;
+    _evFile = files[0];
+    var label = document.getElementById('evFileName');
+    if (label) label.textContent = '✅ ' + files[0].name;
+    var zone = document.getElementById('evDropZone');
+    if (zone) { zone.style.borderColor = '#28a745'; zone.style.background = '#f0fff4'; }
+}
+
+var _wtSegments = [];
+function addWTSegment() {
+    _wtSegments.push({ flight: '', from: '', to: '', dep: '', arr: '' });
+    renderWTSegments();
+}
+function removeWTSegment(i) {
+    _wtSegments.splice(i, 1);
+    renderWTSegments();
+}
+function renderWTSegments() {
+    var container = document.getElementById('wtSegments');
+    if (!container) return;
+    if (_wtSegments.length === 0) {
+        container.innerHTML = '<div style="font-size:12px;color:#999;text-align:center;padding:8px;">No stops added — direct flight</div>';
+        return;
+    }
+    container.innerHTML = _wtSegments.map(function(s, i) {
+        return '<div style="background:#e0f7fa;border-radius:8px;padding:10px;border:1px solid #b2ebf2;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+                '<span style="font-size:12px;font-weight:700;color:#00838f;">Stop ' + (i+1) + '</span>' +
+                '<button onclick="removeWTSegment(' + i + ')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:14px;">✕</button>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+                '<input type="text" placeholder="Flight No." value="' + (s.flight||'') + '" oninput="_wtSegments[' + i + '].flight=this.value" style="padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">' +
+                '<input type="text" placeholder="From Airport" value="' + (s.from||'') + '" oninput="_wtSegments[' + i + '].from=this.value" style="padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">' +
+                '<input type="text" placeholder="To Airport" value="' + (s.to||'') + '" oninput="_wtSegments[' + i + '].to=this.value" style="padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">' +
+                '<input type="datetime-local" value="' + (s.dep||'') + '" oninput="_wtSegments[' + i + '].dep=this.value" style="padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">' +
+            '</div>' +
+        '</div>';
+    }).join('');
+}
+async function confirmWTAndMove(workerId) {
+    var ticketNum       = (document.getElementById('wtTicketNum')          || {}).value.trim();
+    var airlines        = (document.getElementById('wtAirlines')           || {}).value.trim();
+    var flightNum       = (document.getElementById('wtFlightNum')          || {}).value.trim();
+    var depAirport      = (document.getElementById('wtDepartureAirport')   || {}).value.trim();
+    var depDateTime     = (document.getElementById('wtDepartureDateTime')  || {}).value;
+    var arrAirport      = (document.getElementById('wtArrivalAirport')     || {}).value.trim();
+    var arrDateTime     = (document.getElementById('wtArrivalDateTime')    || {}).value;
+    var chk             = document.getElementById('wtConfirmCheck');
+    var btn             = document.getElementById('wtConfirmBtn');
+
+    if (!ticketNum)   { var e1=document.getElementById('wtTicketNum');        if(e1){e1.style.borderColor='#dc3545';e1.focus();} return; }
+    if (!airlines)    { var e2=document.getElementById('wtAirlines');         if(e2){e2.style.borderColor='#dc3545';e2.focus();} return; }
+    if (!flightNum)   { var e3=document.getElementById('wtFlightNum');        if(e3){e3.style.borderColor='#dc3545';e3.focus();} return; }
+    if (!depAirport)  { var e4=document.getElementById('wtDepartureAirport'); if(e4){e4.style.borderColor='#dc3545';e4.focus();} return; }
+    if (!depDateTime) { var e5=document.getElementById('wtDepartureDateTime');if(e5){e5.style.borderColor='#dc3545';e5.focus();} return; }
+    if (!arrAirport)  { var e6=document.getElementById('wtArrivalAirport');   if(e6){e6.style.borderColor='#dc3545';e6.focus();} return; }
+    if (!arrDateTime) { var e7=document.getElementById('wtArrivalDateTime');  if(e7){e7.style.borderColor='#dc3545';e7.focus();} return; }
+    if (!chk || !chk.checked) { alert('⚠️ Please confirm the flight details are correct.'); return; }
+
+    var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
+    if (!w) return;
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; btn.style.background = '#ccc'; }
+
+    var ticketFile = _wtFile;
+    _wtFile = null;
+    w.TicketNumber        = ticketNum;
+    w.Airlines            = airlines;
+    w.FlightNumber        = flightNum;
+    w.DepartureAirport    = depAirport;
+    w.DepartureDateTime   = depDateTime;
+    w.ArrivalAirport      = arrAirport;
+    w.ExpectedArrivalDate = arrDateTime;
+    if (typeof _wtSegments !== 'undefined' && _wtSegments.length > 0) w.FlightSegments = JSON.stringify(_wtSegments);
+    _wtSegments = [];
+    if (_wtSegments.length > 0) w.FlightSegments = JSON.stringify(_wtSegments);
+    _wtSegments = [];
+    w.ProcessingStage     = 'waiting_ticket';
+    var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+    if (outs.indexOf('waitingticket') < 0) outs.unshift('waitingticket');
+    w.WorkerOutcomes = JSON.stringify(outs);
+    if (ticketFile) {
+        var emp = allEmployers.find(function(e){ return String(e.EmployerCode)===String(w.EmployerCode)||String(e.EmployerID)===String(w.EmployerID); });
+        var folderId = emp ? (emp.EmployerFolderID||'') : '';
+        var folderName = emp ? (emp.EmployerFolderName||emp.EFN||emp.EmployerName||w.EmployerCode||'Unknown') : (w.EmployerCode||'Unknown');
+        var wCode = w.WorkerCode||(w.SupplierCode?w.SupplierCode+'-'+String(w.WorkerID).padStart(4,'0'):'ID-'+w.WorkerID);
+        var ext = ticketFile.name.split('.').pop()||'pdf';
+        var fileName = 'Ticket_'+wCode+'_'+new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)+'.'+ext;
+        var zone = document.getElementById('wtDropZone');
+        var wtPct = 0;
+        var wtTimer = setInterval(function(){
+            wtPct = Math.min(wtPct+Math.random()*8,92);
+            if(zone) zone.innerHTML='<div style="font-size:13px;font-weight:600;color:#00838f;margin-bottom:6px;">⏳ Uploading ticket...</div>'+
+                '<div style="background:#e0e0e0;border-radius:10px;height:12px;width:100%;overflow:hidden;">'+
+                '<div style="background:linear-gradient(135deg,#00bcd4,#00838f);height:100%;border-radius:10px;width:'+Math.round(wtPct)+'%"></div></div>'+
+                '<div style="font-size:12px;color:#555;margin-top:4px;">'+Math.round(wtPct)+'%</div>';
+        },300);
+        try {
+            var base64 = await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(ticketFile);});
+            var resp = await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'uploadFile',folderId:folderId,folderName:folderName,fileName:fileName,fileData:base64,mimeType:ticketFile.type||'application/octet-stream',parentType:'employers'})});
+            var result = await resp.json();
+            clearInterval(wtTimer);
+            if(result.success){ w.TicketFileURL=result.fileUrl||result.url||''; if(zone) zone.innerHTML='<div style="font-size:12px;font-weight:700;color:#00838f;">✅ 100% — Ticket uploaded!</div>'; }
+        } catch(e){ clearInterval(wtTimer); console.warn('Ticket upload failed:',e); }
+    }
+    _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
+    google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).gsrSaveRow('Workers', w);
+    if (btn) { btn.textContent = '✅ Done — Moved to Waiting Ticket'; btn.style.background = '#4caf50'; }
+    setTimeout(function() {
+        var popupEl = document.getElementById('wtPopup');
+        if (popupEl) popupEl.remove();
+        updateCounts(); renderTab();
+        alert('🎫 Moved to Waiting Ticket!\n' + (w.WFullName||w.WorkerFirstName) + '\nFlight: ' + airlines + ' ' + flightNum + '\nTicket: ' + ticketNum + '\nDeparture: ' + depDateTime + '\nArrival: ' + arrDateTime);
+    }, 800);
+}
 </script>
 
 </body>
