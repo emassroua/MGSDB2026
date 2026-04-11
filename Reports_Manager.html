@@ -1,63 +1,645 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports &amp; Analytics - MGSDB2026</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .container {
-            background: white;
-            border-radius: 20px;
-            padding: 60px 80px;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 600px;
-            width: 90%;
-        }
-        .icon { font-size: 80px; margin-bottom: 20px; }
-        h1 { font-size: 28px; color: #333; margin-bottom: 10px; }
-        .badge {
-            display: inline-block;
-            background: #ff9800;
-            color: white;
-            padding: 8px 24px;
-            border-radius: 25px;
-            font-size: 16px;
-            font-weight: 600;
-            margin: 20px 0;
-            letter-spacing: 1px;
-        }
-        p { color: #888; font-size: 15px; margin-bottom: 30px; }
-        .back-btn {
-            display: inline-block;
-            padding: 12px 30px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-decoration: none;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 600;
-            transition: opacity 0.3s;
-        }
-        .back-btn:hover { opacity: 0.85; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MGS — Reports Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --accent:#667eea; --accent-dark:#4f46e5; --accent-light:#eef2ff;
+  --sidebar-bg:#0f172a; --page-bg:#f1f5f9; --card-bg:#fff;
+  --border:#e2e8f0; --text:#1e293b; --text-muted:#64748b;
+  --success:#10b981; --danger:#ef4444; --warning:#f59e0b;
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--page-bg);color:var(--text);min-height:100vh;}
+.layout{display:grid;grid-template-columns:260px 1fr;height:100vh;overflow:hidden;}
+.sidebar{background:var(--sidebar-bg);display:flex;flex-direction:column;overflow:hidden;}
+.sidebar-header{padding:18px 16px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));flex-shrink:0;}
+.sidebar-header h2{color:white;font-size:15px;font-weight:800;}
+.sidebar-header p{color:rgba(255,255,255,0.75);font-size:11px;margin-top:3px;}
+.sidebar-search{padding:10px 12px;border-bottom:1px solid #1e293b;flex-shrink:0;}
+.sidebar-search input{width:100%;padding:7px 11px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:12px;font-family:inherit;outline:none;}
+.sidebar-search input::placeholder{color:#64748b;}
+.sidebar-search input:focus{border-color:var(--accent);}
+.sidebar-nav{flex:1;overflow-y:auto;padding:6px 0;}
+.sidebar-nav::-webkit-scrollbar{width:4px;}
+.sidebar-nav::-webkit-scrollbar-thumb{background:#334155;border-radius:4px;}
+.cat-header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;cursor:pointer;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;border-left:3px solid transparent;transition:all 0.15s;user-select:none;}
+.cat-header:hover{background:#1e293b;color:#94a3b8;border-left-color:#334155;}
+.cat-header.open{color:#c7d2fe;border-left-color:var(--accent);background:rgba(99,102,241,0.08);}
+.cat-arrow{font-size:10px;transition:transform 0.2s;}
+.cat-header.open .cat-arrow{transform:rotate(90deg);}
+.cat-body{display:none;}
+.cat-body.open{display:block;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px 9px 24px;cursor:pointer;transition:all 0.15s;border-left:3px solid transparent;}
+.nav-item:hover{background:#1e293b;border-left-color:#334155;}
+.nav-item.active{background:rgba(99,102,241,0.15);border-left-color:var(--accent);}
+.nav-item .ni{font-size:14px;width:18px;text-align:center;}
+.nav-item .nl{font-size:12px;font-weight:600;color:#94a3b8;}
+.nav-item.active .nl{color:#c7d2fe;font-weight:700;}
+.sidebar-footer{padding:10px 14px;border-top:1px solid #1e293b;flex-shrink:0;}
+.cloud-status{display:flex;align-items:center;gap:7px;font-size:11px;color:#64748b;}
+.cloud-dot{width:7px;height:7px;border-radius:50%;background:#475569;}
+.cloud-dot.ok{background:var(--success);}
+.main{display:flex;flex-direction:column;overflow:hidden;}
+.main-toolbar{padding:10px 20px;background:white;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0;}
+.main-toolbar h1{font-size:16px;font-weight:800;flex:1;}
+.btn{padding:7px 14px;border:none;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;transition:all 0.2s;display:inline-flex;align-items:center;gap:5px;}
+.btn:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,0.1);}
+.btn-success{background:var(--success);color:white;}
+.btn-print{background:#0f172a;color:white;}
+.btn-light{background:white;color:var(--text);border:1px solid var(--border);}
+.main-content{flex:1;overflow-y:auto;padding:20px;}
+.main-content::-webkit-scrollbar{width:6px;}
+.main-content::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;text-align:center;}
+.welcome-icon{font-size:56px;margin-bottom:14px;}
+.welcome h2{font-size:22px;font-weight:800;margin-bottom:8px;}
+.welcome p{color:var(--text-muted);font-size:13px;max-width:380px;}
+.welcome-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:24px;max-width:700px;}
+.wc{background:white;border-radius:9px;padding:14px;border:1px solid var(--border);cursor:pointer;transition:all 0.2s;text-align:left;}
+.wc:hover{border-color:var(--accent);box-shadow:0 4px 14px rgba(99,102,241,0.12);transform:translateY(-2px);}
+.wc-icon{font-size:22px;margin-bottom:7px;}
+.wc-title{font-size:12px;font-weight:700;}
+.wc-desc{font-size:11px;color:var(--text-muted);margin-top:2px;}
+.rpt-header{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:white;border-radius:var(--radius);padding:18px 22px;margin-bottom:18px;}
+.rpt-header h2{font-size:18px;font-weight:800;}
+.rpt-header p{font-size:12px;opacity:0.85;margin-top:3px;}
+.rpt-filters{background:white;border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.fg{display:flex;align-items:center;gap:6px;}
+.fg label{font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;}
+.fi{padding:7px 11px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:white;outline:none;}
+.fi:focus{border-color:var(--accent);}
+.fbtn{padding:7px 16px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
+.fcount{font-size:12px;font-weight:700;color:var(--text-muted);margin-left:auto;}
+.stats{display:grid;gap:10px;margin-bottom:18px;}
+.sc{background:white;border-radius:var(--radius);padding:14px;border:1px solid var(--border);text-align:center;}
+.sv{font-size:22px;font-weight:800;color:var(--accent);}
+.sl{font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:3px;}
+.agency-group{margin-bottom:28px;}
+.agency-hdr{background:linear-gradient(135deg,#0f172a,#1e293b);color:white;border-radius:9px 9px 0 0;padding:13px 18px;display:flex;align-items:center;gap:10px;}
+.agency-hdr h2{font-size:15px;font-weight:800;}
+.ag-badge{background:rgba(255,255,255,0.15);padding:2px 9px;border-radius:16px;font-size:11px;font-weight:700;margin-left:auto;}
+.date-group{border-left:1px solid var(--border);border-right:1px solid var(--border);}
+.date-hdr{background:#f8fafc;padding:9px 18px;border-bottom:1px solid var(--border);border-top:1px solid var(--border);display:flex;align-items:center;gap:9px;}
+.date-hdr h3{font-size:12px;font-weight:700;color:var(--accent);}
+.date-badge{background:var(--accent);color:white;padding:2px 7px;border-radius:9px;font-size:10px;font-weight:700;}
+.emp-group{border-bottom:2px solid var(--border);}
+.emp-hdr{background:rgba(102,126,234,0.05);padding:9px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:7px;}
+.emp-info h4{font-size:12px;font-weight:700;}
+.emp-meta{font-size:10px;color:var(--text-muted);margin-top:2px;}
+.emp-stats{display:flex;gap:10px;align-items:center;}
+.esv{font-size:13px;font-weight:800;color:var(--accent);}
+.esl{font-size:9px;color:var(--text-muted);font-weight:600;text-align:center;}
+.bal{padding:3px 10px;border-radius:16px;font-size:11px;font-weight:700;}
+.bal-pos{background:#dcfce7;color:#16a34a;}
+.bal-neg{background:#fee2e2;color:#dc2626;}
+.bal-z{background:#f1f5f9;color:#64748b;}
+.wt{width:100%;border-collapse:collapse;}
+.wt th{padding:7px 12px;font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;background:#f8fafc;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
+.wt td{padding:9px 12px;font-size:11px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+.wt tr:last-child td{border-bottom:none;}
+.wt tr:hover td{background:#f8fafc;}
+.wcode{font-size:10px;color:var(--accent);font-weight:700;}
+.wname{font-weight:700;}
+.nbadge{display:inline-block;padding:2px 7px;background:#eef2ff;color:var(--accent);border-radius:9px;font-size:9px;font-weight:700;}
+.flt-main{font-weight:700;}
+.flt-sub{font-size:10px;color:var(--text-muted);}
+.route{display:flex;align-items:center;gap:3px;font-size:10px;}
+.route-arr{color:var(--accent);}
+.tbadge{background:#f0f9ff;color:#0369a1;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;white-space:nowrap;}
+.tbadge-arr{background:#f0fdf4;color:#16a34a;}
+.visa-ok{color:var(--success);}
+.visa-warn{color:var(--warning);}
+.visa-bad{color:var(--danger);}
+.sb{padding:2px 8px;border-radius:9px;font-size:10px;font-weight:700;}
+.sb-arrived{background:#dcfce7;color:#16a34a;}
+.sb-overdue{background:#fef3c7;color:#d97706;}
+.sb-today{background:#fef3c7;color:#d97706;}
+.sb-tomorrow{background:#fff7ed;color:#c2410c;}
+.sb-soon{background:#f1f5f9;color:#64748b;}
+.loading{text-align:center;padding:50px;color:var(--text-muted);}
+.spin{display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:10px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.empty{text-align:center;padding:50px;color:var(--text-muted);}
+.empty-icon{font-size:40px;margin-bottom:10px;}
+@media print {
+  @page{size:A4;margin:14mm 11mm;}
+  .sidebar,.main-toolbar,.rpt-filters{display:none!important;}
+  .layout{display:block;}
+  .main{display:block;}
+  .main-content{padding:0;overflow:visible;}
+  body{background:white!important;}
+  .stats{gap:6px;margin-bottom:14px;}
+  .sc{padding:8px;border:1px solid #ddd;}
+  .sv{font-size:16px;}
+  .print-hdr{display:flex!important;}
+  .agency-group{margin-bottom:16px;page-break-inside:avoid;}
+  .agency-hdr{background:#0f172a!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .emp-group{page-break-inside:avoid;}
+  .wt th{font-size:8px;padding:5px 9px;}
+  .wt td{font-size:9px;padding:6px 9px;}
+  .bal-pos,.bal-neg,.bal-z,.nbadge,.tbadge,.tbadge-arr,.sb{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .rpt-header{background:var(--accent)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+}
+.print-hdr{display:none;align-items:center;gap:14px;padding-bottom:14px;margin-bottom:16px;border-bottom:3px solid var(--accent);}
+.ph-logo{font-size:28px;font-weight:900;color:var(--accent);letter-spacing:3px;}
+.ph-info h1{font-size:16px;font-weight:800;}
+.ph-info p{font-size:11px;color:var(--text-muted);margin-top:2px;}
+.ph-meta{margin-left:auto;text-align:right;font-size:10px;color:var(--text-muted);}
+</style>
 </head>
 <body>
-    <div class="container">
-        <div class="icon">&#128202;</div>
-        <h1>Reports &amp; Analytics</h1>
-        <div class="badge">UNDER CONSTRUCTION</div>
-        <p>This module is currently being developed. Please check back soon.</p>
-        <a class="back-btn" href="https://script.google.com/macros/s/AKfycbwYCnfqcqPkVax5E2nd9-CCiKb9gNRrgWIMMrPZ-lSpMuEpRTSiHKg9rZxcfeP8fjCM/exec?page=Dashboard">&#8592; Back to Dashboard</a>
+<div class="layout">
+<div class="sidebar">
+  <div class="sidebar-header">
+    <h2>📊 Reports Manager</h2>
+    <p>MGS — Massroua General Services</p>
+  </div>
+  <div class="sidebar-search">
+    <input type="text" id="navSearch" placeholder="🔍 Search reports..." oninput="filterNav(this.value)">
+  </div>
+  <div class="sidebar-nav">
+    <div class="cat-header" onclick="toggleCat('cat-workers')" id="hdr-cat-workers"><span>👷 Workers</span><span class="cat-arrow">▶</span></div>
+    <div class="cat-body" id="cat-workers">
+      <div class="nav-item" onclick="loadReport('workers-by-stage')"><span class="ni">🔄</span><span class="nl">Workers by Stage</span></div>
+      <div class="nav-item" onclick="loadReport('workers-by-supplier')"><span class="ni">🏭</span><span class="nl">Workers by Supplier</span></div>
+      <div class="nav-item" onclick="loadReport('workers-by-nationality')"><span class="ni">🌍</span><span class="nl">Workers by Nationality</span></div>
+      <div class="nav-item" onclick="loadReport('workers-by-employer')"><span class="ni">💼</span><span class="nl">Workers by Employer</span></div>
     </div>
+    <div class="cat-header" onclick="toggleCat('cat-operational')" id="hdr-cat-operational"><span>⚙️ Operational</span><span class="cat-arrow">▶</span></div>
+    <div class="cat-body" id="cat-operational">
+      <div class="nav-item" onclick="loadReport('arriving-workers')"><span class="ni">✈️</span><span class="nl">Arriving Workers</span></div>
+      <div class="nav-item" onclick="loadReport('passport-expiry')"><span class="ni">🛂</span><span class="nl">Passport Expiry</span></div>
+      <div class="nav-item" onclick="loadReport('visa-expiry')"><span class="ni">📋</span><span class="nl">Visa Expiry</span></div>
+      <div class="nav-item" onclick="loadReport('ikama')"><span class="ni">🪪</span><span class="nl">Ikama Expiry</span></div>
+      <div class="nav-item" onclick="loadReport('work-permit')"><span class="ni">📜</span><span class="nl">Work Permit Expiry</span></div>
+      <div class="nav-item" onclick="loadReport('insurance')"><span class="ni">🛡️</span><span class="nl">Insurance Expiry</span></div>
+    </div>
+    <div class="cat-header" onclick="toggleCat('cat-financial')" id="hdr-cat-financial"><span>💰 Financial</span><span class="cat-arrow">▶</span></div>
+    <div class="cat-body" id="cat-financial">
+      <div class="nav-item" onclick="loadReport('invoice-summary')"><span class="ni">🧾</span><span class="nl">Invoice Summary</span></div>
+      <div class="nav-item" onclick="loadReport('supplier-vouchers')"><span class="ni">💳</span><span class="nl">Supplier Vouchers</span></div>
+      <div class="nav-item" onclick="loadReport('outstanding-payments')"><span class="ni">💰</span><span class="nl">Outstanding Payments</span></div>
+    </div>
+    <div class="cat-header" onclick="toggleCat('cat-agency')" id="hdr-cat-agency"><span>🏛️ Agency</span><span class="cat-arrow">▶</span></div>
+    <div class="cat-body" id="cat-agency">
+      <div class="nav-item" onclick="loadReport('workers-per-agency')"><span class="ni">🏛️</span><span class="nl">Workers per Agency</span></div>
+      <div class="nav-item" onclick="loadReport('selected-pending')"><span class="ni">⏳</span><span class="nl">Selected — Pending</span></div>
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="cloud-status"><div class="cloud-dot" id="cloudDot"></div><span id="cloudStatusTxt">Connecting...</span></div>
+  </div>
+</div>
+<div class="main">
+  <div class="main-toolbar">
+    <h1 id="toolbarTitle">📊 Reports Manager</h1>
+    <button class="btn btn-light" onclick="refreshData()">🔄 Refresh</button>
+    <button class="btn btn-print" onclick="window.print()">🖨️ Print A4</button>
+    <button class="btn btn-success" onclick="exportCSV()">📥 CSV</button>
+    <div style="width:1px;height:24px;background:var(--border);margin:0 4px;"></div>
+    <button class="btn btn-light" onclick="openPage('Reports_Manager')" title="Reports Manager">🏠</button>
+    <button class="btn btn-light" onclick="openPage('Processing_Manager')" title="Processing Manager">🔄</button>
+    <button class="btn btn-light" onclick="openPage('Accountant')" title="Accountant">💰</button>
+    <button class="btn btn-light" onclick="openPage('Worker_Approval')" title="Worker Approval">✅</button>
+    <button class="btn btn-light" onclick="openPage('Dashboard')" title="Dashboard">🏛️</button>
+  </div>
+  <div class="main-content" id="mainContent">
+    <div class="welcome">
+      <div class="welcome-icon">📊</div>
+      <h2>Welcome to Reports Manager</h2>
+      <p>Select a report from the sidebar. All data loads from Google Sheets in real time.</p>
+      <div class="welcome-cards">
+        <div class="wc" onclick="loadReport('arriving-workers')"><div class="wc-icon">✈️</div><div class="wc-title">Arriving Workers</div><div class="wc-desc">Scheduled arrivals with full details</div><div id="arriving72Badge" style="margin-top:8px;background:#f1f5f9;color:#64748b;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">⚡ <span id="arriving72Count">0</span> arriving in 72h</div></div>
+        <div class="wc" onclick="loadReport('workers-by-stage')"><div class="wc-icon">🔄</div><div class="wc-title">Workers by Stage</div><div class="wc-desc">Processing pipeline overview</div></div>
+        <div class="wc" onclick="loadReport('passport-expiry')"><div class="wc-icon">🛂</div><div class="wc-title">Passport Expiry</div><div class="wc-desc">Passports expiring soon</div><div id="passport180Badge" style="margin-top:8px;background:#f1f5f9;color:#64748b;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">⚠️ <span id="passport180Count">0</span> expiring in 180d</div></div>
+        <div class="wc" onclick="loadReport('invoice-summary')"><div class="wc-icon">🧾</div><div class="wc-title">Invoice Summary</div><div class="wc-desc">All invoices overview</div><div id="invoiceTotalBadge" style="margin-top:8px;background:#f1f5f9;color:#64748b;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">💰 <span id="invoiceTotalAmt">$0</span> pending</div></div>
+        <div class="wc" onclick="loadReport('supplier-vouchers')"><div class="wc-icon">💳</div><div class="wc-title">Supplier Vouchers</div><div class="wc-desc">Payment vouchers status</div></div>
+        <div class="wc" onclick="loadReport('workers-per-agency')"><div class="wc-icon">🏛️</div><div class="wc-title">Workers per Agency</div><div class="wc-desc">Agency breakdown</div></div>
+        <div class="wc" onclick="loadReport('visa-expiry')"><div class="wc-icon">📋</div><div class="wc-title">Visa Expiry</div><div class="wc-desc">Monitor visa validity</div><div id="visaNoTicketBadge" style="margin-top:8px;background:#f1f5f9;color:#64748b;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">⚠️ <span id="visaNoTicketCount">0</span> no ticket / expiring</div></div>
+        <div class="wc" onclick="loadReport('ikama')"><div class="wc-icon">🪪</div><div class="wc-title">Ikama Expiry</div><div class="wc-desc">Residency permit monitoring</div></div>
+        <div class="wc" onclick="loadReport('work-permit')"><div class="wc-icon">📜</div><div class="wc-title">Work Permit</div><div class="wc-desc">Work permit expiry alerts</div></div>
+        <div class="wc" onclick="loadReport('insurance')"><div class="wc-icon">🛡️</div><div class="wc-title">Insurance Expiry</div><div class="wc-desc">Insurance validity monitoring</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<script>
+var SCRIPT_URL=(function(){var m=window.location.href.match(/(https:\/\/script\.google\.com\/macros\/s\/[^\/]+\/exec)/);return m?m[1]:'https://script.google.com/macros/s/AKfycbxEbNo287tvEezLwy8vYHrNWxPXELlzzsGVg9yeA6XXDIkXdR0ILEKOTWbG88PxHiIf/exec';})();
+var allWorkers=[],allEmployers=[],allAgencies=[],allSuppliers=[],allPayments=[],allInvoices=[];
+var currentReport='',_arrivingFiltered=[];
+
+function isT(v){return v===true||v==='true'||v==='TRUE';}
+function fmtDate(d){if(!d)return'—';try{return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return d;}}
+function fmtDT(d){if(!d)return'—';try{var dt=new Date(d);return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+' '+dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});}catch(e){return d;}}
+function fmtDateKey(d){if(!d)return'';try{return new Date(d).toISOString().split('T')[0];}catch(e){return'';}}
+function daysUntil(d){if(!d)return null;return Math.round((new Date(d)-new Date())/86400000);}
+function wCode(w){return w.WorkerCode||(w.SupplierCode?w.SupplierCode+'-'+String(w.WorkerID).padStart(4,'0'):'ID-'+w.WorkerID);}
+function wName(w){return w.WFullName||([w.WorkerFirstName,w.WorkerMiddleName,w.WorkerLastName].filter(Boolean).join(' '))||'Unknown';}
+function getEmp(w){return allEmployers.find(function(e){return String(e.EmployerID)===String(w.EmployerID)||String(e.EmployerCode)===String(w.EmployerCode);});}
+function getAgency(emp){if(!emp)return null;return allAgencies.find(function(a){return String(a.AgencyCode||'')===String(emp.AgencyCode||'')||String(a.AgencyID||'')===String(emp.AgencyID||'');});}
+function empName(w){var e=getEmp(w);return e?(e.EFN||e.EmployerName||w.EmployerCode):(w.EmployerCode||'—');}
+function stageLabel(w){var s=(w.ProcessingStage||'').toLowerCase().replace(/_/g,'');var m={processing:'Processing',preapproval:'Preapproval',waitingvisa:'Waiting Visa',readyvisa:'Ready Visa',waitingticket:'Waiting Ticket',arrived:'Arrived'};return m[s]||w.ProcessingStage||'—';}
+function getEmpBalance(empId,empCode,workers){
+  var t=0;
+  var wCodes=(workers||[]).map(function(w){return wCode(w);});
+  allPayments.forEach(function(p){
+    var empMatch=String(p.employerCode||'')===String(empCode||'')||String(p.employerID||'')===String(empId||'');
+    var wMatch=p.workerCode&&wCodes.indexOf(String(p.workerCode))>=0;
+    if(empMatch||wMatch){var a=parseFloat(p.amount||0);if(p.type==='payment'||p.status==='paid')t-=a;else t+=a;}
+  });
+  return t;
+}
+function gsLoad(sheet){return new Promise(function(res){google.script.run.withSuccessHandler(function(d){res((d&&d.data)?d.data:(Array.isArray(d)?d:[]));}).withFailureHandler(function(){res([]);}).gsrGetAll(sheet);});}
+function setCloud(ok,msg){document.getElementById('cloudDot').className='cloud-dot'+(ok?' ok':'');document.getElementById('cloudStatusTxt').textContent=msg;}
+
+async function init(){
+  setCloud(false,'Loading...');
+  var r=await Promise.all([gsLoad('Workers'),gsLoad('Employers'),gsLoad('Local_Agencies'),gsLoad('Suppliers'),gsLoad('OutgoingPayments'),gsLoad('Invoices')]);
+allWorkers=r[0];allEmployers=r[1];allAgencies=r[2];allSuppliers=r[3];allPayments=r[4];allInvoices=r[5];
+  setCloud(true,allWorkers.length+' workers');
+  populateAgencyFilter();
+  if(currentReport) loadReport(currentReport);
+  update72Badge();
+  updatePassportBadge();
+  updateVisaBadge();updateInvoiceBadge();
+}
+
+function refreshData(){setCloud(false,'Refreshing...');init();}
+function openPage(page){window.open(SCRIPT_URL+'?page='+page,'_blank');}
+
+function toggleCat(id){
+  var cats=['cat-workers','cat-operational','cat-financial','cat-agency'];
+  cats.forEach(function(c){
+    var b=document.getElementById(c),h=document.getElementById('hdr-'+c);
+    if(c===id){var o=b.classList.contains('open');b.classList.toggle('open',!o);h.classList.toggle('open',!o);}
+    else{b.classList.remove('open');h.classList.remove('open');}
+  });
+}
+
+function filterNav(q){
+  document.querySelectorAll('.nav-item').forEach(function(el){el.style.display=(!q||el.querySelector('.nl').textContent.toLowerCase().includes(q.toLowerCase()))?'':'none';});
+  if(q){['cat-workers','cat-operational','cat-financial','cat-agency'].forEach(function(c){document.getElementById(c).classList.add('open');document.getElementById('hdr-'+c).classList.add('open');});}
+}
+
+function setActiveNav(r){
+  document.querySelectorAll('.nav-item').forEach(function(el){el.classList.remove('active');});
+  document.querySelectorAll('.nav-item').forEach(function(el){if(el.getAttribute('onclick')&&el.getAttribute('onclick').includes("'"+r+"'"))el.classList.add('active');});
+}
+
+function loadReport(name){
+  currentReport=name;
+  setActiveNav(name);
+  var catMap={
+    'workers-by-stage':'cat-workers','workers-by-supplier':'cat-workers','workers-by-nationality':'cat-workers','workers-by-employer':'cat-workers',
+    'arriving-workers':'cat-operational','passport-expiry':'cat-operational','visa-expiry':'cat-operational',
+    'ikama':'cat-operational','work-permit':'cat-operational','insurance':'cat-operational',
+    'invoice-summary':'cat-financial','supplier-vouchers':'cat-financial','outstanding-payments':'cat-financial',
+    'workers-per-agency':'cat-agency','selected-pending':'cat-agency'
+  };
+  if(catMap[name]) toggleCat(catMap[name]);
+  document.getElementById('mainContent').innerHTML='<div class="loading"><div class="spin"></div><div>Loading report...</div></div>';
+  setTimeout(function(){
+    switch(name){
+      case 'arriving-workers':     rptArriving();break;
+      case 'workers-by-stage':     rptByStage();break;
+      case 'workers-by-supplier':  rptBySupplier();break;
+      case 'workers-by-nationality':rptByNationality();break;
+      case 'workers-by-employer':  rptByEmployer();break;
+      case 'passport-expiry':      rptPassportExpiry();break;
+      case 'visa-expiry':          rptVisaExpiry();break;
+      case 'ikama':                rptIkama();break;
+      case 'work-permit':          rptWorkPermit();break;
+      case 'insurance':            rptInsurance();break;
+      case 'invoice-summary':      rptInvoiceSummary();break;
+      case 'supplier-vouchers':    rptSupplierVouchers();break;
+      case 'outstanding-payments': rptOutstandingPayments();break;
+      case 'workers-per-agency':   rptWorkersPerAgency();break;
+      case 'selected-pending':     rptSelectedPending();break;
+      default: document.getElementById('mainContent').innerHTML='<div class="empty"><div class="empty-icon">🚧</div><div>Coming soon</div></div>';
+    }
+  },80);
+}
+
+function exportCSV(){
+  var t=document.querySelector('table');
+  if(!t){alert('No table to export');return;}
+  var rows=[];
+  t.querySelectorAll('tr').forEach(function(r){rows.push(Array.from(r.querySelectorAll('th,td')).map(function(c){return'"'+c.textContent.replace(/"/g,'""')+'"';}).join(','));});
+  var a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(rows.join('\n'));
+  a.download=currentReport+'-'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click();
+}
+
+// ── WELCOME BADGES ──
+function update72Badge(){
+  var count=allWorkers.filter(function(w){if(!w.ExpectedArrivalDate)return false;var d=daysUntil(w.ExpectedArrivalDate);return d!==null&&d>=0&&d<=3;}).length;
+  var badge=document.getElementById('arriving72Badge'),countEl=document.getElementById('arriving72Count');
+  if(badge&&countEl){countEl.textContent=count;badge.style.background=count>0?'#dcfce7':'#f1f5f9';badge.style.color=count>0?'#16a34a':'#64748b';}
+}
+
+function updatePassportBadge(){
+  var count=allWorkers.filter(function(w){if(!w.PassportExpiryDate)return false;var d=daysUntil(w.PassportExpiryDate);return d!==null&&d>=0&&d<=180;}).length;
+  var badge=document.getElementById('passport180Badge'),countEl=document.getElementById('passport180Count');
+  if(badge&&countEl){countEl.textContent=count;badge.style.background=count>0?'#fef3c7':'#f1f5f9';badge.style.color=count>0?'#d97706':'#64748b';}
+}
+
+function updateVisaBadge(){
+  var noTicket=allWorkers.filter(function(w){
+    if(!w.EntryValidUntil&&!w.VisaExpiryDate)return false;
+    if(isT(w.Arrived)||isT(w.ArrivalConfirmed))return false;
+    var s=(w.ProcessingStage||'').toLowerCase().replace(/_/g,'');
+    return s!=='waitingticket'&&s!=='arrived'&&!w.TicketNumber&&!w.FlightNumber;
+  }).length;
+  var expiring15=allWorkers.filter(function(w){
+    if(!w.EntryValidUntil&&!w.VisaExpiryDate)return false;
+    var d=daysUntil(w.EntryValidUntil||w.VisaExpiryDate);
+    return d!==null&&d>=0&&d<=15;
+  }).length;
+  var total=noTicket+expiring15;
+  var badge=document.getElementById('visaNoTicketBadge'),countEl=document.getElementById('visaNoTicketCount');
+  if(badge&&countEl){countEl.textContent=total;badge.style.background=total>0?'#fee2e2':'#f1f5f9';badge.style.color=total>0?'#dc2626':'#64748b';}
+}
+
+// ── ARRIVING WORKERS ──
+function populateAgencyFilter(){
+  var sel=document.getElementById('filterAgency');if(!sel)return;
+  var cur=sel.value;sel.innerHTML='<option value="">All Agencies</option>';
+  allAgencies.forEach(function(ag){var o=document.createElement('option');o.value=ag.AgencyCode||'';o.textContent=(ag.AgencyCode||'')+' — '+(ag.AgencyName||'');sel.appendChild(o);});
+  if(cur)sel.value=cur;
+}
+
+function rptArriving(){
+  document.getElementById('toolbarTitle').textContent='✈️ Arriving Workers';
+  var now=new Date();
+  var from=new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0];
+  var to=new Date(now.getFullYear(),now.getMonth()+2,0).toISOString().split('T')[0];
+  document.getElementById('mainContent').innerHTML=
+    '<div class="print-hdr" id="printHdr"><div class="ph-logo">MGS</div><div class="ph-info"><h1>Arriving Workers Report</h1><p>Massroua General Services — Zahlé, Lebanon</p></div><div class="ph-meta" id="phMeta"></div></div>'+
+    '<div class="rpt-header"><h2>✈️ Arriving Workers</h2><p>Grouped by Agency → Arrival Date → Employer</p></div>'+
+    '<div class="rpt-filters"><div class="fg"><label>From:</label><input type="date" id="filterFrom" class="fi" value="'+from+'"></div><div class="fg"><label>To:</label><input type="date" id="filterTo" class="fi" value="'+to+'"></div><div class="fg"><label>Agency:</label><select id="filterAgency" class="fi"><option value="">All Agencies</option></select></div><div class="fg"><label>Status:</label><select id="filterStatus" class="fi"><option value="all">All</option><option value="upcoming">Upcoming</option><option value="arrived">Arrived</option><option value="thismonth">This Month</option></select></div><button class="fbtn" onclick="applyArrivingFilters()">🔍 Apply</button><button class="btn btn-light" onclick="resetArrivingFilters()" style="padding:7px 12px;">✕ Reset</button><span class="fcount" id="filterCount"></span></div>'+
+    '<div class="stats" style="grid-template-columns:repeat(5,1fr);"><div class="sc"><div class="sv" id="statTotal">—</div><div class="sl">Total</div></div><div class="sc"><div class="sv" id="statUpcoming">—</div><div class="sl">Upcoming</div></div><div class="sc"><div class="sv" id="statThisMonth">—</div><div class="sl">This Month</div></div><div class="sc"><div class="sv" id="statToday">—</div><div class="sl">Today/Tomorrow</div></div><div class="sc"><div class="sv" id="statArrived">—</div><div class="sl">Arrived</div></div></div>'+
+    '<div id="arrivingBody"><div class="loading"><div class="spin"></div><div>Applying filters...</div></div></div>';
+  populateAgencyFilter();
+  applyArrivingFilters();
+}
+
+function resetArrivingFilters(){
+  var now=new Date();
+  document.getElementById('filterFrom').value=new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0];
+  document.getElementById('filterTo').value=new Date(now.getFullYear(),now.getMonth()+2,0).toISOString().split('T')[0];
+  document.getElementById('filterAgency').value='';
+  document.getElementById('filterStatus').value='all';
+  applyArrivingFilters();
+}
+
+function applyArrivingFilters(){
+  var fe=document.getElementById('filterFrom');if(!fe)return;
+  var from=fe.value,to=document.getElementById('filterTo').value,agency=document.getElementById('filterAgency').value,status=document.getElementById('filterStatus').value;
+  var now=new Date(),thisM=now.getMonth(),thisY=now.getFullYear();
+  _arrivingFiltered=allWorkers.filter(function(w){
+    if(!w.ExpectedArrivalDate)return false;
+    var arr=new Date(w.ExpectedArrivalDate);
+    if(from&&arr<new Date(from))return false;
+    if(to&&arr>new Date(to+' 23:59:59'))return false;
+    if(status==='upcoming'&&arr<now)return false;
+    if(status==='arrived'&&!isT(w.ArrivalConfirmed)&&!isT(w.Arrived))return false;
+    if(status==='thismonth'&&(arr.getMonth()!==thisM||arr.getFullYear()!==thisY))return false;
+    if(agency){var e=getEmp(w);if(!e||String(e.AgencyCode||'')!==agency)return false;}
+    return true;
+  });
+  _arrivingFiltered.sort(function(a,b){return new Date(a.ExpectedArrivalDate)-new Date(b.ExpectedArrivalDate);});
+  var allWithArr=allWorkers.filter(function(w){return w.ExpectedArrivalDate;});
+  var el=function(id){return document.getElementById(id);};
+  if(el('statTotal'))el('statTotal').textContent=_arrivingFiltered.length;
+  if(el('statUpcoming'))el('statUpcoming').textContent=_arrivingFiltered.filter(function(w){return new Date(w.ExpectedArrivalDate)>now;}).length;
+  if(el('statThisMonth'))el('statThisMonth').textContent=allWithArr.filter(function(w){var d=new Date(w.ExpectedArrivalDate);return d.getMonth()===thisM&&d.getFullYear()===thisY;}).length;
+  if(el('statToday'))el('statToday').textContent=_arrivingFiltered.filter(function(w){var d=daysUntil(w.ExpectedArrivalDate);return d>=0&&d<=1;}).length;
+  if(el('statArrived'))el('statArrived').textContent=_arrivingFiltered.filter(function(w){return isT(w.ArrivalConfirmed)||isT(w.Arrived);}).length;
+  if(el('filterCount'))el('filterCount').textContent=_arrivingFiltered.length+' workers';
+  if(el('phMeta'))el('phMeta').innerHTML='Range: '+(from||'—')+' to '+(to||'—')+'<br>Generated: '+new Date().toLocaleDateString('en-GB')+' '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+'<br>Total: '+_arrivingFiltered.length+' workers';
+  renderArriving();
+}
+
+function renderArriving(){
+  var body=document.getElementById('arrivingBody');if(!body)return;
+  if(!_arrivingFiltered.length){body.innerHTML='<div class="empty"><div class="empty-icon">✈️</div><div style="font-size:14px;font-weight:700;margin-bottom:6px;">No arriving workers found</div><div style="font-size:12px;color:#94a3b8;">Adjust date range or filters</div></div>';return;}
+  var byAgency={};
+  _arrivingFiltered.forEach(function(w){
+    var emp=getEmp(w),ag=getAgency(emp);
+    var agCode=ag?(ag.AgencyCode||'Unknown'):(emp?(emp.AgencyCode||'Unknown'):'Unknown');
+    var agName=ag?(ag.AgencyName||agCode):agCode;
+    var dateKey=fmtDateKey(w.ExpectedArrivalDate);
+    var empKey=emp?(emp.EmployerCode||String(emp.EmployerID)||'Unknown'):(w.EmployerCode||'Unknown');
+    if(!byAgency[agCode])byAgency[agCode]={name:agName,dates:{}};
+    if(!byAgency[agCode].dates[dateKey])byAgency[agCode].dates[dateKey]={};
+    if(!byAgency[agCode].dates[dateKey][empKey])byAgency[agCode].dates[dateKey][empKey]={emp:emp,workers:[]};
+    byAgency[agCode].dates[dateKey][empKey].workers.push(w);
+  });
+  var html='';
+  Object.keys(byAgency).sort().forEach(function(agCode){
+    var agData=byAgency[agCode];
+    var agCount=0;
+    Object.keys(agData.dates).forEach(function(dk){Object.keys(agData.dates[dk]).forEach(function(ek){agCount+=agData.dates[dk][ek].workers.length;});});
+    html+='<div class="agency-group"><div class="agency-hdr"><span style="font-size:20px;">🏛️</span><div><h2>'+agData.name+'</h2><div style="font-size:10px;opacity:0.7;margin-top:1px;">Code: '+agCode+'</div></div><span class="ag-badge">'+agCount+' worker'+(agCount!==1?'s':'')+'</span></div>';
+    Object.keys(agData.dates).sort().forEach(function(dateKey){
+      var dg=agData.dates[dateKey];var dc=0;Object.keys(dg).forEach(function(ek){dc+=dg[ek].workers.length;});
+      var days=daysUntil(dateKey);
+      var dayLbl=days===null?'':days<0?'<span style="color:#dc2626;font-weight:700;">'+Math.abs(days)+' days ago</span>':days===0?'<span style="color:#f59e0b;font-weight:700;">TODAY</span>':days===1?'<span style="color:#f59e0b;font-weight:700;">TOMORROW</span>':'<span style="color:#64748b;">in '+days+' days</span>';
+      html+='<div class="date-group"><div class="date-hdr"><span>📅</span><h3>'+fmtDate(dateKey)+'</h3><span class="date-badge">'+dc+' worker'+(dc!==1?'s':'')+'</span><span style="margin-left:7px;font-size:11px;">'+dayLbl+'</span></div>';
+      Object.keys(dg).sort().forEach(function(empKey){
+        var eg=dg[empKey],emp=eg.emp;
+        var en=emp?(emp.EFN||emp.EmployerName||empKey):empKey;
+        var ec=emp?(emp.EmployerCode||empKey):empKey;
+        var eContact=emp?(emp.MobileNumber||emp.ContactNumber||'—'):'—';
+        var eAg=emp?(emp.AgencyCode||''):'';
+        var bal=emp?getEmpBalance(emp.EmployerID,emp.EmployerCode,eg.workers):0;
+        var balCls=bal>0?'bal-pos':bal<0?'bal-neg':'bal-z';
+        var balTxt=bal>0?'+$'+Math.abs(bal).toFixed(2):bal<0?'-$'+Math.abs(bal).toFixed(2):'$0.00';
+        html+='<div class="emp-group"><div class="emp-hdr"><div class="emp-info"><h4>💼 '+en+' <span style="font-size:10px;color:var(--text-muted);font-weight:400;">('+ec+')</span> <span class="bal '+balCls+'" style="font-size:12px;vertical-align:middle;">'+balTxt+'</span></h4><div class="emp-meta">📞 '+eContact+'  |  Agency: '+eAg+'  |  Workers: '+eg.workers.length+'</div></div></div>';
+        html+='<table class="wt"><thead><tr><th>#</th><th>Code</th><th>Name</th><th>Nationality</th><th>Passport</th><th>Flight</th><th>Route</th><th>Departure</th><th>Arrival</th><th>Visa No.</th><th>Entry Valid</th><th>Status</th></tr></thead><tbody>';
+        eg.workers.forEach(function(w,idx){
+          var wc=wCode(w),wn=wName(w),days2=daysUntil(w.ExpectedArrivalDate),arr=isT(w.ArrivalConfirmed)||isT(w.Arrived);
+          var sbHtml=arr?'<span class="sb sb-arrived">✅ Arrived</span>':days2===null?'—':days2<0?'<span class="sb sb-overdue">⏳ Overdue</span>':days2===0?'<span class="sb sb-today">🔔 Today</span>':days2===1?'<span class="sb sb-tomorrow">📅 Tomorrow</span>':'<span class="sb sb-soon">🗓 In '+days2+'d</span>';
+          var visaExp=w.EntryValidUntil||w.VisaExpiryDate,vDays=daysUntil(visaExp),vHtml='—';
+          if(visaExp){var vCls=vDays===null?'':vDays<0?'visa-bad':vDays<=30?'visa-warn':'visa-ok';vHtml='<span class="'+vCls+'">'+fmtDate(visaExp)+(vDays!==null?' ('+vDays+'d)':'')+'</span>';}
+          html+='<tr style="background:'+(idx%2===0?'#f8fafc':'white')+';"><td style="font-weight:700;color:var(--text-muted);">'+(idx+1)+'</td><td><span class="wcode">'+wc+'</span></td><td><span class="wname">'+wn+'</span></td><td><span class="nbadge">'+(w.Nationality||'—')+'</span></td><td style="font-family:monospace;font-size:10px;">'+(w.PassportNumber||'—')+'</td><td><div class="flt-main">'+(w.Airlines||'—')+'</div><div class="flt-sub">'+(w.FlightNumber||'—')+'</div></td><td><div class="route"><span>'+(w.DepartureAirport||'—')+'</span><span class="route-arr">→</span><span>'+(w.ArrivalAirport||'BEY')+'</span></div></td><td><span class="tbadge">'+(w.DepartureDateTime?fmtDT(w.DepartureDateTime):fmtDT(w.ExpectedArrivalDate))+'</span></td><td><span class="tbadge tbadge-arr">'+fmtDT(w.ExpectedArrivalDate)+'</span></td><td style="font-size:10px;">'+(w.VisaNumber||'—')+'</td><td>'+vHtml+'</td><td>'+sbHtml+'</td></tr>';
+        });
+        html+='</tbody></table></div>';
+      });
+      html+='</div>';
+    });
+    html+='</div>';
+  });
+  body.innerHTML=html;
+}
+
+// ── SHARED HELPERS ──
+function sRow(arr){return '<div class="stats" style="grid-template-columns:repeat('+arr.length+',1fr);">'+arr.map(function(s){return '<div class="sc"><div class="sv">'+s.v+'</div><div class="sl">'+s.l+'</div></div>';}).join('')+'</div>';}
+function bTbl(headers,rows,id){
+  if(!rows.length)return'<div class="empty"><div class="empty-icon">📭</div><div>No data</div></div>';
+  return'<div style="background:white;border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;">'+
+    '<div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">'+
+    '<span style="font-size:13px;font-weight:700;">'+rows.length+' records</span>'+
+    '<input placeholder="🔍 Search..." oninput="ftbl(this.value,\''+id+'\')" style="padding:6px 11px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none;width:180px;">'+
+    '</div><div style="overflow-x:auto;"><table id="'+id+'"><thead><tr>'+headers.map(function(h){return'<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div></div>';
+}
+function ftbl(q,tid){var t=document.getElementById(tid);if(!t)return;t.querySelectorAll('tbody tr').forEach(function(r){r.style.display=(!q||r.textContent.toLowerCase().includes(q.toLowerCase()))?'':'none';});}
+
+// ── WORKERS REPORTS ──
+function rptByStage(){
+  document.getElementById('toolbarTitle').textContent='🔄 Workers by Stage';
+  var list=allWorkers.filter(function(w){return isT(w.Processing)||isT(w.Selected);});
+  var rows=list.map(function(w){return'<tr><td>'+wCode(w)+'</td><td>'+wName(w)+'</td><td>'+(w.Nationality||'—')+'</td><td>'+empName(w)+'</td><td>'+stageLabel(w)+'</td><td>'+fmtDate(w.DateAdded)+'</td></tr>';});
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>🔄 Workers by Stage</h2><p>All workers in processing pipeline</p></div>'+sRow([{v:list.length,l:'Processing'},{v:allWorkers.filter(function(w){return isT(w.Arrived);}).length,l:'Arrived'},{v:allWorkers.length,l:'Total'}])+bTbl(['Code','Name','Nationality','Employer','Stage','Date Added'],rows,'tbl1');
+}
+
+function rptBySupplier(){
+  document.getElementById('toolbarTitle').textContent='🏭 Workers by Supplier';
+  var rows=allWorkers.map(function(w){return'<tr><td>'+(w.SupplierCode||'—')+'</td><td>'+wCode(w)+'</td><td>'+wName(w)+'</td><td>'+(w.Nationality||'—')+'</td><td>'+(isT(w.Selected)?'Selected':'Pending')+'</td></tr>';});
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>🏭 Workers by Supplier</h2><p>All workers grouped by supplier</p></div>'+sRow([{v:allWorkers.length,l:'Total'},{v:[...new Set(allWorkers.map(function(w){return w.SupplierCode;}))].length,l:'Suppliers'}])+bTbl(['Supplier','Code','Name','Nationality','Status'],rows,'tbl2');
+}
+
+function rptByNationality(){
+  document.getElementById('toolbarTitle').textContent='🌍 Workers by Nationality';
+  var g={};allWorkers.forEach(function(w){var n=w.Nationality||'Unknown';g[n]=(g[n]||0)+1;});
+  var s=Object.keys(g).sort(function(a,b){return g[b]-g[a];});
+  var rows=s.map(function(n){var c=g[n],p=Math.round(c/allWorkers.length*100);return'<tr><td>'+n+'</td><td><strong>'+c+'</strong></td><td>'+p+'%</td><td><div style="background:#e2e8f0;border-radius:4px;height:7px;width:150px;overflow:hidden;"><div style="background:var(--accent);height:100%;width:'+p+'%;border-radius:4px;"></div></div></td></tr>';});
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>🌍 Workers by Nationality</h2><p>Distribution by country</p></div>'+sRow([{v:allWorkers.length,l:'Total'},{v:s.length,l:'Nationalities'}])+bTbl(['Nationality','Count','%','Distribution'],rows,'tbl3');
+}
+
+function rptByEmployer(){
+  document.getElementById('toolbarTitle').textContent='💼 Workers by Employer';
+  var a=allWorkers.filter(function(w){return w.EmployerCode||w.EmployerID;});
+  var rows=a.map(function(w){return'<tr><td>'+(w.EmployerCode||w.EmployerID||'—')+'</td><td>'+empName(w)+'</td><td>'+wCode(w)+'</td><td>'+wName(w)+'</td><td>'+(w.Nationality||'—')+'</td><td>'+stageLabel(w)+'</td></tr>';});
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>💼 Workers by Employer</h2><p>All workers grouped by employer</p></div>'+sRow([{v:a.length,l:'Assigned'},{v:allWorkers.length-a.length,l:'Unassigned'},{v:allWorkers.length,l:'Total'}])+bTbl(['Emp Code','Employer','Worker Code','Name','Nationality','Stage'],rows,'tbl4');
+}
+
+// ── OPERATIONAL REPORTS ──
+function rptPassportExpiry(){
+  document.getElementById('toolbarTitle').textContent='🛂 Passport Expiry';
+  var list=allWorkers.filter(function(w){return w.PassportExpiryDate;}).sort(function(a,b){return new Date(a.PassportExpiryDate)-new Date(b.PassportExpiryDate);});
+  var rows=list.map(function(w){var d=daysUntil(w.PassportExpiryDate);var b=d===null?'—':d<0?'<span style="color:#dc2626;font-weight:700;">Expired</span>':d<=90?'<span style="color:#f59e0b;font-weight:700;">'+d+'d</span>':'<span style="color:#16a34a;">'+d+'d</span>';return'<tr><td>'+wCode(w)+'</td><td>'+wName(w)+'</td><td>'+(w.Nationality||'—')+'</td><td>'+(w.PassportNumber||'—')+'</td><td>'+fmtDate(w.PassportExpiryDate)+'</td><td>'+b+'</td></tr>';});
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>🛂 Passport Expiry Alerts</h2><p>Monitor passport validity</p></div>'+sRow([{v:list.length,l:'With Passport'},{v:list.filter(function(w){return daysUntil(w.PassportExpiryDate)<0;}).length,l:'Expired'},{v:list.filter(function(w){var d=daysUntil(w.PassportExpiryDate);return d>=0&&d<=90;}).length,l:'Expiring 90d'}])+bTbl(['Code','Name','Nationality','Passport No.','Expiry','Status'],rows,'tbl5');
+}
+
+function rptVisaExpiry(){
+  document.getElementById('toolbarTitle').textContent='📋 Visa Expiry';
+  var list=allWorkers.filter(function(w){return w.EntryValidUntil||w.VisaExpiryDate;}).sort(function(a,b){return new Date(a.EntryValidUntil||a.VisaExpiryDate)-new Date(b.EntryValidUntil||b.VisaExpiryDate);});
+  var arrived=list.filter(function(w){return isT(w.Arrived)||isT(w.ArrivalConfirmed);});
+  var notArrived=list.filter(function(w){return !isT(w.Arrived)&&!isT(w.ArrivalConfirmed);});
+  var noTicket=notArrived.filter(function(w){var s=(w.ProcessingStage||'').toLowerCase().replace(/_/g,'');return s!=='waitingticket'&&s!=='arrived'&&!w.TicketNumber&&!w.FlightNumber;});
+  function makeRow(w){
+    var exp=w.EntryValidUntil||w.VisaExpiryDate,d=daysUntil(exp);
+    var b=d===null?'—':d<0?'<span style="color:#dc2626;font-weight:700;">Expired</span>':d<=30?'<span style="color:#f59e0b;font-weight:700;">'+d+'d</span>':'<span style="color:#16a34a;">'+d+'d</span>';
+    var warn=noTicket.indexOf(w)>=0?'<span style="background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:700;margin-left:4px;">⚠️ No Ticket</span>':'';
+    return'<tr><td>'+wCode(w)+'</td><td>'+wName(w)+warn+'</td><td>'+(w.Nationality||'—')+'</td><td>'+(w.VisaNumber||'—')+'</td><td>'+fmtDate(exp)+'</td><td>'+b+'</td></tr>';
+  }
+  var html='<div class="rpt-header"><h2>📋 Visa Expiry Alerts</h2><p>Monitor visa validity — split by arrival status</p></div>';
+  html+=sRow([{v:list.length,l:'Total'},{v:arrived.length,l:'Arrived'},{v:notArrived.length,l:'Not Arrived'},{v:noTicket.length,l:'No Ticket'},{v:list.filter(function(w){return daysUntil(w.EntryValidUntil||w.VisaExpiryDate)<0;}).length,l:'Expired'}]);
+  html+='<div style="background:#f0fdf4;border:2px solid #86efac;border-radius:9px;padding:12px 16px;margin-bottom:16px;font-size:13px;font-weight:700;color:#16a34a;">✈️ Arrived Workers — Entry Visa Expiry ('+arrived.length+')</div>';
+  html+=arrived.length?bTbl(['Code','Name','Nationality','Visa No.','Expiry','Status'],arrived.map(makeRow),'tbl6a'):'<div class="empty" style="padding:20px;"><div>No arrived workers with visa data</div></div>';
+  html+='<div style="border-top:3px dashed #e2e8f0;margin:24px 0;"></div>';
+  html+='<div style="background:#fef3c7;border:2px solid #fbbf24;border-radius:9px;padding:12px 16px;margin-bottom:16px;font-size:13px;font-weight:700;color:#d97706;">⏳ Not Yet Arrived — Visa Expiry ('+notArrived.length+') — ⚠️ '+noTicket.length+' without ticket</div>';
+  html+=notArrived.length?bTbl(['Code','Name','Nationality','Visa No.','Expiry','Status'],notArrived.map(makeRow),'tbl6b'):'<div class="empty" style="padding:20px;"><div>No pending workers with visa data</div></div>';
+  document.getElementById('mainContent').innerHTML=html;
+}
+
+function rptIkama(){
+  document.getElementById('toolbarTitle').textContent='🪪 Ikama Expiry';
+  var list=allWorkers.filter(function(w){return w.IkamaExpiryDate||w.IkamaExpiry||w.Ikama;}).sort(function(a,b){return new Date(a.IkamaExpiryDate||a.IkamaExpiry)-new Date(b.IkamaExpiryDate||b.IkamaExpiry);});
+  var rows=list.map(function(w){var exp=w.IkamaExpiryDate||w.IkamaExpiry||w.Ikama;var d=daysUntil(exp);var b=d===null?'—':d<0?'<span style="color:#dc2626;font-weight:700;">Expired</span>':d<=30?'<span style="color:#f59e0b;font-weight:700;">'+d+'d</span>':'<span style="color:#16a34a;">'+d+'d</span>';return'<tr><td>'+wCode(w)+'</td><td>'+wName(w)+'</td><td>'+(w.Nationality||'—')+'</td><td>'+empName(w)+'</td><td>'+fmtDate(exp)+'</td><td>'+b+'</td></tr>';});
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>🪪 Ikama Expiry</h2><p>Monitor Ikama residency permit expiry</p></div>'+sRow([{v:list.length,l:'With Ikama'},{v:list.filter(function(w){return daysUntil(w.IkamaExpiryDate||w.IkamaExpiry||w.Ikama)<0;}).length,l:'Expired'},{v:list.filter(function(w){var d=daysUntil(w.IkamaExpiryDate||w.IkamaExpiry||w.Ikama);return d>=0&&d<=30;}).length,l:'Expiring 30d'}])+bTbl(['Code','Name','Nationality','Employer','Ikama Expiry','Status'],rows,'tbl-ikama');
+}
+
+function rptWorkPermit(){
+  document.getElementById('toolbarTitle').textContent='📜 Work Permit Expiry';
+  var list=allWorkers.filter(function(w){return w.WorkPermitExpiry||w.WorkPermitExpiryDate||w.WorkPermitNumber;}).sort(function(a,b){return new Date(a.WorkPermitExpiry||a.WorkPermitExpiryDate)-new Date(b.WorkPermitExpiry||b.WorkPermitExpiryDate);});
+  var rows=list.map(function(w){var exp=w.WorkPermitExpiry||w.WorkPermitExpiryDate;var d=exp?daysUntil(exp):null;var b=!exp?'<span style="color:#94a3b8;">No Date</span>':d<0?'<span style="color:#dc2626;font-weight:700;">Expired</span>':d<=30?'<span style="color:#f59e0b;font-weight:700;">'+d+'d</span>':'<span style="color:#16a34a;">'+d+'d</span>';return'<tr><td>'+wCode(w)+'</td><td>'+wName(w)+'</td><td>'+(w.Nationality||'—')+'</td><td>'+empName(w)+'</td><td>'+(w.WorkPermitNumber||'—')+'</td><td>'+fmtDate(exp)+'</td><td>'+b+'</td></tr>';});
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>📜 Work Permit Expiry</h2><p>Monitor work permit validity</p></div>'+sRow([{v:list.length,l:'With Permit'},{v:list.filter(function(w){var exp=w.WorkPermitExpiry||w.WorkPermitExpiryDate;return exp&&daysUntil(exp)<0;}).length,l:'Expired'},{v:list.filter(function(w){var exp=w.WorkPermitExpiry||w.WorkPermitExpiryDate;var d=exp?daysUntil(exp):null;return d!==null&&d>=0&&d<=30;}).length,l:'Expiring 30d'}])+bTbl(['Code','Name','Nationality','Employer','Permit No.','Expiry','Status'],rows,'tbl-permit');
+}
+
+function rptInsurance(){
+  document.getElementById('toolbarTitle').textContent='🛡️ Insurance Expiry';
+  var list=allWorkers.filter(function(w){return w.InsuranceExpiry||w.InsuranceExpiryDate||w.InsuranceNumber;}).sort(function(a,b){return new Date(a.InsuranceExpiry||a.InsuranceExpiryDate)-new Date(b.InsuranceExpiry||b.InsuranceExpiryDate);});
+  var rows=list.map(function(w){var exp=w.InsuranceExpiry||w.InsuranceExpiryDate;var d=exp?daysUntil(exp):null;var b=!exp?'<span style="color:#94a3b8;">No Date</span>':d<0?'<span style="color:#dc2626;font-weight:700;">Expired</span>':d<=30?'<span style="color:#f59e0b;font-weight:700;">'+d+'d</span>':'<span style="color:#16a34a;">'+d+'d</span>';return'<tr><td>'+wCode(w)+'</td><td>'+wName(w)+'</td><td>'+(w.Nationality||'—')+'</td><td>'+empName(w)+'</td><td>'+(w.InsuranceNumber||'—')+'</td><td>'+fmtDate(exp)+'</td><td>'+b+'</td></tr>';});
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>🛡️ Insurance Expiry</h2><p>Monitor insurance validity for workers</p></div>'+sRow([{v:list.length,l:'With Insurance'},{v:list.filter(function(w){var exp=w.InsuranceExpiry||w.InsuranceExpiryDate;return exp&&daysUntil(exp)<0;}).length,l:'Expired'},{v:list.filter(function(w){var exp=w.InsuranceExpiry||w.InsuranceExpiryDate;var d=exp?daysUntil(exp):null;return d!==null&&d>=0&&d<=30;}).length,l:'Expiring 30d'}])+bTbl(['Code','Name','Nationality','Employer','Insurance No.','Expiry','Status'],rows,'tbl-ins');
+}
+
+// ── FINANCIAL REPORTS ──
+function rptInvoiceSummary(){
+  document.getElementById('toolbarTitle').textContent='🧾 Invoice Summary';
+  var list=allInvoices.length?allInvoices:allWorkers.filter(function(w){return w.InvoiceNumber;});
+  var useInvoices=allInvoices.length>0;
+  var total=list.reduce(function(s,r){return s+(parseFloat(useInvoices?r.totalAmount:r.InvoiceAmount)||0);},0);
+  var pending=list.filter(function(r){return r.status==='pending'||!r.status;}).reduce(function(s,r){return s+(parseFloat(useInvoices?r.totalAmount:r.InvoiceAmount)||0);},0);
+  var paid=list.filter(function(r){return r.status==='paid';}).reduce(function(s,r){return s+(parseFloat(useInvoices?r.totalAmount:r.InvoiceAmount)||0);},0);
+  var rows=list.map(function(r){
+    var invNum=useInvoices?r.invoiceNumber:r.InvoiceNumber;
+    var wCode2=useInvoices?r.workerCode:wCode(r);
+    var wName2=useInvoices?(r.notes?r.notes.split('(')[0].replace('Worker:','').trim():r.workerCode):(wName(r));
+    var empN=useInvoices?(r.employerName||r.employerCode||'—'):empName(r);
+    var amt=parseFloat(useInvoices?r.totalAmount:r.InvoiceAmount)||0;
+    var dt=useInvoices?r.invoiceDate:r.InvoiceDate;
+    var st=r.status==='paid'?'<span style="color:#16a34a;font-weight:700;">Paid</span>':'<span style="color:#f59e0b;font-weight:700;">Pending</span>';
+    return'<tr><td>'+(invNum||'—')+'</td><td>'+(wCode2||'—')+'</td><td>'+wName2+'</td><td>'+empN+'</td><td>$'+amt.toFixed(2)+'</td><td>'+fmtDate(dt)+'</td><td>'+st+'</td></tr>';
+  });
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>🧾 Invoice Summary</h2><p>All generated invoices — '+list.length+' invoices</p></div>'+sRow([{v:list.length,l:'Invoices'},{v:'$'+total.toFixed(2),l:'Total Amount'},{v:'$'+pending.toFixed(2),l:'Pending Amount'},{v:'$'+paid.toFixed(2),l:'Paid Amount'}])+bTbl(['Invoice No.','Worker Code','Worker Name','Employer','Amount','Date','Status'],rows,'tbl7');
+}
+
+function rptSupplierVouchers(){
+  document.getElementById('toolbarTitle').textContent='💳 Supplier Vouchers';
+  var list=allPayments.filter(function(p){return p.source==='preapproval'||p.workerID;});
+  var total=list.reduce(function(s,p){return s+(parseFloat(p.amount)||0);},0);
+  var rows=list.map(function(p){return'<tr><td>'+(p.paymentId||'—')+'</td><td>'+(p.supplierCode||'—')+'</td><td>'+(p.workerCode||'—')+'</td><td>'+(p.workerName||'—')+'</td><td>'+(p.amount?'$'+parseFloat(p.amount).toFixed(2):'$0.00')+'</td><td>'+(p.dueDate||'On Arrival')+'</td><td>'+(p.status==='paid'?'<span style="color:#16a34a;font-weight:700;">Paid</span>':p.status==='void'?'<span style="color:#dc2626;font-weight:700;">Void</span>':'<span style="color:#f59e0b;font-weight:700;">Pending</span>')+'</td></tr>';});
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>💳 Supplier Vouchers</h2><p>Payment vouchers due to suppliers</p></div>'+sRow([{v:list.length,l:'Vouchers'},{v:'$'+total.toFixed(2),l:'Total'},{v:list.filter(function(p){return p.status==='paid';}).length,l:'Paid'}])+bTbl(['Voucher ID','Supplier','Worker Code','Worker Name','Amount','Due Date','Status'],rows,'tbl8');
+}
+
+function rptOutstandingPayments(){
+  document.getElementById('toolbarTitle').textContent='💰 Outstanding Payments';
+  var list=allPayments.filter(function(p){return p.status!=='paid'&&p.status!=='void';});
+  var total=list.reduce(function(s,p){return s+(parseFloat(p.amount)||0);},0);
+  var rows=list.map(function(p){return'<tr><td>'+(p.paymentId||'—')+'</td><td>'+(p.supplierCode||'—')+'</td><td>'+(p.workerCode||'—')+'</td><td>'+(p.workerName||'—')+'</td><td>'+(p.amount?'$'+parseFloat(p.amount).toFixed(2):'$0.00')+'</td><td>'+(p.dueDate||'On Arrival')+'</td></tr>';});
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>💰 Outstanding Payments</h2><p>All pending supplier payments</p></div>'+sRow([{v:list.length,l:'Pending'},{v:'$'+total.toFixed(2),l:'Total Outstanding'}])+bTbl(['Voucher ID','Supplier','Worker Code','Worker Name','Amount','Due Date'],rows,'tbl9');
+}
+
+// ── AGENCY REPORTS ──
+function rptWorkersPerAgency(){
+  document.getElementById('toolbarTitle').textContent='🏛️ Workers per Agency';
+  var rows=allAgencies.map(function(ag){
+    var agCode=ag.AgencyCode||'';
+    var agEmps=allEmployers.filter(function(e){return String(e.AgencyCode||'')===agCode;});
+    var agW=allWorkers.filter(function(w){return agEmps.some(function(e){return String(e.EmployerID)===String(w.EmployerID)||String(e.EmployerCode)===String(w.EmployerCode);});});
+    return'<tr><td><strong>'+agCode+'</strong></td><td>'+(ag.AgencyName||'—')+'</td><td>'+agEmps.length+'</td><td>'+agW.length+'</td><td>'+agW.filter(function(w){return isT(w.Selected);}).length+'</td><td>'+agW.filter(function(w){return isT(w.Arrived);}).length+'</td></tr>';
+  });
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>🏛️ Workers per Agency</h2><p>Distribution across all agencies</p></div>'+sRow([{v:allAgencies.length,l:'Agencies'},{v:allEmployers.length,l:'Employers'},{v:allWorkers.length,l:'Workers'}])+bTbl(['Agency Code','Agency Name','Employers','Workers','Selected','Arrived'],rows,'tbl10');
+}
+
+function rptSelectedPending(){
+  document.getElementById('toolbarTitle').textContent='⏳ Selected — Pending';
+  var list=allWorkers.filter(function(w){return isT(w.Selected)&&!isT(w.Processing)&&!isT(w.Arrived)&&!isT(w.Cancelled);});
+  var rows=list.map(function(w){var days=w.SelectedDate?Math.round((new Date()-new Date(w.SelectedDate))/86400000):null;var db=days===null?'—':days>30?'<span style="color:#dc2626;font-weight:700;">'+days+'d</span>':days>7?'<span style="color:#f59e0b;font-weight:700;">'+days+'d</span>':'<span style="color:#16a34a;">'+days+'d</span>';return'<tr><td>'+wCode(w)+'</td><td>'+wName(w)+'</td><td>'+(w.Nationality||'—')+'</td><td>'+empName(w)+'</td><td>'+fmtDate(w.SelectedDate)+'</td><td>'+db+'</td></tr>';});
+  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>⏳ Selected — Pending Processing</h2><p>Workers selected but not yet processed</p></div>'+sRow([{v:list.length,l:'Pending'},{v:list.filter(function(w){return w.SelectedDate&&Math.round((new Date()-new Date(w.SelectedDate))/86400000)>7;}).length,l:'Waiting >7d'}])+bTbl(['Code','Name','Nationality','Employer','Selected Date','Waiting'],rows,'tbl11');
+}
+function updateInvoiceBadge(){
+  var list=allInvoices.length?allInvoices:allWorkers.filter(function(w){return w.InvoiceNumber;});
+  var useInvoices=allInvoices.length>0;
+  var pending=list.filter(function(r){return r.status==='pending'||!r.status;}).reduce(function(s,r){return s+(parseFloat(useInvoices?r.totalAmount:r.InvoiceAmount)||0);},0);
+  var badge=document.getElementById('invoiceTotalBadge');
+  var amt=document.getElementById('invoiceTotalAmt');
+  if(badge&&amt){
+    amt.textContent='$'+pending.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    badge.style.background=pending>0?'#fef3c7':'#f1f5f9';
+    badge.style.color=pending>0?'#d97706':'#64748b';
+  }
+}
+init();
+</script>
 </body>
 </html>
