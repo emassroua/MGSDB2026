@@ -2375,7 +2375,7 @@ function renderPager(total, current, totalPages) {
   var s = (current-1)*_PAGE_SIZE+1, e = Math.min(current*_PAGE_SIZE, total);
   var div = document.createElement('div');
   div.id = 'empPager';
-  div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:8px 14px;background:#f8f9fa;border-radius:8px;border:1px solid #e2e8f0;';
+  div.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:12px;margin-top:10px;padding:8px 14px;background:#f8f9fa;border-radius:8px;border:1px solid #e2e8f0;';
   div.innerHTML =
     '<span style="font-size:12px;color:#64748b;font-weight:600;">'+s+'–'+e+' of '+total+' employers</span>'+
     '<div style="display:flex;gap:6px;align-items:center;">'+
@@ -2551,11 +2551,11 @@ if (st) {
     if (btnDis) btnDis.textContent = '🚫 Disabled (' + disabledCount + ')';
 
     // ── Pagination ──
-    var PAGE = 20;
+    var PAGE = 15;
     var totalPages = Math.ceil(list.length / PAGE) || 1;
-    if (typeof _currentPage === 'undefined') window._currentPage = 1;
-    if (_currentPage > totalPages) _currentPage = 1;
-    var start = (_currentPage - 1) * PAGE;
+    if (!window._currentPage) window._currentPage = 1;
+    if (window._currentPage > totalPages) window._currentPage = 1;
+    var start = (window._currentPage - 1) * PAGE;
     var page  = list.slice(start, start + PAGE);
 
     var tbody = document.getElementById('employersTableBody');
@@ -2633,17 +2633,25 @@ if (st) {
         tbody.appendChild(wr);
     });
 
+    window._filteredEmps = list;
     renderPager17(list.length, _currentPage, totalPages);
+ };
+window._currentPage = 1;
+window.changePage = function(dir) {
+  var list = window._filteredEmps || [];
+  var totalPages = Math.ceil(list.length / 15) || 1;
+  window._currentPage = Math.max(1, Math.min((window._currentPage||1) + dir, totalPages));
+  window.renderEmployersTable();
+  document.getElementById('tab-employers').scrollIntoView({behavior:'smooth', block:'start'});
 };
-
 function renderPager17(total, current, totalPages) {
     var old = document.getElementById('empPager'); if (old) old.remove();
     if (total === 0) return;
-    var PAGE = 20;
+    var PAGE = 15;
     var s = (current - 1) * PAGE + 1, e = Math.min(current * PAGE, total);
     var div = document.createElement('div');
     div.id = 'empPager';
-    div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:8px 14px;background:#f8f9fa;border-radius:8px;border:1px solid #e2e8f0;';
+    div.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:12px;margin-top:10px;padding:8px 14px;background:#f8f9fa;border-radius:8px;border:1px solid #e2e8f0;';
     div.innerHTML =
         '<span style="font-size:12px;color:#64748b;font-weight:600;">' + s + '–' + e + ' of ' + total + ' employers</span>' +
         '<div style="display:flex;gap:6px;align-items:center;">' +
@@ -3476,23 +3484,44 @@ var WorkerStageManager = (function() {
 // ==========================================
 // ACCEPTED WORKERS POPUP
 // ==========================================
-var _acceptedWorkersAll = [];
+var _acceptedRefreshTimer = null;
 
 function openAcceptedWorkersPopup() {
     _acceptedWorkersAll = allWorkers.filter(function(w) {
+        var isAccepted   = w.AcceptedByAdmin===true||w.AcceptedByAdmin==='true'||w.AcceptedByAdmin==='TRUE';
         var isSelected   = w.Selected      === true || w.Selected      === 'true';
         var isProcessing = w.Processing    === true || w.Processing    === 'true';
         var isArrived    = w.Arrived       === true || w.Arrived       === 'true';
         var isArchived   = w.WorkerArchived=== true || w.WorkerArchived=== 'true';
         var isRefused    = w.RefusedByAdmin=== true || w.RefusedByAdmin=== 'true';
         var hasName      = !!(w.WFullName || w.WorkerFirstName);
-        return !isSelected && !isProcessing && !isArrived && !isArchived && !isRefused && hasName;
+        return isAccepted && !isSelected && !isProcessing && !isArrived && !isArchived && !isRefused && hasName;
     });
     renderAcceptedWorkers(_acceptedWorkersAll);
     document.getElementById('acceptedWorkersPopup').style.display = 'block';
+
+    // Start auto-refresh every 15 seconds
+    if(_acceptedRefreshTimer) clearInterval(_acceptedRefreshTimer);
+    _acceptedRefreshTimer = setInterval(function(){
+        CloudDB.loadSheet('Workers').then(function(w){
+            if(w && w.length > 0) allWorkers = w;
+            _acceptedWorkersAll = allWorkers.filter(function(w){
+                var isAccepted   = w.AcceptedByAdmin===true||w.AcceptedByAdmin==='true'||w.AcceptedByAdmin==='TRUE';
+                var isSelected   = w.Selected===true||w.Selected==='true';
+                var isProcessing = w.Processing===true||w.Processing==='true';
+                var isArrived    = w.Arrived===true||w.Arrived==='true';
+                var isArchived   = w.WorkerArchived===true||w.WorkerArchived==='true';
+                var isRefused    = w.RefusedByAdmin===true||w.RefusedByAdmin==='true';
+                var hasName      = !!(w.WFullName||w.WorkerFirstName);
+                return isAccepted&&!isSelected&&!isProcessing&&!isArrived&&!isArchived&&!isRefused&&hasName;
+            });
+            renderAcceptedWorkers(_acceptedWorkersAll);
+        }).catch(function(){});
+    }, 5000);
 }
 
 function closeAcceptedWorkersPopup() {
+    if(_acceptedRefreshTimer){ clearInterval(_acceptedRefreshTimer); _acceptedRefreshTimer = null; }
     document.getElementById('acceptedWorkersPopup').style.display = 'none';
 }
 
@@ -3525,6 +3554,21 @@ function copyAcceptedCode(el, code) {
         var ta = document.createElement('textarea');
         ta.value = code; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
     });
+
+    // Silent background refresh after copy
+    CloudDB.loadSheet('Workers').then(function(w){
+        if(w && w.length > 0) allWorkers = w;
+        _acceptedWorkersAll = allWorkers.filter(function(w){
+            var isSelected   = w.Selected===true||w.Selected==='true';
+            var isProcessing = w.Processing===true||w.Processing==='true';
+            var isArrived    = w.Arrived===true||w.Arrived==='true';
+            var isArchived   = w.WorkerArchived===true||w.WorkerArchived==='true';
+            var isRefused    = w.RefusedByAdmin===true||w.RefusedByAdmin==='true';
+            var hasName      = !!(w.WFullName||w.WorkerFirstName);
+            return !isSelected&&!isProcessing&&!isArrived&&!isArchived&&!isRefused&&hasName;
+        });
+        renderAcceptedWorkers(_acceptedWorkersAll);
+    }).catch(function(){});
 }
 
 (function() {
