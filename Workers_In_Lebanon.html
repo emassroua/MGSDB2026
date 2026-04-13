@@ -15,8 +15,6 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
-
-/* ── TOOLBAR ── */
 .toolbar{background:white;border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
 .toolbar-logo{font-size:15px;font-weight:800;color:var(--accent);}
 .toolbar-title{font-size:15px;font-weight:700;flex:1;}
@@ -26,94 +24,107 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
 .btn-print{background:#0f172a;color:white;}
 .btn-light{background:white;color:var(--text);border:1px solid var(--border);}
 .btn-success{background:var(--success);color:white;}
+.btn-danger{background:var(--danger);color:white;}
 .toolbar-info{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px;}
 .cloud-dot{width:7px;height:7px;border-radius:50%;background:#475569;display:inline-block;}
 .cloud-dot.ok{background:var(--success);}
-
-/* ── TABS ── */
-.tabs-bar{background:white;border-bottom:2px solid var(--border);padding:0 24px;display:flex;gap:4px;}
-.tab{padding:12px 20px;border:none;background:transparent;border-bottom:3px solid transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);font-family:inherit;transition:all 0.2s;margin-bottom:-2px;}
-.tab:hover{color:var(--accent);}
+.tabs-bar{background:white;border-bottom:2px solid var(--border);padding:0 24px;display:flex;gap:4px;overflow-x:auto;}
+.tab{padding:12px 18px;border:none;background:transparent;border-bottom:3px solid transparent;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);font-family:inherit;transition:all 0.2s;margin-bottom:-2px;white-space:nowrap;}
 .tab.active{color:var(--tab-color,var(--accent));border-bottom-color:var(--tab-color,var(--accent));}
 .tab:hover{color:var(--tab-color,var(--accent));}
-.tab-badge{background:var(--accent);color:white;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:5px;}
-
-/* ── CONTENT ── */
-.content{padding:24px;max-width:1200px;margin:0 auto;}
-
-/* ── FILTERS ── */
+.tab-badge{color:white;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:5px;}
+.content{padding:24px;max-width:1300px;margin:0 auto;}
 .filters{background:white;border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .fg{display:flex;align-items:center;gap:6px;}
 .fg label{font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap;}
 .fi{padding:7px 11px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:white;outline:none;}
 .fi:focus{border-color:var(--accent);}
 .fcount{font-size:12px;font-weight:700;color:var(--muted);margin-left:auto;}
-
-/* ── STATS ── */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.stats{display:grid;gap:12px;margin-bottom:20px;}
 .sc{background:white;border-radius:var(--radius);padding:16px;border:1px solid var(--border);text-align:center;}
 .sv{font-size:26px;font-weight:800;color:var(--accent);}
 .sl{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;}
-
-/* ── TABLE ── */
 .tbl-wrap{background:white;border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;}
-.tbl-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.tbl-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
 .tbl-head-title{font-size:14px;font-weight:700;}
-.search-input{padding:7px 12px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none;width:220px;}
-.search-input:focus{border-color:var(--accent);}
 table{width:100%;border-collapse:collapse;}
 thead tr{border-bottom:1px solid var(--border);}
-th{padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;background:#f8fafc;white-space:nowrap;}
-td{padding:12px 16px;font-size:12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;background:#f8fafc;white-space:nowrap;}
+td{padding:10px 14px;font-size:12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:#f8fafc;}
 tr:nth-child(even) td{background:#fafafa;}
 tr:nth-child(even):hover td{background:#f1f5f9;}
-
-/* Employer cell */
-.emp-name{font-weight:700;font-size:13px;color:var(--text);}
+.emp-name{font-weight:700;font-size:13px;}
 .emp-code{font-size:10px;color:var(--accent);font-weight:700;margin-top:2px;}
 .emp-contact{font-size:11px;color:var(--muted);margin-top:2px;}
-/* Worker cell */
-.w-name{font-weight:700;color:var(--text);}
+.w-name{font-weight:700;}
 .w-code{font-size:10px;color:var(--accent);font-weight:600;}
-/* Nationality badge */
 .nat{display:inline-block;padding:2px 8px;background:#eef2ff;color:var(--accent);border-radius:8px;font-size:10px;font-weight:700;}
-/* Passport */
-.passport{font-family:monospace;font-size:11px;color:var(--text);}
-/* Arrival */
-.arrival-date{font-weight:700;color:var(--text);font-size:12px;}
+.passport{font-family:monospace;font-size:11px;}
+.arrival-date{font-weight:700;font-size:12px;}
 .arrival-days{font-size:10px;margin-top:2px;}
 .days-ok{color:var(--success);}
 .days-warn{color:var(--warning);}
 .days-old{color:var(--muted);}
-
-/* ── LOADING / EMPTY ── */
+.status-badge{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;display:inline-block;}
+.status-active{background:#dcfce7;color:#16a34a;}
+.status-pending{background:#fef3c7;color:#d97706;}
+.status-expired{background:#fee2e2;color:#dc2626;}
+.status-renewed{background:#f0f9ff;color:#0369a1;}
 .loading{text-align:center;padding:60px;color:var(--muted);}
 .spin{display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:10px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .empty{text-align:center;padding:60px;color:var(--muted);}
 .empty-icon{font-size:48px;margin-bottom:12px;}
-
-/* ── TAB COMING SOON ── */
 .coming-soon{text-align:center;padding:80px 20px;color:var(--muted);}
 .coming-soon-icon{font-size:48px;margin-bottom:16px;}
 .coming-soon h3{font-size:18px;font-weight:700;margin-bottom:8px;color:var(--text);}
-.coming-soon p{font-size:13px;}
+
+/* ── COMPLIANCE SERVICES ── */
+.cs-worker-card{background:white;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden;}
+.cs-worker-header{background:linear-gradient(135deg,#0f172a,#1e293b);color:white;padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.cs-worker-name{font-size:14px;font-weight:800;}
+.cs-worker-meta{font-size:11px;opacity:0.75;margin-top:2px;}
+.cs-worker-code{background:rgba(255,255,255,0.15);padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;margin-left:auto;}
+.cs-services-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--border);}
+.cs-service{padding:14px 16px;border-right:1px solid var(--border);position:relative;}
+.cs-service:last-child{border-right:none;}
+.cs-service-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+.cs-service-value{font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;}
+.cs-service-date{font-size:11px;color:var(--muted);}
+.cs-add-btn{font-size:10px;padding:4px 10px;border-radius:5px;background:var(--accent);color:white;border:none;cursor:pointer;font-family:inherit;font-weight:700;margin-top:6px;}
+.cs-add-btn:hover{opacity:0.85;}
+.cs-edit-btn{font-size:10px;padding:4px 10px;border-radius:5px;background:#f1f5f9;color:var(--text);border:1px solid var(--border);cursor:pointer;font-family:inherit;font-weight:700;margin-top:6px;margin-left:4px;}
+.cs-not-enrolled{color:#94a3b8;font-size:11px;font-style:italic;}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;padding:20px;}
+.modal-bg.show{display:flex;}
+.modal{background:white;border-radius:14px;width:100%;max-width:520px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+.modal-header{padding:16px 20px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:white;display:flex;align-items:center;justify-content:space-between;}
+.modal-header h3{font-size:15px;font-weight:700;}
+.modal-close{background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;}
+.modal-body{padding:20px;}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-group{display:flex;flex-direction:column;gap:4px;}
+.form-group.full{grid-column:1/-1;}
+.form-group label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.form-group input,.form-group select,.form-group textarea{padding:8px 11px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;outline:none;}
+.form-group input:focus,.form-group select:focus{border-color:var(--accent);}
+.form-group textarea{resize:vertical;min-height:60px;}
 
 /* ── PRINT ── */
 @media print{
   @page{size:A4 landscape;margin:12mm 10mm;}
-  .toolbar,.tabs-bar,.filters,.no-print{display:none!important;}
+  .toolbar,.tabs-bar,.filters,.no-print,.modal-bg{display:none!important;}
+  .layout{display:block;}
   body{background:white!important;}
   .content{padding:0;max-width:100%;}
   .print-hdr{display:flex!important;}
-  .tbl-wrap{border:1px solid #ddd;}
   th{font-size:8px;padding:6px 10px;}
   td{font-size:9px;padding:7px 10px;}
-  .stats{gap:6px;margin-bottom:12px;}
-  .sc{padding:10px;border:1px solid #ddd;}
-  .sv{font-size:18px;}
 }
 .print-hdr{display:none;align-items:center;gap:16px;padding-bottom:14px;margin-bottom:18px;border-bottom:3px solid var(--accent);}
 .ph-logo{font-size:28px;font-weight:900;color:var(--accent);letter-spacing:3px;}
@@ -146,126 +157,258 @@ tr:nth-child(even):hover td{background:#f1f5f9;}
 <!-- TABS -->
 <div class="tabs-bar">
   <button class="tab active" onclick="switchTab('tab-inlebanon',this)" style="--tab-color:#667eea;">🇱🇧 Workers in Lebanon <span class="tab-badge" id="badge-inlebanon" style="background:#667eea;">0</span></button>
-  <button class="tab" onclick="switchTab('tab-workpermit',this)" style="--tab-color:#0891b2;">📜 Work Permit <span class="tab-badge" id="badge-workpermit" style="background:#0891b2;">0</span></button>
-  <button class="tab" onclick="switchTab('tab-insurance',this)" style="--tab-color:#10b981;">🛡️ Insurance <span class="tab-badge" id="badge-insurance" style="background:#10b981;">0</span></button>
+  <button class="tab" onclick="switchTab('tab-workpermit',this)" style="--tab-color:#0891b2;">📜 Work Permit <span class="tab-badge" id="badge-workpermit" style="background:#0891b2;">—</span></button>
+  <button class="tab" onclick="switchTab('tab-insurance',this)" style="--tab-color:#10b981;">🛡️ Insurance <span class="tab-badge" id="badge-insurance" style="background:#10b981;">—</span></button>
   <button class="tab" onclick="switchTab('tab-ikama',this)" style="--tab-color:#8b5cf6;">🪪 Ikama <span class="tab-badge" id="badge-ikama" style="background:#8b5cf6;">0</span></button>
   <button class="tab" onclick="switchTab('tab-passport',this)" style="--tab-color:#ef4444;">🛂 Passport Expiry <span class="tab-badge" id="badge-passport" style="background:#ef4444;">0</span></button>
+  <button class="tab" onclick="switchTab('tab-compliance',this)" style="--tab-color:#f59e0b;">🔧 Compliance Services <span class="tab-badge" id="badge-compliance" style="background:#f59e0b;">0</span></button>
 </div>
 
 <!-- CONTENT -->
 <div class="content">
-
-  <!-- Print Header -->
   <div class="print-hdr" id="printHdr">
     <div class="ph-logo">MGS</div>
     <div class="ph-info"><h1>Workers in Lebanon</h1><p>Massroua General Services — Zahlé, Lebanon</p></div>
     <div class="ph-meta" id="printMeta"></div>
   </div>
 
-  <!-- ── TAB: WORKERS IN LEBANON ── -->
+  <!-- TAB: WORKERS IN LEBANON -->
   <div id="tab-inlebanon">
-    <div class="stats">
+    <div class="stats" style="grid-template-columns:repeat(4,1fr);">
       <div class="sc"><div class="sv" id="stat-total">—</div><div class="sl">Total in Lebanon</div></div>
       <div class="sc"><div class="sv" id="stat-new">—</div><div class="sl">Arrived This Month</div></div>
       <div class="sc"><div class="sv" id="stat-nat">—</div><div class="sl">Nationalities</div></div>
       <div class="sc"><div class="sv" id="stat-emp">—</div><div class="sl">Employers</div></div>
     </div>
-    <div class="filters">
-      <div class="fg"><label>Search:</label><input type="text" id="searchMain" class="fi" placeholder="Name, employer, passport..." oninput="filterMain()"></div>
-      <div class="fg"><label>Nationality:</label><select id="filterNat" class="fi" onchange="filterMain()"><option value="">All</option></select></div>
-      <div class="fg"><label>Arrived From:</label><input type="date" id="filterFrom" class="fi" onchange="filterMain()"></div>
-      <div class="fg"><label>To:</label><input type="date" id="filterTo" class="fi" onchange="filterMain()"></div>
-      <button class="btn btn-light" onclick="resetFilters()" style="padding:7px 12px;">✕ Reset</button>
-      <span class="fcount" id="mainCount"></span>
+    <!-- Sub-tabs -->
+    <div style="display:flex;gap:8px;margin:16px 0 0 0;border-bottom:2px solid #e0e0e0;padding-bottom:0;">
+      <button id="subtab-btn-arrived" onclick="switchSubTab('arrived')"
+        style="padding:8px 18px;border:none;border-radius:8px 8px 0 0;cursor:pointer;font-weight:700;font-size:13px;background:#1976d2;color:white;margin-bottom:-2px;border-bottom:2px solid #1976d2;">
+        🇱🇧 Workers in Lebanon
+      </button>
+      <button id="subtab-btn-local" onclick="switchSubTab('local')"
+        style="padding:8px 18px;border:none;border-radius:8px 8px 0 0;cursor:pointer;font-weight:700;font-size:13px;background:#f5f5f5;color:#888;margin-bottom:-2px;border-bottom:2px solid transparent;">
+        🏠 Local
+      </button>
     </div>
-    <div class="tbl-wrap">
-      <div class="tbl-head">
-        <span class="tbl-head-title">🇱🇧 Workers Currently in Lebanon</span>
+    <!-- Sub-tab: Arrived -->
+    <div id="subtab-arrived">
+      <div class="filters">
+        <div class="fg"><label>Search:</label><input type="text" id="searchMain" class="fi" placeholder="Name, employer, passport..." oninput="filterMain()"></div>
+        <div class="fg"><label>Nationality:</label><select id="filterNat" class="fi" onchange="filterMain()"><option value="">All</option></select></div>
+        <div class="fg"><label>From:</label><input type="date" id="filterFrom" class="fi" onchange="filterMain()"></div>
+        <div class="fg"><label>To:</label><input type="date" id="filterTo" class="fi" onchange="filterMain()"></div>
+        <button class="btn btn-light" onclick="resetFilters()" style="padding:7px 12px;">✕ Reset</button>
+        <span class="fcount" id="mainCount"></span>
       </div>
-      <div id="mainTableWrap"><div class="loading"><div class="spin"></div><div>Loading...</div></div></div>
+      <div class="tbl-wrap">
+        <div class="tbl-head"><span class="tbl-head-title">🇱🇧 Workers Currently in Lebanon</span></div>
+        <div id="mainTableWrap"><div class="loading"><div class="spin"></div><div>Loading...</div></div></div>
+      </div>
+    </div>
+    <!-- Sub-tab: Local -->
+    <div id="subtab-local" style="display:none;">
+      <div class="filters">
+        <div class="fg"><label>Search:</label><input type="text" id="searchLocal" class="fi" placeholder="Name, employer, passport..." oninput="filterLocal()"></div>
+        <span class="fcount" id="localCount"></span>
+      </div>
+      <div id="localTableWrap"><div class="loading"><div class="spin"></div><div>Loading...</div></div></div>
     </div>
   </div>
 
-  <!-- ── TAB: IKAMA ── -->
-  <div id="tab-ikama" style="display:none;">
-    <div class="coming-soon">
-      <div class="coming-soon-icon">🪪</div>
-      <h3>Ikama Tab</h3>
-      <p>Coming soon — will show Ikama expiry calculated from arrival date + 89 days</p>
-    </div>
-  </div>
-
-  <!-- ── TAB: PASSPORT ── -->
-  <div id="tab-passport" style="display:none;">
-    <div class="coming-soon">
-      <div class="coming-soon-icon">🛂</div>
-      <h3>Passport Expiry Tab</h3>
-      <p>Coming soon — passport expiry alerts for workers in Lebanon</p>
-    </div>
-  </div>
-
-  <!-- ── TAB: WORK PERMIT ── -->
+  <!-- TAB: WORK PERMIT -->
   <div id="tab-workpermit" style="display:none;">
-    <div class="coming-soon">
-      <div class="coming-soon-icon">📜</div>
-      <h3>Work Permit Tab</h3>
-      <p>Coming soon</p>
+    <div class="stats" style="grid-template-columns:repeat(4,1fr);">
+      <div class="sc"><div class="sv" id="wp-stat-total">—</div><div class="sl">Total Workers</div></div>
+      <div class="sc" style="border-top:3px solid #0891b2;"><div class="sv" style="color:#0891b2;" id="wp-stat-enrolled">—</div><div class="sl">Enrolled</div></div>
+      <div class="sc" style="border-top:3px solid #f59e0b;"><div class="sv" style="color:#f59e0b;" id="wp-stat-expiring">—</div><div class="sl">Expiring Soon</div></div>
+      <div class="sc" style="border-top:3px solid #ef4444;"><div class="sv" style="color:#ef4444;" id="wp-stat-expired">—</div><div class="sl">Expired</div></div>
     </div>
+    <div class="filters">
+      <div class="fg"><label>Search:</label><input type="text" id="wpSearch" class="fi" placeholder="Name, employer..." oninput="renderWorkPermit()"></div>
+      <div class="fg"><label>Status:</label>
+        <select id="wpFilter" class="fi" onchange="renderWorkPermit()">
+          <option value="">All</option>
+          <option value="none">Not Enrolled</option>
+          <option value="active">Active</option>
+          <option value="expiring">Expiring Soon</option>
+          <option value="expired">Expired</option>
+        </select>
+      </div>
+      <span class="fcount" id="wpCount"></span>
+    </div>
+    <div id="wpBody"><div class="loading"><div class="spin"></div><div>Loading...</div></div></div>
   </div>
 
-  <!-- ── TAB: INSURANCE ── -->
+  <!-- TAB: INSURANCE -->
   <div id="tab-insurance" style="display:none;">
-    <div class="coming-soon">
-      <div class="coming-soon-icon">🛡️</div>
-      <h3>Insurance Tab</h3>
-      <p>Coming soon</p>
+    <div class="coming-soon"><div class="coming-soon-icon">🛡️</div><h3>Insurance</h3><p>Coming soon — insurance policy tracking</p></div>
+  </div>
+
+  <!-- TAB: IKAMA -->
+  <div id="tab-ikama" style="display:none;">
+    <div class="coming-soon"><div class="coming-soon-icon">🪪</div><h3>Ikama</h3><p>Coming soon — Ikama expiry monitoring</p></div>
+  </div>
+
+  <!-- TAB: PASSPORT EXPIRY -->
+  <div id="tab-passport" style="display:none;">
+    <div class="coming-soon"><div class="coming-soon-icon">🛂</div><h3>Passport Expiry</h3><p>Coming soon — passport expiry alerts for workers in Lebanon</p></div>
+  </div>
+
+  <!-- TAB: COMPLIANCE SERVICES -->
+  <div id="tab-compliance" style="display:none;">
+    <div class="stats" style="grid-template-columns:repeat(5,1fr);">
+      <div class="sc"><div class="sv" id="cs-stat-total">—</div><div class="sl">Enrolled Workers</div></div>
+      <div class="sc" style="border-top:3px solid #0891b2;"><div class="sv" style="color:#0891b2;" id="cs-stat-wp">—</div><div class="sl">Work Permits</div></div>
+      <div class="sc" style="border-top:3px solid #10b981;"><div class="sv" style="color:#10b981;" id="cs-stat-ins">—</div><div class="sl">Insurance</div></div>
+      <div class="sc" style="border-top:3px solid #8b5cf6;"><div class="sv" style="color:#8b5cf6;" id="cs-stat-ika">—</div><div class="sl">Ikama</div></div>
+      <div class="sc" style="border-top:3px solid #ef4444;"><div class="sv" style="color:#ef4444;" id="cs-stat-pass">—</div><div class="sl">Passport Renewals</div></div>
     </div>
+    <div class="filters">
+      <div class="fg"><label>Search Worker:</label><input type="text" id="csSearch" class="fi" placeholder="Name, code..." oninput="renderCompliance()"></div>
+      <div class="fg"><label>Service:</label>
+        <select id="csFilter" class="fi" onchange="renderCompliance()">
+          <option value="">All Services</option>
+          <option value="WorkPermit">📜 Work Permit</option>
+          <option value="Insurance">🛡️ Insurance</option>
+          <option value="Ikama">🪪 Ikama</option>
+          <option value="PassportRenewal">🛂 Passport Renewal</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="openCSModal(null,'WorkPermit')">+ Add Record</button>
+      <span class="fcount" id="csCount"></span>
+    </div>
+    <div id="csBody"><div class="loading"><div class="spin"></div><div>Loading compliance data...</div></div></div>
   </div>
 
 </div><!-- end content -->
+
+<!-- COMPLIANCE MODAL -->
+<div class="modal-bg" id="csModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="csModalTitle">Add Compliance Record</h3>
+      <button class="modal-close" onclick="closeCSModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="csRecordID">
+      <input type="hidden" id="csSheetName">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Service Type</label>
+          <select id="csServiceType" class="fi" onchange="updateCSForm()">
+            <option value="WorkPermit">📜 Work Permit</option>
+            <option value="Insurance">🛡️ Insurance</option>
+            <option value="Ikama">🪪 Ikama</option>
+            <option value="PassportRenewal">🛂 Passport Renewal</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Worker</label>
+          <select id="csWorkerSelect" class="fi" onchange="onCSWorkerSelect()">
+            <option value="">-- Select Worker --</option>
+          </select>
+        </div>
+        <div class="form-group" id="cs-field-number">
+          <label id="cs-number-label">Reference Number</label>
+          <input type="text" id="csNumber" class="fi" placeholder="e.g. WP-12345">
+        </div>
+        <div class="form-group" id="cs-field-provider" style="display:none;">
+          <label>Provider / Company</label>
+          <input type="text" id="csProvider" class="fi" placeholder="Insurance provider name">
+        </div>
+        <div class="form-group">
+          <label>Issue Date</label>
+          <input type="date" id="csIssueDate" class="fi">
+        </div>
+        <div class="form-group">
+          <label id="cs-expiry-label">Expiry Date</label>
+          <input type="date" id="csExpiryDate" class="fi">
+        </div>
+        <div class="form-group">
+          <label>Renewal Date</label>
+          <input type="date" id="csRenewalDate" class="fi">
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="csStatus" class="fi">
+            <option value="Active">✅ Active</option>
+            <option value="Pending">⏳ Pending</option>
+            <option value="Expired">❌ Expired</option>
+            <option value="Renewed">🔄 Renewed</option>
+            <option value="Cancelled">🚫 Cancelled</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Cost ($)</label>
+          <input type="number" id="csCost" class="fi" placeholder="0.00" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>Paid By</label>
+          <select id="csPaidBy" class="fi">
+            <option value="">-- Select --</option>
+            <option value="Employer">Employer</option>
+            <option value="MGS">MGS</option>
+            <option value="Worker">Worker</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Notes</label>
+          <textarea id="csNotes" class="fi" placeholder="Additional notes..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-light" onclick="closeCSModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCSRecord()">💾 Save</button>
+    </div>
+  </div>
+</div>
 
 <script>
 var SCRIPT_URL=(function(){var m=window.location.href.match(/(https:\/\/script\.google\.com\/macros\/s\/[^\/]+\/exec)/);return m?m[1]:'https://script.google.com/macros/s/AKfycbxEbNo287tvEezLwy8vYHrNWxPXELlzzsGVg9yeA6XXDIkXdR0ILEKOTWbG88PxHiIf/exec';})();
 
 var allWorkers=[],allEmployers=[];
+var allWP=[],allIns=[],allIka=[],allPass=[];
 var _filtered=[];
 
 function isT(v){return v===true||v==='true'||v==='TRUE';}
 function fmtDate(d){if(!d)return'—';try{return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return d;}}
+function daysUntil(d){if(!d)return null;return Math.round((new Date(d)-new Date())/86400000);}
 function daysAgo(d){if(!d)return null;return Math.round((new Date()-new Date(d))/86400000);}
 
 function gsLoad(sheet){return new Promise(function(res){google.script.run.withSuccessHandler(function(d){res((d&&d.data)?d.data:(Array.isArray(d)?d:[]));}).withFailureHandler(function(){res([]);}).gsrGetAll(sheet);});}
 
-function setCloud(ok,msg){
-  document.getElementById('cloudDot').className='cloud-dot'+(ok?' ok':'');
-  document.getElementById('cloudTxt').textContent=msg;
+function gsComplianceLoad(sheet){
+  return new Promise(function(res){
+    google.script.run
+      .withSuccessHandler(function(d){res((d&&d.data)?d.data:(Array.isArray(d)?d:[]));})
+      .withFailureHandler(function(){res([]);})
+      .gsrGetComplianceAll(sheet);
+  });
 }
 
+function setCloud(ok,msg){document.getElementById('cloudDot').className='cloud-dot'+(ok?' ok':'');document.getElementById('cloudTxt').textContent=msg;}
 function openPage(page){window.open(SCRIPT_URL+'?page='+page,'_blank');}
-
-function startClock(){
-  function tick(){var el=document.getElementById('clock');if(el)el.textContent=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
-  tick();setInterval(tick,1000);
-}
+function startClock(){function tick(){var el=document.getElementById('clock');if(el)el.textContent=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}tick();setInterval(tick,1000);}
 
 async function init(){
   setCloud(false,'Loading...');
-  var r=await Promise.all([gsLoad('Workers'),gsLoad('Employers')]);
-  allWorkers=r[0];allEmployers=r[1];
+  var r=await Promise.all([gsLoad('Workers'),gsLoad('Employers'),gsComplianceLoad('WorkPermit'),gsComplianceLoad('Insurance'),gsComplianceLoad('Ikama'),gsComplianceLoad('PassportRenewal')]);
+  allWorkers=r[0];allEmployers=r[1];allWP=r[2];allIns=r[3];allIka=r[4];allPass=r[5];
   setCloud(true,allWorkers.length+' workers');
   populateNatFilter();
+  populateCSWorkerSelect();
   renderMain();
   updateBadges();
   updatePrintMeta();
 }
 
 function refreshData(){setCloud(false,'Refreshing...');init();}
-
 function getEmp(w){return allEmployers.find(function(e){return String(e.EmployerID)===String(w.EmployerID)||String(e.EmployerCode)===String(w.EmployerCode);});}
-
-function getInLebanon(){
-  return allWorkers.filter(function(w){return isT(w.Arrived)||isT(w.ArrivalConfirmed);});
-}
+function getInLebanon(){return allWorkers.filter(function(w){return isT(w.Arrived)||isT(w.ArrivalConfirmed)||(w.ProcessingStage==='local');});}
+function wCode(w){return w.WorkerCode||(w.SupplierCode?w.SupplierCode+'-'+String(w.WorkerID).padStart(4,'0'):'ID-'+w.WorkerID);}
+function wName(w){return w.WFullName||([w.WorkerFirstName,w.WorkerMiddleName,w.WorkerLastName].filter(Boolean).join(' '))||'Unknown';}
 
 function populateNatFilter(){
   var sel=document.getElementById('filterNat');
@@ -274,49 +417,172 @@ function populateNatFilter(){
   nats.forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
 }
 
-function resetFilters(){
-  document.getElementById('searchMain').value='';
-  document.getElementById('filterNat').value='';
-  document.getElementById('filterFrom').value='';
-  document.getElementById('filterTo').value='';
-  filterMain();
+function populateCSWorkerSelect(){
+  var sel=document.getElementById('csWorkerSelect');
+  var inLeb=getInLebanon().sort(function(a,b){return wName(a).localeCompare(wName(b));});
+  sel.innerHTML='<option value="">-- Select Worker --</option>';
+  inLeb.forEach(function(w){
+    var o=document.createElement('option');
+    o.value=w.WorkerID;
+    o.textContent=wName(w)+' ('+wCode(w)+')';
+    sel.appendChild(o);
+  });
 }
+
+function resetFilters(){document.getElementById('searchMain').value='';document.getElementById('filterNat').value='';document.getElementById('filterFrom').value='';document.getElementById('filterTo').value='';filterMain();}
 
 function filterMain(){
   var q=(document.getElementById('searchMain').value||'').toLowerCase();
   var nat=document.getElementById('filterNat').value;
   var from=document.getElementById('filterFrom').value;
   var to=document.getElementById('filterTo').value;
-  var base=getInLebanon();
-  _filtered=base.filter(function(w){
-    if(nat&&(w.Nationality||'')!==nat) return false;
+  _filtered=getInLebanon().filter(function(w){
+    if(nat&&(w.Nationality||'')!==nat)return false;
     var arr=w.ArrivalDate||w.ExpectedArrivalDate;
-    if(from&&arr&&arr<from) return false;
-    if(to&&arr&&arr>to) return false;
-    if(q){
-      var emp=getEmp(w);
-      var empN=emp?(emp.EFN||emp.EmployerName||''):'';
-      var str=[w.WFullName,w.WorkerFirstName,w.WorkerLastName,w.PassportNumber,empN,w.EmployerCode,w.Nationality].join(' ').toLowerCase();
-      if(!str.includes(q)) return false;
-    }
+    if(from&&arr&&arr<from)return false;
+    if(to&&arr&&arr>to)return false;
+    if(q){var emp=getEmp(w);var empN=emp?(emp.EFN||emp.EmployerName||''):'';var str=[w.WFullName,w.WorkerFirstName,w.WorkerLastName,w.PassportNumber,empN,w.EmployerCode,w.Nationality].join(' ').toLowerCase();if(!str.includes(q))return false;}
     return true;
-  }).sort(function(a,b){
-    var da=a.ArrivalDate||a.ExpectedArrivalDate||'';
-    var db=b.ArrivalDate||b.ExpectedArrivalDate||'';
-    return new Date(db)-new Date(da); // most recent first
-  });
+  }).sort(function(a,b){var da=a.ArrivalDate||a.ExpectedArrivalDate||'';var db=b.ArrivalDate||b.ExpectedArrivalDate||'';return new Date(db)-new Date(da);});
   document.getElementById('mainCount').textContent=_filtered.length+' workers';
+  // Update Work Permit badge
+  var wpWorkers = base.filter(function(w){
+    return w.ProcessingStage==='arrived'||w.ProcessingStage==='local'||isT(w.Arrived)||isT(w.ArrivalConfirmed);
+  });
+  var wpBadge = document.getElementById('badge-workpermit');
+  if(wpBadge) wpBadge.textContent = wpWorkers.length;
   renderTable();
 }
 
+function openLocalEditModal(workerId){
+  var w=allWorkers.find(function(x){return String(x.WorkerID)===String(workerId);});
+  if(!w){alert('Worker not found');return;}
+  var wn=wName(w);
+  var arrDate=w.ArrivalDate||w.ExpectedArrivalDate||'';
+  var startWork=w.StartWorkDate||'';
+  var ikamaExp=w.IkamaExpiry||'';
+
+  var modal=document.createElement('div');
+  modal.id='localEditModal';modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML='<div style="background:white;border-radius:14px;padding:28px;width:420px;max-width:95vw;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'+
+    '<div style="font-weight:800;font-size:17px;color:#1565c0;margin-bottom:18px;">✏️ Edit Local Worker Details<br><span style="font-size:13px;color:#666;font-weight:500;">'+wn+'</span></div>'+
+    '<div style="margin-bottom:14px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">📅 Arrival Date</label>'+
+    '<input id="lm-arrival" type="date" value="'+(arrDate?arrDate.split('T')[0]:'')+'" style="width:100%;padding:8px;border:1px solid #90caf9;border-radius:7px;font-size:14px;box-sizing:border-box;"></div>'+
+    '<div style="margin-bottom:14px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">💼 Start Work Date</label>'+
+    '<input id="lm-startwork" type="date" value="'+(startWork?startWork.split('T')[0]:'')+'" style="width:100%;padding:8px;border:1px solid #90caf9;border-radius:7px;font-size:14px;box-sizing:border-box;"></div>'+
+    '<div style="margin-bottom:20px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">🪪 Ikama Expiry Date</label>'+
+    '<input id="lm-ikama" type="date" value="'+(ikamaExp?ikamaExp.split('T')[0]:'')+'" style="width:100%;padding:8px;border:1px solid #90caf9;border-radius:7px;font-size:14px;box-sizing:border-box;"></div>'+
+    '<div style="display:flex;gap:10px;justify-content:flex-end;">'+
+    '<button onclick="document.getElementById(\'localEditModal\').remove()" style="background:#eee;color:#333;border:none;padding:9px 18px;border-radius:7px;cursor:pointer;font-weight:700;">Cancel</button>'+
+    '<button onclick="saveLocalWorker(\''+workerId+'\')" style="background:linear-gradient(135deg,#1976d2,#1565c0);color:white;border:none;padding:9px 18px;border-radius:7px;cursor:pointer;font-weight:700;">💾 Save</button>'+
+    '</div></div>';
+  document.body.appendChild(modal);
+}
+
+function saveLocalWorker(workerId){
+  var w=allWorkers.find(function(x){return String(x.WorkerID)===String(workerId);});
+  if(!w){alert('Worker not found');return;}
+  var arrival=document.getElementById('lm-arrival').value;
+  var startWork=document.getElementById('lm-startwork').value;
+  var ikama=document.getElementById('lm-ikama').value;
+  if(arrival) w.ArrivalDate=arrival;
+  if(startWork) w.StartWorkDate=startWork;
+  if(ikama) w.IkamaExpiry=ikama;
+  google.script.run
+    .withSuccessHandler(function(result){
+      if(result&&result.success){
+        document.getElementById('localEditModal').remove();
+        alert('✅ Saved successfully!');
+        renderLocalTab();
+      } else {
+        alert('❌ Save failed: '+(result?result.error:'Unknown error'));
+      }
+    })
+    .withFailureHandler(function(e){alert('❌ Save failed: '+e.message);})
+    .gsrSaveRow('Workers', w);
+}
+function switchSubTab(tab){
+  document.getElementById('subtab-arrived').style.display = tab==='arrived' ? '' : 'none';
+  document.getElementById('subtab-local').style.display   = tab==='local'   ? '' : 'none';
+  var btnA = document.getElementById('subtab-btn-arrived');
+  var btnL = document.getElementById('subtab-btn-local');
+  btnA.style.background   = tab==='arrived' ? '#1976d2' : '#f5f5f5';
+  btnA.style.color        = tab==='arrived' ? 'white'   : '#888';
+  btnA.style.borderBottom = tab==='arrived' ? '2px solid #1976d2' : '2px solid transparent';
+  btnL.style.background   = tab==='local'   ? '#1976d2' : '#f5f5f5';
+  btnL.style.color        = tab==='local'   ? 'white'   : '#888';
+  btnL.style.borderBottom = tab==='local'   ? '2px solid #1976d2' : '2px solid transparent';
+  if(tab==='local') renderLocalTab();
+}
+
+function getLocalWorkers(){
+  return allWorkers.filter(function(w){ return w.ProcessingStage==='local'; });
+}
+
+function filterLocal(){
+  var q=(document.getElementById('searchLocal').value||'').toLowerCase();
+  var workers=getLocalWorkers().filter(function(w){
+    if(!q) return true;
+    var emp=getEmp(w);
+    var empN=emp?(emp.EFN||emp.EmployerName||''):'';
+    var str=[w.WFullName,w.WorkerFirstName,w.WorkerLastName,w.PassportNumber,empN,w.EmployerCode].join(' ').toLowerCase();
+    return str.includes(q);
+  });
+  document.getElementById('localCount').textContent=workers.length+' workers';
+  renderLocalCards(workers);
+}
+
+function renderLocalTab(){
+  var workers=getLocalWorkers();
+  document.getElementById('localCount').textContent=workers.length+' workers';
+  renderLocalCards(workers);
+}
+
+function renderLocalCards(localWorkers){
+  var wrap=document.getElementById('localTableWrap');
+  if(!localWorkers.length){
+    wrap.innerHTML='<div class="empty"><div class="empty-icon">🏠</div><div style="font-size:15px;font-weight:700;margin-bottom:6px;">No local workers found</div></div>';
+    return;
+  }
+  var empGroups={};
+  localWorkers.forEach(function(w){
+    var k=w.EmployerCode||w.EmployerID||'unassigned';
+    if(!empGroups[k]) empGroups[k]=[];
+    empGroups[k].push(w);
+  });
+  var html='';
+  Object.keys(empGroups).forEach(function(empKey){
+    var ew=empGroups[empKey];
+    var emp=getEmp(ew[0]);
+    var en=emp?(emp.EFN||emp.EmployerName||empKey):empKey;
+    var ec=emp?(emp.EmployerCode||empKey):empKey;
+    var eC=emp?(emp.MobileNumber||emp.ContactNumber||'—'):'—';
+    html+='<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;margin-bottom:16px;overflow:hidden;">';
+    html+='<div style="background:linear-gradient(135deg,#1976d2,#1565c0);color:white;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">';
+    html+='<div><span style="font-weight:700;font-size:14px;">💼 '+en+'</span><span style="font-size:12px;opacity:0.85;margin-left:10px;">'+ec+' | 📞 '+eC+'</span></div>';
+    html+='<span style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;">'+ew.length+' worker(s)</span>';
+    html+='</div><div style="padding:10px 14px;display:flex;flex-direction:column;gap:10px;">';
+    ew.forEach(function(w){
+      var wn=wName(w),wc=wCode(w);
+      var arrDate=w.ArrivalDate||w.ExpectedArrivalDate||'';
+      var startWork=w.StartWorkDate||'';
+      var ikamaExp=w.IkamaExpiry||'';
+      html+='<div style="background:#f0f8ff;border:1px solid #bbdefb;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">';
+      html+='<div>';
+      html+='<div style="font-weight:700;font-size:14px;color:#0d47a1;">👷 '+wn+'</div>';
+      html+='<div style="font-size:12px;color:#555;margin-top:3px;">Code: <b style="color:#1976d2;">'+wc+'</b> | Nationality: <b>'+(w.Nationality||'—')+'</b> | Passport: <b>'+(w.PassportNumber||'—')+'</b></div>';
+      html+='<div style="font-size:12px;color:#555;margin-top:3px;">📅 Arrival: <b>'+(arrDate?fmtDate(arrDate):'Not set')+'</b> | 💼 Start Work: <b>'+(startWork?fmtDate(startWork):'Not set')+'</b> | 🪪 Ikama Expiry: <b>'+(ikamaExp?fmtDate(ikamaExp):'Not set')+'</b></div>';
+      html+='</div>';
+      html+='<button onclick="openLocalEditModal(\''+w.WorkerID+'\')" style="background:linear-gradient(135deg,#1976d2,#1565c0);color:white;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">✏️ Edit Details</button>';
+      html+='</div>';
+    });
+    html+='</div></div>';
+  });
+  wrap.innerHTML=html;
+}
 function renderMain(){
   var base=getInLebanon();
-  _filtered=base.sort(function(a,b){
-    var da=a.ArrivalDate||a.ExpectedArrivalDate||'';
-    var db=b.ArrivalDate||b.ExpectedArrivalDate||'';
-    return new Date(db)-new Date(da);
-  });
-  // Stats
+  _filtered=base.slice().sort(function(a,b){var da=a.ArrivalDate||a.ExpectedArrivalDate||'';var db=b.ArrivalDate||b.ExpectedArrivalDate||'';return new Date(db)-new Date(da);});
   var now=new Date(),thisM=now.getMonth(),thisY=now.getFullYear();
   document.getElementById('stat-total').textContent=base.length;
   document.getElementById('stat-new').textContent=base.filter(function(w){var a=w.ArrivalDate||w.ExpectedArrivalDate;if(!a)return false;var d=new Date(a);return d.getMonth()===thisM&&d.getFullYear()===thisY;}).length;
@@ -328,84 +594,328 @@ function renderMain(){
 
 function renderTable(){
   var wrap=document.getElementById('mainTableWrap');
-  if(!_filtered.length){
-    wrap.innerHTML='<div class="empty"><div class="empty-icon">🇱🇧</div><div style="font-size:15px;font-weight:700;margin-bottom:6px;">No workers found</div><div style="font-size:12px;color:#94a3b8;">Adjust filters or check arrival status</div></div>';
-    return;
+  if(!_filtered.length){wrap.innerHTML='<div class="empty"><div class="empty-icon">🇱🇧</div><div style="font-size:15px;font-weight:700;margin-bottom:6px;">No workers found</div></div>';return;}
+
+  var arrivedWorkers=_filtered.filter(function(w){return w.ProcessingStage!=='local';});
+  var localWorkers=_filtered.filter(function(w){return w.ProcessingStage==='local';});
+
+  var html='';
+
+  // ── Arrived Workers Table ──
+  if(arrivedWorkers.length){
+    var rows=arrivedWorkers.map(function(w,idx){
+      var emp=getEmp(w);
+      var en=emp?(emp.EFN||emp.EmployerName||w.EmployerCode):(w.EmployerCode||'—');
+      var ec=emp?(emp.EmployerCode||'—'):(w.EmployerCode||'—');
+      var eC=emp?(emp.MobileNumber||emp.ContactNumber||'—'):'—';
+      var wn=wName(w),wc=wCode(w);
+      var arrDate=w.ArrivalDate||w.ExpectedArrivalDate;
+      var ago=daysAgo(arrDate);
+      var agoTxt=ago===null?'':ago===0?'<span class="days-ok">Today</span>':ago===1?'<span class="days-ok">Yesterday</span>':ago<=30?'<span class="days-ok">'+ago+'d ago</span>':ago<=90?'<span class="days-warn">'+ago+'d ago</span>':'<span class="days-old">'+ago+'d ago</span>';
+      function compCell(rec, field){
+        if(!rec) return '<td style="text-align:center;"><span style="color:#ccc;font-size:11px;">—</span></td>';
+        var d=rec[field]||rec.ExpiryDate||rec.NewExpiry||'';
+        if(!d) return '<td style="text-align:center;"><span style="color:#ccc;font-size:11px;">—</span></td>';
+        var days=Math.ceil((new Date(d)-new Date())/86400000);
+        var col=days<0?'#dc2626':days<=30?'#d97706':'#166534';
+        var txt=days<0?'Expired':'Exp: '+fmtDate(d);
+        return '<td style="text-align:center;"><span style="color:'+col+';font-size:11px;font-weight:700;">'+txt+'</span></td>';
+      }
+      var wpRec=allWP?allWP.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
+      var insRec=allIns?allIns.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
+      var ikaRec=allIka?allIka.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
+      var passRec=allPass?allPass.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
+      function compCell(rec, field){
+        if(!rec) return '<td style="text-align:center;"><span style="color:#ccc;font-size:11px;">—</span></td>';
+        var d=rec[field]||rec.ExpiryDate||rec.NewExpiry||'';
+        if(!d) return '<td style="text-align:center;"><span style="color:#ccc;font-size:11px;">—</span></td>';
+        var days=Math.ceil((new Date(d)-new Date())/86400000);
+        var col=days<0?'#dc2626':days<=30?'#d97706':'#166534';
+        var txt=days<0?'Expired':'Exp: '+fmtDate(d);
+        return '<td style="text-align:center;"><span style="color:'+col+';font-size:11px;font-weight:700;">'+txt+'</span></td>';
+      }
+      return'<tr><td style="font-weight:700;color:var(--muted);text-align:center;">'+(idx+1)+'</td>'+
+        '<td><div class="emp-name">'+en+'</div><div class="emp-code">'+ec+'</div><div class="emp-contact">📞 '+eC+'</div></td>'+
+        '<td><div class="w-name">'+wn+'</div><div class="w-code">'+wc+'</div></td>'+
+        '<td><span class="nat">'+(w.Nationality||'—')+'</span></td>'+
+        '<td><span class="passport">'+(w.PassportNumber||'—')+'</span></td>'+
+        '<td><div class="arrival-date">'+fmtDate(arrDate)+'</div><div class="arrival-days">'+agoTxt+'</div></td>'+
+        compCell(wpRec,'ExpiryDate')+
+        compCell(insRec,'ExpiryDate')+
+        compCell(ikaRec,'ExpiryDate')+
+        compCell(passRec,'NewExpiry')+'</tr>';
+    }).join('');
+    html+='<div style="overflow-x:auto;"><table><thead><tr><th style="text-align:center;">#</th><th>Employer</th><th>Worker</th><th>Nationality</th><th>Passport No.</th><th>Arrival Date</th><th>Work Permit</th><th>Insurance</th><th>Ikama</th><th>Passport Expiry</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   }
-  var rows=_filtered.map(function(w,idx){
+
+  // ── Local Workers Cards ──
+  if(localWorkers.length){
+    html+='<div style="margin-top:24px;">';
+    html+='<div style="font-weight:700;font-size:15px;color:#1565c0;margin-bottom:12px;padding:8px 14px;background:#e3f2fd;border-radius:8px;border-left:4px solid #1976d2;">🏠 Local Workers in Lebanon ('+localWorkers.length+')</div>';
+
+    // Group by employer
+    var empGroups={};
+    localWorkers.forEach(function(w){
+      var k=w.EmployerCode||w.EmployerID||'unassigned';
+      if(!empGroups[k]) empGroups[k]=[];
+      empGroups[k].push(w);
+    });
+
+    Object.keys(empGroups).forEach(function(empKey){
+      var ew=empGroups[empKey];
+      var emp=getEmp(ew[0]);
+      var en=emp?(emp.EFN||emp.EmployerName||empKey):empKey;
+      var ec=emp?(emp.EmployerCode||empKey):empKey;
+      var eC=emp?(emp.MobileNumber||emp.ContactNumber||'—'):'—';
+
+      html+='<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;margin-bottom:16px;overflow:hidden;">';
+      html+='<div style="background:linear-gradient(135deg,#1976d2,#1565c0);color:white;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">';
+      html+='<div><span style="font-weight:700;font-size:14px;">💼 '+en+'</span><span style="font-size:12px;opacity:0.85;margin-left:10px;">'+ec+' | 📞 '+eC+'</span></div>';
+      html+='<span style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;">'+ew.length+' worker(s)</span>';
+      html+='</div>';
+      html+='<div style="padding:10px 14px;display:flex;flex-direction:column;gap:10px;">';
+
+      ew.forEach(function(w){
+        var wn=wName(w),wc=wCode(w);
+        var arrDate=w.ArrivalDate||w.ExpectedArrivalDate||'';
+        var startWork=w.StartWorkDate||'';
+        var ikamaExp=w.IkamaExpiry||'';
+        html+='<div style="background:#f0f8ff;border:1px solid #bbdefb;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">';
+        html+='<div>';
+        html+='<div style="font-weight:700;font-size:14px;color:#0d47a1;">👷 '+wn+'</div>';
+        html+='<div style="font-size:12px;color:#555;margin-top:3px;">Code: <b style="color:#1976d2;">'+wc+'</b> | Nationality: <b>'+(w.Nationality||'—')+'</b> | Passport: <b>'+(w.PassportNumber||'—')+'</b></div>';
+        html+='<div style="font-size:12px;color:#555;margin-top:3px;">📅 Arrival: <b>'+(arrDate?fmtDate(arrDate):'Not set')+'</b> | 💼 Start Work: <b>'+(startWork?fmtDate(startWork):'Not set')+'</b> | 🪪 Ikama Expiry: <b>'+(ikamaExp?fmtDate(ikamaExp):'Not set')+'</b></div>';
+        var lwp=allWP?allWP.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
+        var lins=allIns?allIns.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
+        var lika=allIka?allIka.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
+        var lpass=allPass?allPass.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
+        function compBadge(label,rec,field){
+          if(!rec) return '<span style="font-size:11px;color:#999;">'+label+': —</span>';
+          var d=rec[field]||rec.ExpiryDate||rec.NewExpiry||'';
+          if(!d) return '<span style="font-size:11px;color:#999;">'+label+': —</span>';
+          var days=Math.ceil((new Date(d)-new Date())/86400000);
+         var col=days<0?'#dc2626':days<=30?'#d97706':'#166534';
+        return '<span style="font-size:11px;font-weight:700;color:'+col+';">'+label+': '+(days<0?'Expired':fmtDate(d))+'</span>';
+      }
+      html+='<div style="font-size:12px;margin-top:4px;display:flex;gap:12px;flex-wrap:wrap;">'+
+        compBadge('📜 WP',lwp,'ExpiryDate')+'  '+
+        compBadge('🛡️ Ins',lins,'ExpiryDate')+'  '+
+        compBadge('🪪 Ikama',lika,'ExpiryDate')+'  '+
+        compBadge('🛂 Pass',lpass,'NewExpiry')+
+      '</div>';
+        html+='</div>';
+        html+='<button onclick="openLocalEditModal(\''+w.WorkerID+'\')" style="background:linear-gradient(135deg,#1976d2,#1565c0);color:white;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">✏️ Edit Details</button>';
+        html+='</div>';
+      });
+
+      html+='</div></div>';
+    });
+    html+='</div>';
+  }
+
+  wrap.innerHTML=html;
+}
+
+// ── COMPLIANCE SERVICES ──
+function renderCompliance(){
+  var q=(document.getElementById('csSearch').value||'').toLowerCase();
+  var svc=document.getElementById('csFilter').value;
+  var inLeb=getInLebanon();
+
+  // Update stats
+  document.getElementById('cs-stat-total').textContent=inLeb.length;
+  document.getElementById('cs-stat-wp').textContent=allWP.length;
+  document.getElementById('cs-stat-ins').textContent=allIns.length;
+  document.getElementById('cs-stat-ika').textContent=allIka.length;
+  document.getElementById('cs-stat-pass').textContent=allPass.length;
+  document.getElementById('badge-compliance').textContent=allWP.length+allIns.length+allIka.length+allPass.length;
+
+  var filtered=inLeb.filter(function(w){
+    if(!q) return true;
+    return (wName(w)+wCode(w)).toLowerCase().includes(q);
+  });
+
+  document.getElementById('csCount').textContent=filtered.length+' workers';
+
+  if(!filtered.length){document.getElementById('csBody').innerHTML='<div class="empty"><div class="empty-icon">🔧</div><div>No workers found</div></div>';return;}
+
+  var html=filtered.map(function(w){
     var emp=getEmp(w);
-    var empName=emp?(emp.EFN||emp.EmployerName||w.EmployerCode):(w.EmployerCode||'—');
-    var empCode=emp?(emp.EmployerCode||'—'):(w.EmployerCode||'—');
-    var empContact=emp?(emp.MobileNumber||emp.ContactNumber||'—'):'—';
-    var wFullName=w.WFullName||([w.WorkerFirstName,w.WorkerMiddleName,w.WorkerLastName].filter(Boolean).join(' '))||'—';
-    var wc=w.WorkerCode||(w.SupplierCode?w.SupplierCode+'-'+String(w.WorkerID).padStart(4,'0'):'ID-'+w.WorkerID);
-    var arrDate=w.ArrivalDate||w.ExpectedArrivalDate;
-    var ago=daysAgo(arrDate);
-    var agoTxt=ago===null?'':ago===0?'<span class="days-ok">Today</span>':ago===1?'<span class="days-ok">Yesterday</span>':ago<=30?'<span class="days-ok">'+ago+' days ago</span>':ago<=90?'<span class="days-warn">'+ago+' days ago</span>':'<span class="days-old">'+ago+' days ago</span>';
-    return '<tr>'+
-      '<td style="font-weight:700;color:var(--muted);text-align:center;">'+(idx+1)+'</td>'+
-      '<td><div class="emp-name">'+empName+'</div><div class="emp-code">'+empCode+'</div><div class="emp-contact">📞 '+empContact+'</div></td>'+
-      '<td><div class="w-name">'+wFullName+'</div><div class="w-code">'+wc+'</div></td>'+
-      '<td><span class="nat">'+(w.Nationality||'—')+'</span></td>'+
-      '<td><span class="passport">'+(w.PassportNumber||'—')+'</span></td>'+
-      '<td><div class="arrival-date">'+fmtDate(arrDate)+'</div><div class="arrival-days">'+agoTxt+'</div></td>'+
-    '</tr>';
+    var en=emp?(emp.EFN||emp.EmployerName||w.EmployerCode):(w.EmployerCode||'—');
+    var ec=emp?(emp.EmployerCode||'—'):'—';
+    var wn=wName(w),wc2=wCode(w);
+    var wid=String(w.WorkerID);
+
+    // Find records for this worker
+    var wpRec=allWP.find(function(r){return String(r.WorkerID)===wid;});
+    var insRec=allIns.find(function(r){return String(r.WorkerID)===wid;});
+    var ikaRec=allIka.find(function(r){return String(r.WorkerID)===wid;});
+    var passRec=allPass.find(function(r){return String(r.WorkerID)===wid;});
+
+    // Skip if no services and filter is set
+    if(svc==='WorkPermit'&&!wpRec) return'';
+    if(svc==='Insurance'&&!insRec) return'';
+    if(svc==='Ikama'&&!ikaRec) return'';
+    if(svc==='PassportRenewal'&&!passRec) return'';
+
+    function svcCell(rec,sheet,icon,label,numField,expiryField){
+      if(!rec) return '<div class="cs-service">'+
+        '<div class="cs-service-title">'+icon+' '+label+'</div>'+
+        '<div class="cs-not-enrolled">Not enrolled</div>'+
+        '<button class="cs-add-btn" onclick="openCSModal('+w.WorkerID+',\''+sheet+'\')">+ Enroll</button>'+
+        '</div>';
+      var d=daysUntil(rec[expiryField]||rec.ExpiryDate);
+      var statusCls=rec.Status==='Active'?'status-active':rec.Status==='Expired'?'status-expired':rec.Status==='Renewed'?'status-renewed':'status-pending';
+      var daysHtml=d===null?'':d<0?'<span style="color:#dc2626;font-size:10px;">Expired '+Math.abs(d)+'d ago</span>':d<=30?'<span style="color:#f59e0b;font-size:10px;">Expires in '+d+'d ⚠️</span>':'<span style="color:#16a34a;font-size:10px;">'+d+' days left</span>';
+      return '<div class="cs-service">'+
+        '<div class="cs-service-title">'+icon+' '+label+'</div>'+
+        '<span class="status-badge '+statusCls+'">'+rec.Status+'</span>'+
+        '<div class="cs-service-value" style="margin-top:6px;">'+(rec[numField]||'—')+'</div>'+
+        '<div class="cs-service-date">'+fmtDate(rec[expiryField]||rec.ExpiryDate)+'</div>'+
+        daysHtml+
+        '<div><button class="cs-edit-btn" onclick="editCSRecord(\''+rec.RecordID+'\',\''+sheet+'\')">✏️ Edit</button></div>'+
+        '</div>';
+    }
+
+    return '<div class="cs-worker-card">'+
+      '<div class="cs-worker-header">'+
+        '<div><div class="cs-worker-name">'+wn+'</div><div class="cs-worker-meta">'+en+' | '+ec+'</div></div>'+
+        '<span class="cs-worker-code">'+wc2+'</span>'+
+      '</div>'+
+      '<div class="cs-services-grid">'+
+        svcCell(wpRec,'WorkPermit','📜','Work Permit','PermitNumber','ExpiryDate')+
+        svcCell(insRec,'Insurance','🛡️','Insurance','PolicyNumber','ExpiryDate')+
+        svcCell(ikaRec,'Ikama','🪪','Ikama','IkamaNumber','ExpiryDate')+
+        svcCell(passRec,'PassportRenewal','🛂','Passport Renewal','PassportNumber','NewExpiry')+
+      '</div>'+
+    '</div>';
   }).join('');
 
-  wrap.innerHTML='<div style="overflow-x:auto;"><table>'+
-    '<thead><tr>'+
-      '<th style="text-align:center;">#</th>'+
-      '<th>Employer</th>'+
-      '<th>Worker</th>'+
-      '<th>Nationality</th>'+
-      '<th>Passport No.</th>'+
-      '<th>Arrival Date</th>'+
-    '</tr></thead>'+
-    '<tbody>'+rows+'</tbody>'+
-  '</table></div>';
+  document.getElementById('csBody').innerHTML=html||'<div class="empty"><div class="empty-icon">🔧</div><div>No records match filter</div></div>';
+}
+
+// ── COMPLIANCE MODAL ──
+function openCSModal(workerID, sheet){
+  document.getElementById('csRecordID').value='';
+  document.getElementById('csSheetName').value=sheet||'WorkPermit';
+  document.getElementById('csServiceType').value=sheet||'WorkPermit';
+  document.getElementById('csWorkerSelect').value=workerID||'';
+  document.getElementById('csNumber').value='';
+  document.getElementById('csProvider').value='';
+  document.getElementById('csIssueDate').value='';
+  document.getElementById('csExpiryDate').value='';
+  document.getElementById('csRenewalDate').value='';
+  document.getElementById('csStatus').value='Active';
+  document.getElementById('csCost').value='';
+  document.getElementById('csPaidBy').value='';
+  document.getElementById('csNotes').value='';
+  document.getElementById('csModalTitle').textContent='Add Compliance Record';
+  updateCSForm();
+  document.getElementById('csModal').classList.add('show');
+}
+
+function editCSRecord(recordID, sheet){
+  var allData={WorkPermit:allWP,Insurance:allIns,Ikama:allIka,PassportRenewal:allPass};
+  var rec=(allData[sheet]||[]).find(function(r){return String(r.RecordID)===String(recordID);});
+  if(!rec) return;
+  document.getElementById('csRecordID').value=rec.RecordID;
+  document.getElementById('csSheetName').value=sheet;
+  document.getElementById('csServiceType').value=sheet;
+  document.getElementById('csWorkerSelect').value=rec.WorkerID||'';
+  document.getElementById('csNumber').value=rec.PermitNumber||rec.PolicyNumber||rec.IkamaNumber||rec.PassportNumber||'';
+  document.getElementById('csProvider').value=rec.Provider||'';
+  document.getElementById('csIssueDate').value=rec.IssueDate||'';
+  document.getElementById('csExpiryDate').value=rec.ExpiryDate||rec.NewExpiry||'';
+  document.getElementById('csRenewalDate').value=rec.RenewalDate||'';
+  document.getElementById('csStatus').value=rec.Status||'Active';
+  document.getElementById('csCost').value=rec.Cost||'';
+  document.getElementById('csPaidBy').value=rec.PaidBy||'';
+  document.getElementById('csNotes').value=rec.Notes||'';
+  document.getElementById('csModalTitle').textContent='Edit Compliance Record';
+  updateCSForm();
+  document.getElementById('csModal').classList.add('show');
+}
+
+function updateCSForm(){
+  var svc=document.getElementById('csServiceType').value;
+  var labels={WorkPermit:'Permit Number',Insurance:'Policy Number',Ikama:'Ikama Number',PassportRenewal:'Passport Number'};
+  var expLabels={WorkPermit:'Expiry Date',Insurance:'Expiry Date',Ikama:'Expiry Date',PassportRenewal:'New Expiry Date'};
+  document.getElementById('cs-number-label').textContent=labels[svc]||'Reference Number';
+  document.getElementById('cs-expiry-label').textContent=expLabels[svc]||'Expiry Date';
+  document.getElementById('cs-field-provider').style.display=svc==='Insurance'?'flex':'none';
+}
+
+function onCSWorkerSelect(){} // placeholder
+
+function closeCSModal(){document.getElementById('csModal').classList.remove('show');}
+
+function saveCSRecord(){
+  var sheet=document.getElementById('csSheetName').value;
+  var workerID=document.getElementById('csWorkerSelect').value;
+  if(!workerID){alert('Please select a worker');return;}
+  var worker=allWorkers.find(function(w){return String(w.WorkerID)===String(workerID);});
+  var emp=worker?getEmp(worker):null;
+  var numVal=document.getElementById('csNumber').value;
+  var expVal=document.getElementById('csExpiryDate').value;
+  var numFields={WorkPermit:'PermitNumber',Insurance:'PolicyNumber',Ikama:'IkamaNumber',PassportRenewal:'PassportNumber'};
+  var expFields={WorkPermit:'ExpiryDate',Insurance:'ExpiryDate',Ikama:'ExpiryDate',PassportRenewal:'NewExpiry'};
+
+  var record={
+    RecordID:document.getElementById('csRecordID').value||'',
+    WorkerID:workerID,
+    WorkerCode:worker?wCode(worker):'',
+    WorkerName:worker?wName(worker):'',
+    EmployerID:worker?(worker.EmployerID||''):'',
+    EmployerCode:worker?(worker.EmployerCode||''):'',
+    EmployerName:emp?(emp.EFN||emp.EmployerName||''):'',
+    IssueDate:document.getElementById('csIssueDate').value,
+    RenewalDate:document.getElementById('csRenewalDate').value,
+    Status:document.getElementById('csStatus').value,
+    Cost:document.getElementById('csCost').value,
+    PaidBy:document.getElementById('csPaidBy').value,
+    Notes:document.getElementById('csNotes').value,
+    Provider:document.getElementById('csProvider').value
+  };
+  record[numFields[sheet]]=numVal;
+  record[expFields[sheet]]=expVal;
+
+  google.script.run
+    .withSuccessHandler(function(result){
+      if(result&&result.success){
+        closeCSModal();
+        refreshData();
+      } else {
+        alert('Error saving: '+(result?result.error:'Unknown error'));
+      }
+    })
+    .withFailureHandler(function(e){alert('Save failed: '+e.message);})
+    .gsrSaveComplianceRecord(sheet, record);
 }
 
 function updateBadges(){
   var inLeb=getInLebanon();
   document.getElementById('badge-inlebanon').textContent=inLeb.length;
-
-  // Ikama badge — expiring within 30 days
-  var ikamaWarn=inLeb.filter(function(w){
-    var arr=w.ArrivalDate||w.ExpectedArrivalDate;if(!arr)return false;
-    var exp=new Date(arr);exp.setDate(exp.getDate()+89);
-    var d=Math.round((exp-new Date())/86400000);
-    return d<=30;
-  }).length;
-  var ib=document.getElementById('badge-ikama');
-  ib.textContent=ikamaWarn;
-  ib.style.background=ikamaWarn>0?'#ef4444':'#f59e0b';
-
-  // Passport badge — expiring within 180 days
-  var passWarn=inLeb.filter(function(w){
-    if(!w.PassportExpiryDate)return false;
-    var d=Math.round((new Date(w.PassportExpiryDate)-new Date())/86400000);
-    return d>=0&&d<=180;
-  }).length;
-  var pb=document.getElementById('badge-passport');
-  pb.textContent=passWarn;
-  pb.style.background=passWarn>0?'#f59e0b':'#94a3b8';
-
-  document.getElementById('badge-workpermit').textContent='—';
-  document.getElementById('badge-insurance').textContent='—';
+  var ikamaWarn=inLeb.filter(function(w){var arr=w.ArrivalDate||w.ExpectedArrivalDate;if(!arr)return false;var exp=new Date(arr);exp.setDate(exp.getDate()+89);var d=Math.round((exp-new Date())/86400000);return d<=30;}).length;
+  var ib=document.getElementById('badge-ikama');ib.textContent=ikamaWarn;ib.style.background=ikamaWarn>0?'#ef4444':'#8b5cf6';
+  var passWarn=inLeb.filter(function(w){if(!w.PassportExpiryDate)return false;var d=Math.round((new Date(w.PassportExpiryDate)-new Date())/86400000);return d>=0&&d<=180;}).length;
+  var pb=document.getElementById('badge-passport');pb.textContent=passWarn;pb.style.background=passWarn>0?'#f59e0b':'#ef4444';
+  document.getElementById('badge-compliance').textContent=allWP.length+allIns.length+allIka.length+allPass.length;
+  var wpWorkers=allWorkers.filter(function(w){return w.ProcessingStage==='arrived'||w.ProcessingStage==='local'||isT(w.Arrived)||isT(w.ArrivalConfirmed);});
+  var wpBadge=document.getElementById('badge-workpermit');
+  if(wpBadge) wpBadge.textContent=wpWorkers.length;
+  var insBadge=document.getElementById('badge-insurance');
+  if(insBadge) insBadge.textContent=wpWorkers.length;
 }
 
-function updatePrintMeta(){
-  var el=document.getElementById('printMeta');
-  if(el) el.innerHTML='Generated: '+new Date().toLocaleDateString('en-GB')+' '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+'<br>Total: '+getInLebanon().length+' workers';
-}
+function updatePrintMeta(){var el=document.getElementById('printMeta');if(el)el.innerHTML='Generated: '+new Date().toLocaleDateString('en-GB')+' '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+'<br>Total: '+getInLebanon().length+' workers';}
 
 function switchTab(id,btn){
-  ['tab-inlebanon','tab-ikama','tab-passport','tab-workpermit','tab-insurance'].forEach(function(t){
-    document.getElementById(t).style.display='none';
-  });
+  ['tab-inlebanon','tab-workpermit','tab-insurance','tab-ikama','tab-passport','tab-compliance'].forEach(function(t){document.getElementById(t).style.display='none';});
   document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
   document.getElementById(id).style.display='block';
   btn.classList.add('active');
+  if(id==='tab-compliance') renderCompliance();
+  if(id==='tab-workpermit') loadWorkPermitTab();
 }
 
 function exportCSV(){
@@ -414,14 +924,12 @@ function exportCSV(){
   var rows=[headers.join(',')];
   _filtered.forEach(function(w,idx){
     var emp=getEmp(w);
-    var empName=emp?(emp.EFN||emp.EmployerName||w.EmployerCode):(w.EmployerCode||'');
-    var empCode=emp?(emp.EmployerCode||''):(w.EmployerCode||'');
-    var empContact=emp?(emp.MobileNumber||emp.ContactNumber||''):'';
-    var wFullName=w.WFullName||([w.WorkerFirstName,w.WorkerMiddleName,w.WorkerLastName].filter(Boolean).join(' '))||'';
-    var wc=w.WorkerCode||(w.SupplierCode?w.SupplierCode+'-'+String(w.WorkerID).padStart(4,'0'):'ID-'+w.WorkerID);
+    var en=emp?(emp.EFN||emp.EmployerName||w.EmployerCode):(w.EmployerCode||'');
+    var ec=emp?(emp.EmployerCode||''):(w.EmployerCode||'');
+    var eC=emp?(emp.MobileNumber||emp.ContactNumber||''):'';
+    var wn=wName(w),wc2=wCode(w);
     var arrDate=w.ArrivalDate||w.ExpectedArrivalDate||'';
-    var row=[idx+1,empName,empCode,empContact,wFullName,wc,w.Nationality||'',w.PassportNumber||'',arrDate];
-    rows.push(row.map(function(v){return'"'+String(v).replace(/"/g,'""')+'"';}).join(','));
+    rows.push([idx+1,en,ec,eC,wn,wc2,w.Nationality||'',w.PassportNumber||'',arrDate].map(function(v){return'"'+String(v).replace(/"/g,'""')+'"';}).join(','));
   });
   var a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(rows.join('\n'));
@@ -429,6 +937,205 @@ function exportCSV(){
   a.click();
 }
 
+var allWorkPermits = [];
+
+function loadWorkPermitTab(){
+  var wrap = document.getElementById('wpBody');
+  wrap.innerHTML = '<div class="loading"><div class="spin"></div><div>Loading work permits...</div></div>';
+ gsComplianceLoad('WorkPermit').then(function(data){
+    allWorkPermits = data || [];
+    var workers = allWorkers.filter(function(w){
+      return w.ProcessingStage==='arrived'||w.ProcessingStage==='local'||isT(w.Arrived)||isT(w.ArrivalConfirmed);
+    });
+    var badge = document.getElementById('badge-workpermit');
+    if(badge) badge.textContent = workers.length;
+    renderWorkPermit();
+  });
+}
+function renderWorkPermit(){
+  var workers = allWorkers.filter(function(w){
+    return w.ProcessingStage === 'arrived' || w.ProcessingStage === 'local'
+        || isT(w.Arrived) || isT(w.ArrivalConfirmed);
+  });
+  console.log('renderWorkPermit workers:', workers.length);
+    var q = (document.getElementById('wpSearch').value||'').toLowerCase();
+    var statusFilter = document.getElementById('wpFilter').value;
+    var now = new Date();
+    var enrolled=0, expiring=0, expired=0;
+
+    var filtered = workers.filter(function(w){
+      var permit = allWorkPermits.find(function(p){ return String(p.WorkerID)===String(w.WorkerID); });
+      var pStatus = getPermitStatus(permit, now);
+      if(statusFilter==='none' && permit) return false;
+      if(statusFilter==='active' && pStatus!=='active') return false;
+      if(statusFilter==='expiring' && pStatus!=='expiring') return false;
+      if(statusFilter==='expired' && pStatus!=='expired') return false;
+      if(q){
+        var emp=getEmp(w);
+        var empN=emp?(emp.EFN||emp.EmployerName||''):'';
+        var str=[w.WFullName,w.WorkerFirstName,w.WorkerLastName,w.PassportNumber,empN,w.EmployerCode].join(' ').toLowerCase();
+        if(!str.includes(q)) return false;
+      }
+      return true;
+    });
+
+    workers.forEach(function(w){
+      var permit = allWorkPermits.find(function(p){ return String(p.WorkerID)===String(w.WorkerID); });
+      var pStatus = getPermitStatus(permit, now);
+      if(permit) enrolled++;
+      if(pStatus==='expiring') expiring++;
+      if(pStatus==='expired') expired++;
+    });
+
+    document.getElementById('wp-stat-total').textContent = workers.length;
+    document.getElementById('wp-stat-enrolled').textContent = enrolled;
+    document.getElementById('wp-stat-expiring').textContent = expiring;
+    document.getElementById('wp-stat-expired').textContent = expired;
+    document.getElementById('wpCount').textContent = filtered.length + ' workers';
+
+    var wrap = document.getElementById('wpBody');
+    if(!filtered.length){
+      wrap.innerHTML='<div class="empty"><div class="empty-icon">📜</div><div style="font-size:15px;font-weight:700;">No workers found</div></div>';
+    } else {
+
+    var empGroups={};
+    filtered.forEach(function(w){
+      var k=w.EmployerCode||w.EmployerID||'unassigned';
+      if(!empGroups[k]) empGroups[k]=[];
+      empGroups[k].push(w);
+    });
+
+    var html='';
+    Object.keys(empGroups).forEach(function(empKey){
+      var ew=empGroups[empKey];
+      var emp=getEmp(ew[0]);
+      var en=emp?(emp.EFN||emp.EmployerName||empKey):empKey;
+      var ec=emp?(emp.EmployerCode||empKey):empKey;
+      html+='<div style="background:white;border:1px solid #e0e0e0;border-radius:10px;margin-bottom:16px;overflow:hidden;">';
+      html+='<div style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">';
+      html+='<span style="font-weight:700;font-size:14px;">💼 '+en+' <span style="font-size:12px;opacity:0.8;">'+ec+'</span></span>';
+      html+='<span style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;">'+ew.length+' worker(s)</span>';
+      html+='</div><div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">';
+
+      ew.forEach(function(w){
+        var permit = allWorkPermits.find(function(p){ return String(p.WorkerID)===String(w.WorkerID); });
+        var pStatus = getPermitStatus(permit, now);
+        var wn=wName(w), wc=wCode(w);
+        var arrDate=w.ArrivalDate||w.ExpectedArrivalDate||'';
+        var stageTag = w.ProcessingStage==='local'
+          ? '<span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;">🏠 Local</span>'
+          : '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;">✈️ Arrived</span>';
+
+        var statusBadge='', actionBtn='';
+        if(!permit){
+          statusBadge='<span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;">❌ Not Enrolled</span>';
+          actionBtn='<button onclick="openWPModal(\''+w.WorkerID+'\')" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">+ Enroll</button>';
+        } else if(pStatus==='expired'){
+          statusBadge='<span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;">⚠️ Expired</span>';
+          actionBtn='<button onclick="openWPModal(\''+w.WorkerID+'\')" style="background:#dc2626;color:white;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">✏️ Edit</button>';
+        } else if(pStatus==='expiring'){
+          statusBadge='<span style="background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;">⏳ Expiring Soon</span>';
+          actionBtn='<button onclick="openWPModal(\''+w.WorkerID+'\')" style="background:#d97706;color:white;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">✏️ Edit</button>';
+        } else {
+          statusBadge='<span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;">✅ Active</span>';
+          actionBtn='<button onclick="openWPModal(\''+w.WorkerID+'\')" style="background:#166534;color:white;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">✏️ Edit</button>';
+        }
+
+        html+='<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">';
+        html+='<div>';
+        html+='<div style="font-weight:700;font-size:14px;color:#111;">👷 '+wn+' '+stageTag+'</div>';
+        html+='<div style="font-size:12px;color:#555;margin-top:3px;">Code: <b style="color:#0891b2;">'+wc+'</b> | Nationality: <b>'+(w.Nationality||'—')+'</b> | Arrival: <b>'+(arrDate?fmtDate(arrDate):'—')+'</b></div>';
+        if(permit){
+          var daysLeft = permit.ExpiryDate ? Math.ceil((new Date(permit.ExpiryDate)-now)/86400000) : null;
+          html+='<div style="font-size:12px;color:#555;margin-top:3px;">📜 Permit No: <b>'+(permit.PermitNumber||'—')+'</b> | Issue: <b>'+(permit.IssueDate?fmtDate(permit.IssueDate):'—')+'</b> | Expiry: <b>'+(permit.ExpiryDate?fmtDate(permit.ExpiryDate):'—')+'</b>'+(daysLeft!==null?' | <b style="color:'+(daysLeft<0?'#dc2626':daysLeft<30?'#d97706':'#166534')+';">'+(daysLeft<0?Math.abs(daysLeft)+' days ago':daysLeft+' days left')+'</b>':'')+'</div>';
+        }
+        html+='</div>';
+        html+='<div style="display:flex;gap:8px;align-items:center;">'+statusBadge+actionBtn+'</div>';
+        html+='</div>';
+      });
+      html+='</div></div>';
+    });
+wrap.innerHTML=html;
+    } // close else
+}
+
+function getPermitStatus(permit, now){
+  if(!permit) return 'none';
+  if(!permit.ExpiryDate) return 'active';
+  var exp = new Date(permit.ExpiryDate);
+  var daysLeft = Math.ceil((exp-now)/86400000);
+  if(daysLeft < 0) return 'expired';
+  if(daysLeft <= 30) return 'expiring';
+  return 'active';
+}
+
+function openWPModal(workerId){
+  var w = allWorkers.find(function(x){ return String(x.WorkerID)===String(workerId); });
+  if(!w){ alert('Worker not found'); return; }
+  var permit = allWorkPermits.find(function(p){ return String(p.WorkerID)===String(workerId); }) || {};
+  var wn = wName(w);
+  var arrDate = w.ArrivalDate||w.ExpectedArrivalDate||'';
+  var issueDate = permit.IssueDate || (arrDate?arrDate.split('T')[0]:'');
+
+  var modal = document.createElement('div');
+  modal.id = 'wpModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = '<div style="background:white;border-radius:14px;padding:28px;width:440px;max-width:95vw;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'+
+    '<div style="font-weight:800;font-size:17px;color:#0891b2;margin-bottom:18px;">📜 Work Permit<br><span style="font-size:13px;color:#666;font-weight:500;">'+wn+'</span></div>'+
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">📜 Permit Number</label>'+
+    '<input id="wp-number" type="text" value="'+(permit.PermitNumber||'')+'" placeholder="Enter permit number" style="width:100%;padding:8px;border:1px solid #bae6fd;border-radius:7px;font-size:14px;box-sizing:border-box;"></div>'+
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">📅 Issue Date</label>'+
+    '<input id="wp-issue" type="date" value="'+(issueDate?issueDate.split('T')[0]:'')+'" style="width:100%;padding:8px;border:1px solid #bae6fd;border-radius:7px;font-size:14px;box-sizing:border-box;"></div>'+
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">📅 Expiry Date</label>'+
+    '<input id="wp-expiry" type="date" value="'+(permit.ExpiryDate?permit.ExpiryDate.split('T')[0]:'')+'" style="width:100%;padding:8px;border:1px solid #bae6fd;border-radius:7px;font-size:14px;box-sizing:border-box;"></div>'+
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">📋 Status</label>'+
+    '<select id="wp-status" style="width:100%;padding:8px;border:1px solid #bae6fd;border-radius:7px;font-size:14px;box-sizing:border-box;">'+
+    '<option value="active"'+(permit.Status==='active'?' selected':'')+'>Active</option>'+
+    '<option value="expired"'+(permit.Status==='expired'?' selected':'')+'>Expired</option>'+
+    '<option value="pending"'+(permit.Status==='pending'?' selected':'')+'>Pending</option>'+
+    '</select></div>'+
+    '<div style="margin-bottom:18px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">💰 Cost</label>'+
+    '<input id="wp-cost" type="number" value="'+(permit.Cost||'')+'" placeholder="0" style="width:100%;padding:8px;border:1px solid #bae6fd;border-radius:7px;font-size:14px;box-sizing:border-box;"></div>'+
+    '<div style="display:flex;gap:10px;justify-content:flex-end;">'+
+    '<button onclick="document.getElementById(\'wpModal\').remove()" style="background:#eee;color:#333;border:none;padding:9px 18px;border-radius:7px;cursor:pointer;font-weight:700;">Cancel</button>'+
+    '<button onclick="saveWPRecord(\''+workerId+'\')" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;padding:9px 18px;border-radius:7px;cursor:pointer;font-weight:700;">💾 Save</button>'+
+    '</div></div>';
+  document.body.appendChild(modal);
+}
+
+function saveWPRecord(workerId){
+  var w = allWorkers.find(function(x){ return String(x.WorkerID)===String(workerId); });
+  if(!w){ alert('Worker not found'); return; }
+  var emp = getEmp(w);
+  var existing = allWorkPermits.find(function(p){ return String(p.WorkerID)===String(workerId); }) || {};
+  var record = {
+    RecordID:    existing.RecordID || ('WOR-'+Date.now()),
+    WorkerID:    w.WorkerID,
+    WorkerCode:  wCode(w),
+    WorkerName:  wName(w),
+    EmployerID:  w.EmployerID||'',
+    EmployerCode:w.EmployerCode||'',
+    EmployerName:emp?(emp.EFN||emp.EmployerName||''):'',
+    PermitNumber:document.getElementById('wp-number').value,
+    IssueDate:   document.getElementById('wp-issue').value,
+    ExpiryDate:  document.getElementById('wp-expiry').value,
+    Status:      document.getElementById('wp-status').value,
+    Cost:        document.getElementById('wp-cost').value,
+    ModifiedDate:new Date().toISOString()
+  };
+  if(!existing.RecordID) record.CreatedDate = new Date().toISOString();
+
+  google.script.run
+    .withSuccessHandler(function(result){
+      if(result&&result.success){
+        document.getElementById('wpModal').remove();
+        alert('✅ Work Permit saved!');
+        loadWorkPermitTab();
+      } else { alert('❌ Save failed: '+(result?result.error:'Unknown')); }
+    })
+    .withFailureHandler(function(e){ alert('❌ Error: '+e.message); })
+    .gsrSaveComplianceRecord('WorkPermit', record);
+}
 startClock();
 init();
 </script>
