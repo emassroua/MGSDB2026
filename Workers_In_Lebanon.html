@@ -190,6 +190,14 @@ tr:nth-child(even):hover td{background:#f1f5f9;}
         style="padding:8px 18px;border:none;border-radius:8px 8px 0 0;cursor:pointer;font-weight:700;font-size:13px;background:#f5f5f5;color:#888;margin-bottom:-2px;border-bottom:2px solid transparent;">
         🏠 Local
       </button>
+      <button id="subtab-btn-moved" onclick="switchSubTab('moved')"
+        style="padding:8px 18px;border:none;border-radius:8px 8px 0 0;cursor:pointer;font-weight:700;font-size:13px;background:#f5f5f5;color:#888;margin-bottom:-2px;border-bottom:2px solid transparent;">
+        🔀 Moved
+      </button>
+      <button id="subtab-btn-left" onclick="switchSubTab('left')"
+        style="padding:8px 18px;border:none;border-radius:8px 8px 0 0;cursor:pointer;font-weight:700;font-size:13px;background:#f5f5f5;color:#888;margin-bottom:-2px;border-bottom:2px solid transparent;">
+        🛫 Left Lebanon
+      </button>
     </div>
     <!-- Sub-tab: Arrived -->
     <div id="subtab-arrived">
@@ -213,6 +221,24 @@ tr:nth-child(even):hover td{background:#f1f5f9;}
         <span class="fcount" id="localCount"></span>
       </div>
       <div id="localTableWrap"><div class="loading"><div class="spin"></div><div>Loading...</div></div></div>
+    </div>
+
+    <!-- Sub-tab: Moved -->
+    <div id="subtab-moved" style="display:none;">
+      <div class="filters">
+        <div class="fg"><label>Search:</label><input type="text" id="searchMoved" class="fi" placeholder="Name, employer..." oninput="filterMoved()"></div>
+        <span class="fcount" id="movedCount"></span>
+      </div>
+      <div id="movedTableWrap"><div class="loading"><div class="spin"></div><div>Loading...</div></div></div>
+    </div>
+
+    <!-- Sub-tab: Left Lebanon -->
+    <div id="subtab-left" style="display:none;">
+      <div class="filters">
+        <div class="fg"><label>Search:</label><input type="text" id="searchLeft" class="fi" placeholder="Name, employer..." oninput="filterLeft()"></div>
+        <span class="fcount" id="leftCount"></span>
+      </div>
+      <div id="leftTableWrap"><div class="loading"><div class="spin"></div><div>Loading...</div></div></div>
     </div>
   </div>
 
@@ -370,6 +396,7 @@ var SCRIPT_URL=(function(){var m=window.location.href.match(/(https:\/\/script\.
 
 var allWorkers=[],allEmployers=[];
 var allWP=[],allIns=[],allIka=[],allPass=[];
+var allFees=[], activeFees=[];
 var _filtered=[];
 
 function isT(v){return v===true||v==='true'||v==='TRUE';}
@@ -445,12 +472,6 @@ function filterMain(){
     return true;
   }).sort(function(a,b){var da=a.ArrivalDate||a.ExpectedArrivalDate||'';var db=b.ArrivalDate||b.ExpectedArrivalDate||'';return new Date(db)-new Date(da);});
   document.getElementById('mainCount').textContent=_filtered.length+' workers';
-  // Update Work Permit badge
-  var wpWorkers = base.filter(function(w){
-    return w.ProcessingStage==='arrived'||w.ProcessingStage==='local'||isT(w.Arrived)||isT(w.ArrivalConfirmed);
-  });
-  var wpBadge = document.getElementById('badge-workpermit');
-  if(wpBadge) wpBadge.textContent = wpWorkers.length;
   renderTable();
 }
 
@@ -502,17 +523,19 @@ function saveLocalWorker(workerId){
     .gsrSaveRow('Workers', w);
 }
 function switchSubTab(tab){
-  document.getElementById('subtab-arrived').style.display = tab==='arrived' ? '' : 'none';
-  document.getElementById('subtab-local').style.display   = tab==='local'   ? '' : 'none';
-  var btnA = document.getElementById('subtab-btn-arrived');
-  var btnL = document.getElementById('subtab-btn-local');
-  btnA.style.background   = tab==='arrived' ? '#1976d2' : '#f5f5f5';
-  btnA.style.color        = tab==='arrived' ? 'white'   : '#888';
-  btnA.style.borderBottom = tab==='arrived' ? '2px solid #1976d2' : '2px solid transparent';
-  btnL.style.background   = tab==='local'   ? '#1976d2' : '#f5f5f5';
-  btnL.style.color        = tab==='local'   ? 'white'   : '#888';
-  btnL.style.borderBottom = tab==='local'   ? '2px solid #1976d2' : '2px solid transparent';
+  ['arrived','local','moved','left'].forEach(function(t){
+    var el=document.getElementById('subtab-'+t);
+    if(el) el.style.display='none';
+    var btn=document.getElementById('subtab-btn-'+t);
+    if(btn){btn.style.background='#f5f5f5';btn.style.color='#888';btn.style.borderBottom='2px solid transparent';}
+  });
+  var el=document.getElementById('subtab-'+tab);
+  if(el) el.style.display='';
+  var activeBtn=document.getElementById('subtab-btn-'+tab);
+  if(activeBtn){activeBtn.style.background='#1976d2';activeBtn.style.color='white';activeBtn.style.borderBottom='2px solid #1976d2';}
   if(tab==='local') renderLocalTab();
+  if(tab==='moved') renderMovedTab();
+  if(tab==='left') renderLeftTab();
 }
 
 function getLocalWorkers(){
@@ -530,6 +553,113 @@ function filterLocal(){
   });
   document.getElementById('localCount').textContent=workers.length+' workers';
   renderLocalCards(workers);
+}
+function getMovedWorkers(){
+  return allWorkers.filter(function(w){ return w.WorkPermitType==='moved'; });
+}
+
+function getLeftWorkers(){
+  return allWorkers.filter(function(w){ return w.WorkPermitType==='left'; });
+}
+
+function filterMoved(){
+  var q=(document.getElementById('searchMoved').value||'').toLowerCase();
+  var workers=getMovedWorkers().filter(function(w){
+    if(!q) return true;
+    var emp=getEmp(w);
+    var empN=emp?(emp.EFN||emp.EmployerName||''):'';
+    var str=[w.WFullName,w.WorkerFirstName,w.WorkerLastName,w.PassportNumber,empN,w.EmployerCode].join(' ').toLowerCase();
+    return str.includes(q);
+  });
+  document.getElementById('movedCount').textContent=workers.length+' workers';
+  renderWorkerCards('movedTableWrap',workers,'🔀','#7c3aed','moved');
+}
+
+function filterLeft(){
+  var q=(document.getElementById('searchLeft').value||'').toLowerCase();
+  var workers=getLeftWorkers().filter(function(w){
+    if(!q) return true;
+    var emp=getEmp(w);
+    var empN=emp?(emp.EFN||emp.EmployerName||''):'';
+    var str=[w.WFullName,w.WorkerFirstName,w.WorkerLastName,w.PassportNumber,empN,w.EmployerCode].join(' ').toLowerCase();
+    return str.includes(q);
+  });
+  document.getElementById('leftCount').textContent=workers.length+' workers';
+  renderWorkerCards('leftTableWrap',workers,'🛫','#4a148c','left');
+}
+
+function renderMovedTab(){
+  var workers=getMovedWorkers();
+  document.getElementById('movedCount').textContent=workers.length+' workers';
+  renderWorkerCards('movedTableWrap',workers,'🔀','#7c3aed','moved');
+}
+
+function renderLeftTab(){
+  var workers=getLeftWorkers();
+  document.getElementById('leftCount').textContent=workers.length+' workers';
+  renderWorkerCards('leftTableWrap',workers,'🛫','#4a148c','left');
+}
+
+function renderWorkerCards(wrapId,workers,icon,color,type){
+  var wrap=document.getElementById(wrapId);
+  if(!workers.length){
+    wrap.innerHTML='<div class="empty"><div class="empty-icon">'+icon+'</div><div style="font-size:15px;font-weight:700;">No workers found</div></div>';
+    return;
+  }
+  var empGroups={};
+  workers.forEach(function(w){
+    var k=w.EmployerCode||w.EmployerID||'unassigned';
+    if(!empGroups[k]) empGroups[k]=[];
+    empGroups[k].push(w);
+  });
+  var html='';
+  Object.keys(empGroups).forEach(function(empKey){
+    var ew=empGroups[empKey];
+    var emp=getEmp(ew[0]);
+    var en=emp?(emp.EFN||emp.EmployerName||empKey):empKey;
+    var ec=emp?(emp.EmployerCode||empKey):empKey;
+    var eC=emp?(emp.MobileNumber||emp.ContactNumber||'—'):'—';
+    html+='<div style="background:white;border:1px solid #e0e0e0;border-radius:10px;margin-bottom:16px;overflow:hidden;">';
+    html+='<div style="background:linear-gradient(135deg,'+color+','+color+'cc);color:white;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">';
+    html+='<div><span style="font-weight:700;font-size:14px;">💼 '+en+'</span><span style="font-size:12px;opacity:0.85;margin-left:10px;">'+ec+' | 📞 '+eC+'</span></div>';
+    html+='<span style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;">'+ew.length+' worker(s)</span>';
+    html+='</div><div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">';
+    ew.forEach(function(w){
+      var wn=wName(w),wc=wCode(w);
+      var arrDate=w.ArrivalDate||w.ExpectedArrivalDate||'';
+      var label=type==='moved'?'🔀 Moved to Other Employer':'🛫 Left Lebanon';
+      html+='<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">';
+      html+='<div>';
+      html+='<div style="font-weight:700;font-size:14px;color:#111;">👷 '+wn+'</div>';
+      html+='<div style="font-size:12px;color:#555;margin-top:3px;">Code: <b style="color:'+color+';">'+wc+'</b> | Nationality: <b>'+(w.Nationality||'—')+'</b> | Passport: <b>'+(w.PassportNumber||'—')+'</b></div>';
+      html+='<div style="font-size:12px;color:#555;margin-top:3px;">📅 Arrival: <b>'+(arrDate?fmtDate(arrDate):'—')+'</b></div>';
+      html+='<div style="margin-top:5px;"><span style="background:'+color+'22;color:'+color+';padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;">'+label+'</span></div>';
+      html+='</div>';
+      html+='<button onclick="undoWorkPermitType(\''+w.WorkerID+'\')" style="background:#eee;color:#333;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">↩️ Undo</button>';
+      html+='</div>';
+    });
+    html+='</div></div>';
+  });
+  wrap.innerHTML=html;
+}
+
+function undoWorkPermitType(workerId){
+  var pwd=prompt('Enter admin password to undo:');
+  if(pwd!=='masr3434'){alert('❌ Wrong password');return;}
+  var w=allWorkers.find(function(x){return String(x.WorkerID)===String(workerId);});
+  if(!w){alert('Worker not found');return;}
+  w.WorkPermitType='';
+  google.script.run
+    .withSuccessHandler(function(result){
+      if(result&&result.success){
+        alert('✅ Undone successfully!');
+        renderMovedTab();
+        renderLeftTab();
+        renderMain();
+      } else {alert('❌ Save failed');}
+    })
+    .withFailureHandler(function(e){alert('❌ Error: '+e.message);})
+    .gsrSaveRow('Workers',w);
 }
 
 function renderLocalTab(){
@@ -598,12 +728,41 @@ function renderTable(){
 
   var arrivedWorkers=_filtered.filter(function(w){return w.ProcessingStage!=='local';});
   var localWorkers=_filtered.filter(function(w){return w.ProcessingStage==='local';});
+  // Combine — arrived first, then local
+  var allFiltered=arrivedWorkers.concat(localWorkers);
 
   var html='';
 
   // ── Arrived Workers Table ──
-  if(arrivedWorkers.length){
-    var rows=arrivedWorkers.map(function(w,idx){
+  function compCell(type, w, rec){
+    var d='';
+    if(type==='wp'){
+      d = rec ? (rec.ExpiryDate||'') : (w.ArrivalDate||w.ExpectedArrivalDate||'');
+    } else if(type==='ins'){
+      d = rec ? (rec.ExpiryDate||'') : '';
+      if(!d) return '<td style="text-align:center;"><span style="color:#999;font-size:11px;">00/00/0000</span></td>';
+    } else if(type==='ika'){
+      d = rec ? (rec.ExpiryDate||'') : (w.IkamaExpiry||'');
+    } else if(type==='pass'){
+      d = w.PassportExpiryDate||'';
+    }
+    if(!d) return '<td style="text-align:center;"><span style="color:#ccc;font-size:11px;">—</span></td>';
+    var days=Math.ceil((new Date(d)-new Date())/86400000);
+    var col=days<0?'#dc2626':days<=30?'#d97706':'#166534';
+    var txt=days<0?'Expired':'Exp: '+fmtDate(d);
+    return '<td style="text-align:center;"><span style="color:'+col+';font-size:11px;font-weight:700;">'+txt+'</span></td>';
+  }
+  function compBadge(label,rec,field){
+    if(!rec)return'<span style="font-size:11px;color:#999;">'+label+': —</span>';
+    var d=rec[field]||rec.ExpiryDate||rec.NewExpiry||'';
+    if(!d)return'<span style="font-size:11px;color:#999;">'+label+': —</span>';
+    var days=Math.ceil((new Date(d)-new Date())/86400000);
+    var col=days<0?'#dc2626':days<=30?'#d97706':'#166534';
+    return'<span style="font-size:11px;font-weight:700;color:'+col+';">'+label+': '+(days<0?'Expired':fmtDate(d))+'</span>';
+  }
+
+  if(allFiltered.length){
+    var rows=allFiltered.map(function(w,idx){
       var emp=getEmp(w);
       var en=emp?(emp.EFN||emp.EmployerName||w.EmployerCode):(w.EmployerCode||'—');
       var ec=emp?(emp.EmployerCode||'—'):(w.EmployerCode||'—');
@@ -612,105 +771,23 @@ function renderTable(){
       var arrDate=w.ArrivalDate||w.ExpectedArrivalDate;
       var ago=daysAgo(arrDate);
       var agoTxt=ago===null?'':ago===0?'<span class="days-ok">Today</span>':ago===1?'<span class="days-ok">Yesterday</span>':ago<=30?'<span class="days-ok">'+ago+'d ago</span>':ago<=90?'<span class="days-warn">'+ago+'d ago</span>':'<span class="days-old">'+ago+'d ago</span>';
-      function compCell(rec, field){
-        if(!rec) return '<td style="text-align:center;"><span style="color:#ccc;font-size:11px;">—</span></td>';
-        var d=rec[field]||rec.ExpiryDate||rec.NewExpiry||'';
-        if(!d) return '<td style="text-align:center;"><span style="color:#ccc;font-size:11px;">—</span></td>';
-        var days=Math.ceil((new Date(d)-new Date())/86400000);
-        var col=days<0?'#dc2626':days<=30?'#d97706':'#166534';
-        var txt=days<0?'Expired':'Exp: '+fmtDate(d);
-        return '<td style="text-align:center;"><span style="color:'+col+';font-size:11px;font-weight:700;">'+txt+'</span></td>';
-      }
       var wpRec=allWP?allWP.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
       var insRec=allIns?allIns.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
       var ikaRec=allIka?allIka.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
       var passRec=allPass?allPass.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
-      function compCell(rec, field){
-        if(!rec) return '<td style="text-align:center;"><span style="color:#ccc;font-size:11px;">—</span></td>';
-        var d=rec[field]||rec.ExpiryDate||rec.NewExpiry||'';
-        if(!d) return '<td style="text-align:center;"><span style="color:#ccc;font-size:11px;">—</span></td>';
-        var days=Math.ceil((new Date(d)-new Date())/86400000);
-        var col=days<0?'#dc2626':days<=30?'#d97706':'#166534';
-        var txt=days<0?'Expired':'Exp: '+fmtDate(d);
-        return '<td style="text-align:center;"><span style="color:'+col+';font-size:11px;font-weight:700;">'+txt+'</span></td>';
-      }
-      return'<tr><td style="font-weight:700;color:var(--muted);text-align:center;">'+(idx+1)+'</td>'+
+      var localTag=w.ProcessingStage==='local'?'<span style="background:#1976d2;color:white;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800;margin-left:4px;vertical-align:middle;">🏠 LOCAL</span>':'';
+      return'<tr style="background:'+(w.ProcessingStage==='local'?'#e3f2fd':'')+';"><td style="font-weight:700;color:var(--muted);text-align:center;">'+(idx+1)+'<br>'+localTag+'</td>'+
         '<td><div class="emp-name">'+en+'</div><div class="emp-code">'+ec+'</div><div class="emp-contact">📞 '+eC+'</div></td>'+
-        '<td><div class="w-name">'+wn+'</div><div class="w-code">'+wc+'</div></td>'+
+        '<td><div class="w-name">'+wn+localTag+'</div><div class="w-code">'+wc+'</div></td>'+
         '<td><span class="nat">'+(w.Nationality||'—')+'</span></td>'+
         '<td><span class="passport">'+(w.PassportNumber||'—')+'</span></td>'+
         '<td><div class="arrival-date">'+fmtDate(arrDate)+'</div><div class="arrival-days">'+agoTxt+'</div></td>'+
-        compCell(wpRec,'ExpiryDate')+
-        compCell(insRec,'ExpiryDate')+
-        compCell(ikaRec,'ExpiryDate')+
-        compCell(passRec,'NewExpiry')+'</tr>';
+        compCell('wp',w,wpRec)+
+        compCell('ins',w,insRec)+
+        compCell('ika',w,ikaRec)+
+        compCell('pass',w,null)+'</tr>';
     }).join('');
     html+='<div style="overflow-x:auto;"><table><thead><tr><th style="text-align:center;">#</th><th>Employer</th><th>Worker</th><th>Nationality</th><th>Passport No.</th><th>Arrival Date</th><th>Work Permit</th><th>Insurance</th><th>Ikama</th><th>Passport Expiry</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
-  }
-
-  // ── Local Workers Cards ──
-  if(localWorkers.length){
-    html+='<div style="margin-top:24px;">';
-    html+='<div style="font-weight:700;font-size:15px;color:#1565c0;margin-bottom:12px;padding:8px 14px;background:#e3f2fd;border-radius:8px;border-left:4px solid #1976d2;">🏠 Local Workers in Lebanon ('+localWorkers.length+')</div>';
-
-    // Group by employer
-    var empGroups={};
-    localWorkers.forEach(function(w){
-      var k=w.EmployerCode||w.EmployerID||'unassigned';
-      if(!empGroups[k]) empGroups[k]=[];
-      empGroups[k].push(w);
-    });
-
-    Object.keys(empGroups).forEach(function(empKey){
-      var ew=empGroups[empKey];
-      var emp=getEmp(ew[0]);
-      var en=emp?(emp.EFN||emp.EmployerName||empKey):empKey;
-      var ec=emp?(emp.EmployerCode||empKey):empKey;
-      var eC=emp?(emp.MobileNumber||emp.ContactNumber||'—'):'—';
-
-      html+='<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;margin-bottom:16px;overflow:hidden;">';
-      html+='<div style="background:linear-gradient(135deg,#1976d2,#1565c0);color:white;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">';
-      html+='<div><span style="font-weight:700;font-size:14px;">💼 '+en+'</span><span style="font-size:12px;opacity:0.85;margin-left:10px;">'+ec+' | 📞 '+eC+'</span></div>';
-      html+='<span style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;">'+ew.length+' worker(s)</span>';
-      html+='</div>';
-      html+='<div style="padding:10px 14px;display:flex;flex-direction:column;gap:10px;">';
-
-      ew.forEach(function(w){
-        var wn=wName(w),wc=wCode(w);
-        var arrDate=w.ArrivalDate||w.ExpectedArrivalDate||'';
-        var startWork=w.StartWorkDate||'';
-        var ikamaExp=w.IkamaExpiry||'';
-        html+='<div style="background:#f0f8ff;border:1px solid #bbdefb;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">';
-        html+='<div>';
-        html+='<div style="font-weight:700;font-size:14px;color:#0d47a1;">👷 '+wn+'</div>';
-        html+='<div style="font-size:12px;color:#555;margin-top:3px;">Code: <b style="color:#1976d2;">'+wc+'</b> | Nationality: <b>'+(w.Nationality||'—')+'</b> | Passport: <b>'+(w.PassportNumber||'—')+'</b></div>';
-        html+='<div style="font-size:12px;color:#555;margin-top:3px;">📅 Arrival: <b>'+(arrDate?fmtDate(arrDate):'Not set')+'</b> | 💼 Start Work: <b>'+(startWork?fmtDate(startWork):'Not set')+'</b> | 🪪 Ikama Expiry: <b>'+(ikamaExp?fmtDate(ikamaExp):'Not set')+'</b></div>';
-        var lwp=allWP?allWP.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
-        var lins=allIns?allIns.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
-        var lika=allIka?allIka.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
-        var lpass=allPass?allPass.find(function(p){return String(p.WorkerID)===String(w.WorkerID);}):null;
-        function compBadge(label,rec,field){
-          if(!rec) return '<span style="font-size:11px;color:#999;">'+label+': —</span>';
-          var d=rec[field]||rec.ExpiryDate||rec.NewExpiry||'';
-          if(!d) return '<span style="font-size:11px;color:#999;">'+label+': —</span>';
-          var days=Math.ceil((new Date(d)-new Date())/86400000);
-         var col=days<0?'#dc2626':days<=30?'#d97706':'#166534';
-        return '<span style="font-size:11px;font-weight:700;color:'+col+';">'+label+': '+(days<0?'Expired':fmtDate(d))+'</span>';
-      }
-      html+='<div style="font-size:12px;margin-top:4px;display:flex;gap:12px;flex-wrap:wrap;">'+
-        compBadge('📜 WP',lwp,'ExpiryDate')+'  '+
-        compBadge('🛡️ Ins',lins,'ExpiryDate')+'  '+
-        compBadge('🪪 Ikama',lika,'ExpiryDate')+'  '+
-        compBadge('🛂 Pass',lpass,'NewExpiry')+
-      '</div>';
-        html+='</div>';
-        html+='<button onclick="openLocalEditModal(\''+w.WorkerID+'\')" style="background:linear-gradient(135deg,#1976d2,#1565c0);color:white;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">✏️ Edit Details</button>';
-        html+='</div>';
-      });
-
-      html+='</div></div>';
-    });
-    html+='</div>';
   }
 
   wrap.innerHTML=html;
@@ -1013,7 +1090,9 @@ function renderWorkPermit(){
       var ec=emp?(emp.EmployerCode||empKey):empKey;
       html+='<div style="background:white;border:1px solid #e0e0e0;border-radius:10px;margin-bottom:16px;overflow:hidden;">';
       html+='<div style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">';
-      html+='<span style="font-weight:700;font-size:14px;">💼 '+en+' <span style="font-size:12px;opacity:0.8;">'+ec+'</span></span>';
+      var hasLocal=ew.some(function(x){return x.ProcessingStage==='local';});
+      var localEmpTag=hasLocal?'<span style="background:#1976d2;color:white;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800;margin-left:8px;">🏠 LOCAL</span>':'';
+      html+='<span style="font-weight:700;font-size:14px;">💼 '+en+' <span style="font-size:12px;opacity:0.8;">'+ec+'</span>'+localEmpTag+'</span>';
       html+='<span style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;">'+ew.length+' worker(s)</span>';
       html+='</div><div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">';
 
@@ -1070,37 +1149,83 @@ function getPermitStatus(permit, now){
 }
 
 function openWPModal(workerId){
-  var w = allWorkers.find(function(x){ return String(x.WorkerID)===String(workerId); });
-  if(!w){ alert('Worker not found'); return; }
-  var permit = allWorkPermits.find(function(p){ return String(p.WorkerID)===String(workerId); }) || {};
-  var wn = wName(w);
-  var arrDate = w.ArrivalDate||w.ExpectedArrivalDate||'';
-  var issueDate = permit.IssueDate || (arrDate?arrDate.split('T')[0]:'');
+  var w=allWorkers.find(function(x){return String(x.WorkerID)===String(workerId);});
+  if(!w){alert('Worker not found');return;}
+  var wn=wName(w);
+  var current=w.WorkPermitType||'';
 
-  var modal = document.createElement('div');
-  modal.id = 'wpModal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-  modal.innerHTML = '<div style="background:white;border-radius:14px;padding:28px;width:440px;max-width:95vw;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'+
-    '<div style="font-weight:800;font-size:17px;color:#0891b2;margin-bottom:18px;">📜 Work Permit<br><span style="font-size:13px;color:#666;font-weight:500;">'+wn+'</span></div>'+
-    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">📜 Permit Number</label>'+
-    '<input id="wp-number" type="text" value="'+(permit.PermitNumber||'')+'" placeholder="Enter permit number" style="width:100%;padding:8px;border:1px solid #bae6fd;border-radius:7px;font-size:14px;box-sizing:border-box;"></div>'+
-    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">📅 Issue Date</label>'+
-    '<input id="wp-issue" type="date" value="'+(issueDate?issueDate.split('T')[0]:'')+'" style="width:100%;padding:8px;border:1px solid #bae6fd;border-radius:7px;font-size:14px;box-sizing:border-box;"></div>'+
-    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">📅 Expiry Date</label>'+
-    '<input id="wp-expiry" type="date" value="'+(permit.ExpiryDate?permit.ExpiryDate.split('T')[0]:'')+'" style="width:100%;padding:8px;border:1px solid #bae6fd;border-radius:7px;font-size:14px;box-sizing:border-box;"></div>'+
-    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">📋 Status</label>'+
-    '<select id="wp-status" style="width:100%;padding:8px;border:1px solid #bae6fd;border-radius:7px;font-size:14px;box-sizing:border-box;">'+
-    '<option value="active"'+(permit.Status==='active'?' selected':'')+'>Active</option>'+
-    '<option value="expired"'+(permit.Status==='expired'?' selected':'')+'>Expired</option>'+
-    '<option value="pending"'+(permit.Status==='pending'?' selected':'')+'>Pending</option>'+
-    '</select></div>'+
-    '<div style="margin-bottom:18px;"><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">💰 Cost</label>'+
-    '<input id="wp-cost" type="number" value="'+(permit.Cost||'')+'" placeholder="0" style="width:100%;padding:8px;border:1px solid #bae6fd;border-radius:7px;font-size:14px;box-sizing:border-box;"></div>'+
+  var modal=document.createElement('div');
+  modal.id='wpModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML='<div style="background:white;border-radius:14px;padding:28px;width:460px;max-width:95vw;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'+
+    '<div style="font-weight:800;font-size:17px;color:#0891b2;margin-bottom:6px;">📜 Work Permit Status</div>'+
+    '<div style="font-size:13px;color:#666;margin-bottom:20px;">'+wn+'</div>'+
+
+    '<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">'+
+
+    '<label style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:2px solid '+(current==='mgs'?'#0891b2':'#e0e0e0')+';border-radius:10px;cursor:pointer;background:'+(current==='mgs'?'#f0f9ff':'white')+';">'+
+    '<input type="radio" name="wpType" value="mgs" '+(current==='mgs'?'checked':'')+' style="margin-top:3px;accent-color:#0891b2;">'+
+    '<div><div style="font-weight:700;font-size:13px;color:#0891b2;">📋 MGS Processing System</div>'+
+    '<div style="font-size:11px;color:#666;margin-top:2px;">Work permit is processed by MGS — record saved to Compliance Services</div></div>'+
+    '</label>'+
+
+    '<label style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:2px solid '+(current==='employer'?'#8b5cf6':'#e0e0e0')+';border-radius:10px;cursor:pointer;background:'+(current==='employer'?'#f5f3ff':'white')+';">'+
+    '<input type="radio" name="wpType" value="employer" '+(current==='employer'?'checked':'')+' style="margin-top:3px;accent-color:#8b5cf6;">'+
+    '<div><div style="font-weight:700;font-size:13px;color:#8b5cf6;">👔 Employer Responsibilities</div>'+
+    '<div style="font-size:11px;color:#666;margin-top:2px;">Work permit is handled by employer — shown in Ikama tab</div></div>'+
+    '</label>'+
+
+    '<label style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:2px solid '+(current==='moved'?'#7c3aed':'#e0e0e0')+';border-radius:10px;cursor:pointer;background:'+(current==='moved'?'#f5f3ff':'white')+';">'+
+    '<input type="radio" name="wpType" value="moved" '+(current==='moved'?'checked':'')+' style="margin-top:3px;accent-color:#7c3aed;">'+
+    '<div><div style="font-weight:700;font-size:13px;color:#7c3aed;">🔀 Worker Moved to Other Employer</div>'+
+    '<div style="font-size:11px;color:#666;margin-top:2px;">Work permit & Ikama expire — worker stays in Workers in Lebanon tab</div></div>'+
+    '</label>'+
+
+    '<label style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:2px solid '+(current==='left'?'#4a148c':'#e0e0e0')+';border-radius:10px;cursor:pointer;background:'+(current==='left'?'#f3e5f5':'white')+';">'+
+    '<input type="radio" name="wpType" value="left" '+(current==='left'?'checked':'')+' style="margin-top:3px;accent-color:#4a148c;">'+
+    '<div><div style="font-weight:700;font-size:13px;color:#4a148c;">🛫 Worker Left Lebanon</div>'+
+    '<div style="font-size:11px;color:#666;margin-top:2px;">Work permit & Ikama expire — worker stays in Workers in Lebanon tab</div></div>'+
+    '</label>'+
+
+    '</div>'+
+
     '<div style="display:flex;gap:10px;justify-content:flex-end;">'+
     '<button onclick="document.getElementById(\'wpModal\').remove()" style="background:#eee;color:#333;border:none;padding:9px 18px;border-radius:7px;cursor:pointer;font-weight:700;">Cancel</button>'+
-    '<button onclick="saveWPRecord(\''+workerId+'\')" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;padding:9px 18px;border-radius:7px;cursor:pointer;font-weight:700;">💾 Save</button>'+
+    '<button onclick="saveWPType(\''+workerId+'\')" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;padding:9px 18px;border-radius:7px;cursor:pointer;font-weight:700;">💾 Save</button>'+
     '</div></div>';
   document.body.appendChild(modal);
+}
+
+function saveWPType(workerId){
+  var selected=document.querySelector('input[name="wpType"]:checked');
+  if(!selected){alert('Please select an option');return;}
+  var type=selected.value;
+  var w=allWorkers.find(function(x){return String(x.WorkerID)===String(workerId);});
+  if(!w){alert('Worker not found');return;}
+
+  // If already has a type and changing — require admin password
+  if(w.WorkPermitType && w.WorkPermitType!==type){
+    var pwd=prompt('This worker already has a status. Enter admin password to change:');
+    if(pwd!=='masr3434'){alert('❌ Wrong password');return;}
+  }
+
+  w.WorkPermitType=type;
+
+  google.script.run
+    .withSuccessHandler(function(result){
+      if(result&&result.success){
+        document.getElementById('wpModal').remove();
+        alert('✅ Status saved!');
+        // If MGS — open compliance modal
+        if(type==='mgs') openCSModal(workerId,'WorkPermit');
+        renderMain();
+        renderMovedTab();
+        renderLeftTab();
+        loadWorkPermitTab();
+      } else {alert('❌ Save failed: '+(result?result.error:'Unknown'));}
+    })
+    .withFailureHandler(function(e){alert('❌ Error: '+e.message);})
+    .gsrSaveRow('Workers',w);
 }
 
 function saveWPRecord(workerId){
