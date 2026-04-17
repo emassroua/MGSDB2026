@@ -8565,5 +8565,843 @@ console.log('✅ Stage transition buttons patch loaded');
     console.log('✅ Workers auto-refresh started (every 30s)');
 })();
 </script>
+<script>
+// ============================================================
+// ADD WORKER WIZARD v1+ — Based on working v1, with improvements
+// Paste before </body> — DELETE any previous wizard patch first
+// ============================================================
+(function() {
+
+    var wizardHTML = '<div id="addWorkerWizard" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:99999; align-items:center; justify-content:center;">' +
+    '<div style="background:white; border-radius:16px; width:95%; max-width:700px; max-height:93vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.4); overflow:hidden;">' +
+
+    // Header
+    '<div style="background:linear-gradient(135deg,#667eea,#764ba2); color:white; padding:16px 22px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">' +
+    '<div><div style="font-size:18px; font-weight:700;">&#10133; Add New Worker</div>' +
+    '<div id="wzSubtitle" style="font-size:12px; opacity:0.85; margin-top:2px;">Step 1 of 6 &#8212; Supplier &amp; Source</div></div>' +
+    '<div style="text-align:right;">' +
+    '<div id="wzCodeBadge" style="display:none; background:rgba(255,255,255,0.2); border-radius:8px; padding:4px 12px; font-size:12px; font-weight:700; margin-bottom:4px; white-space:nowrap;"></div>' +
+    '<button onclick="closeAddWorkerWizard()" style="background:rgba(255,255,255,0.18); border:none; color:white; width:30px; height:30px; border-radius:50%; font-size:16px; cursor:pointer; font-weight:700; line-height:1;">&#10005;</button>' +
+    '</div></div>' +
+
+    // Progress bar
+    '<div style="background:#ddd; height:4px; flex-shrink:0;"><div id="wzBar" style="background:linear-gradient(90deg,#667eea,#764ba2); height:100%; width:16.6%; transition:width 0.4s;"></div></div>' +
+
+    // Step indicators
+    '<div style="display:flex; background:#f8f9fa; padding:8px 14px; gap:4px; flex-shrink:0; border-bottom:1px solid #e9ecef;">' +
+    '<div id="wzInd1" onclick="wzGoToStep(1)" style="flex:1; text-align:center; padding:5px 2px; border-radius:7px; font-size:10px; font-weight:700; background:#667eea; color:white; cursor:pointer;">1 Supplier</div>' +
+    '<div id="wzInd2" style="flex:1; text-align:center; padding:5px 2px; border-radius:7px; font-size:10px; font-weight:700; background:#e9ecef; color:#aaa;">2 Document</div>' +
+    '<div id="wzInd3" style="flex:1; text-align:center; padding:5px 2px; border-radius:7px; font-size:10px; font-weight:700; background:#e9ecef; color:#aaa;">3 Names</div>' +
+    '<div id="wzInd4" style="flex:1; text-align:center; padding:5px 2px; border-radius:7px; font-size:10px; font-weight:700; background:#e9ecef; color:#aaa;">4 Details</div>' +
+    '<div id="wzInd5" style="flex:1; text-align:center; padding:5px 2px; border-radius:7px; font-size:10px; font-weight:700; background:#e9ecef; color:#aaa;">5 Photo</div>' +
+    '<div id="wzInd6" style="flex:1; text-align:center; padding:5px 2px; border-radius:7px; font-size:10px; font-weight:700; background:#e9ecef; color:#aaa;">6 Confirm</div>' +
+    '<div id="wzInd7" style="flex:1; text-align:center; padding:5px 2px; border-radius:7px; font-size:10px; font-weight:700; background:#e9ecef; color:#aaa;">7 Saving</div>' +
+    '</div>' +
+
+    // Body
+    '<div id="wzBody" style="flex:1; overflow-y:auto; padding:18px 22px;">' +
+
+    // STEP 1
+    '<div id="wzStep1">' +
+    '<div style="font-size:15px; font-weight:700; color:#333; margin-bottom:4px;">&#127970; Supplier &amp; Source</div>' +
+    '<div style="color:#888; font-size:12px; margin-bottom:14px;">Who is supplying this worker and where do they come from?</div>' +
+    '<div style="margin-bottom:14px;">' +
+    '<label style="font-weight:600; font-size:13px; color:#495057; display:block; margin-bottom:6px;">Supplier <span style="color:#dc3545;">*</span></label>' +
+    '<select id="wzSupplier" style="width:100%; padding:10px 12px; border:2px solid #dee2e6; border-radius:8px; font-size:14px;" onchange="wzOnSupplierChange()"><option value="">-- Select Supplier --</option></select>' +
+    '<div id="wzErrSup" style="color:#dc3545; font-size:12px; margin-top:4px; display:none;">&#9888; Please select a supplier</div>' +
+    '</div>' +
+    '<div>' +
+    '<label style="font-weight:600; font-size:13px; color:#495057; display:block; margin-bottom:6px;">Worker Source <span style="color:#dc3545;">*</span></label>' +
+    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">' +
+    '<div id="wzCardLocal" onclick="wzSelectSource(\'local\')" style="border:2px solid #dee2e6; border-radius:10px; padding:14px; text-align:center; cursor:pointer; transition:all 0.2s;"><div style="font-size:26px;">&#127968;</div><div style="font-weight:700; font-size:13px; margin-top:5px;">Local</div><div style="font-size:11px; color:#888; margin-top:2px;">Already in Lebanon</div></div>' +
+    '<div id="wzCardAbroad" onclick="wzSelectSource(\'abroad\')" style="border:2px solid #dee2e6; border-radius:10px; padding:14px; text-align:center; cursor:pointer; transition:all 0.2s;"><div style="font-size:26px;">&#9992;&#65039;</div><div style="font-weight:700; font-size:13px; margin-top:5px;">From Abroad</div><div style="font-size:11px; color:#888; margin-top:2px;">Coming from home country</div></div>' +
+    '</div>' +
+    '<div id="wzErrSrc" style="color:#dc3545; font-size:12px; margin-top:4px; display:none;">&#9888; Please select worker source</div>' +
+    '</div>' +
+    '</div>' +
+
+    // STEP 2
+    '<div id="wzStep2" style="display:none;">' +
+    '<div style="font-size:15px; font-weight:700; color:#333; margin-bottom:4px;">&#128196; Document &amp; Identity</div>' +
+    '<div style="color:#888; font-size:12px; margin-bottom:14px;">Select document type, enter the number, and verify no duplicates.</div>' +
+    '<div style="margin-bottom:14px;">' +
+    '<label style="font-weight:600; font-size:13px; color:#495057; display:block; margin-bottom:6px;">Document Type <span style="color:#dc3545;">*</span></label>' +
+    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">' +
+    '<div id="wzCardPass" onclick="wzSelectDocType(\'passport\')" style="border:2px solid #dee2e6; border-radius:10px; padding:12px; text-align:center; cursor:pointer; transition:all 0.2s;"><div style="font-size:24px;">&#128216;</div><div style="font-weight:700; font-size:13px; margin-top:4px;">Passport</div></div>' +
+    '<div id="wzCardID" onclick="wzSelectDocType(\'id\')" style="border:2px solid #dee2e6; border-radius:10px; padding:12px; text-align:center; cursor:pointer; transition:all 0.2s;"><div style="font-size:24px;">&#129710;</div><div style="font-weight:700; font-size:13px; margin-top:4px;">National ID</div></div>' +
+    '</div>' +
+    '<div id="wzErrDocType" style="color:#dc3545; font-size:12px; margin-top:4px; display:none;">&#9888; Please select document type</div>' +
+    '</div>' +
+    '<div style="margin-bottom:14px;">' +
+    '<label style="font-weight:600; font-size:13px; color:#495057; display:block; margin-bottom:6px;" id="wzDocNumLabel">Document Number <span style="color:#dc3545;">*</span></label>' +
+    '<div style="display:flex; gap:8px;">' +
+    '<input type="text" id="wzDocNum" placeholder="Enter document number" style="flex:1; padding:10px 12px; border:2px solid #dee2e6; border-radius:8px; font-size:14px; text-transform:uppercase;" oninput="this.value=this.value.toUpperCase(); wzResetDup()">' +
+    '<button onclick="wzCheckDup()" style="padding:10px 16px; background:#667eea; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:700; font-size:13px; white-space:nowrap;">&#128269; Check</button>' +
+    '</div>' +
+    '<div id="wzDupResult" style="margin-top:8px; display:none;"></div>' +
+    '<div id="wzErrDocNum" style="color:#dc3545; font-size:12px; margin-top:4px; display:none;">&#9888; Document number required</div>' +
+    '</div>' +
+    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">' +
+    '<div><label style="font-weight:600; font-size:13px; color:#495057; display:block; margin-bottom:6px;">Nationality <span style="color:#dc3545;">*</span></label>' +
+    '<select id="wzNationality" style="width:100%; padding:10px 12px; border:2px solid #dee2e6; border-radius:8px; font-size:14px;"><option value="">-- Select --</option></select>' +
+    '<div id="wzErrNat" style="color:#dc3545; font-size:12px; margin-top:4px; display:none;">&#9888; Required</div></div>' +
+    '<div><label style="font-weight:600; font-size:13px; color:#495057; display:block; margin-bottom:6px;">Gender <span style="color:#dc3545;">*</span></label>' +
+    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
+    '<div id="wzGenderM" onclick="wzSelectGender(\'Male\')" style="border:2px solid #dee2e6; border-radius:8px; padding:10px; text-align:center; cursor:pointer; font-size:13px; font-weight:700; transition:all 0.2s;">&#128104; Male</div>' +
+    '<div id="wzGenderF" onclick="wzSelectGender(\'Female\')" style="border:2px solid #dee2e6; border-radius:8px; padding:10px; text-align:center; cursor:pointer; font-size:13px; font-weight:700; transition:all 0.2s;">&#128105; Female</div>' +
+    '</div>' +
+    '<div id="wzErrGen" style="color:#dc3545; font-size:12px; margin-top:4px; display:none;">&#9888; Required</div></div>' +
+    '</div>' +
+    '</div>' +
+
+    // STEP 3
+    '<div id="wzStep3" style="display:none;">' +
+    '<div style="font-size:15px; font-weight:700; color:#333; margin-bottom:4px;">&#128100; Worker Names</div>' +
+    '<div style="color:#888; font-size:12px; margin-bottom:14px;">Enter full name in English and Arabic.</div>' +
+    '<div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:10px; padding:14px; margin-bottom:12px;">' +
+    '<div style="font-weight:700; font-size:11px; color:#667eea; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">English Name</div>' +
+    '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px;">' +
+    '<div><label style="font-size:11px; font-weight:600; color:#334155; display:block; margin-bottom:3px;">First <span style="color:#dc3545;">*</span></label><input type="text" id="wzFirstEN" style="width:100%; padding:8px; border:2px solid #dee2e6; border-radius:6px; font-size:13px; text-transform:uppercase; box-sizing:border-box;" placeholder="FIRST" oninput="this.value=this.value.toUpperCase(); wzUpdateNames()"><div id="wzErrFN" style="color:#dc3545; font-size:11px; margin-top:2px; display:none;">&#9888; Required</div></div>' +
+    '<div><label style="font-size:11px; font-weight:600; color:#334155; display:block; margin-bottom:3px;">Middle</label><input type="text" id="wzMiddleEN" style="width:100%; padding:8px; border:2px solid #dee2e6; border-radius:6px; font-size:13px; text-transform:uppercase; box-sizing:border-box;" placeholder="MIDDLE" oninput="this.value=this.value.toUpperCase(); wzUpdateNames()"></div>' +
+    '<div><label style="font-size:11px; font-weight:600; color:#334155; display:block; margin-bottom:3px;">Last</label><input type="text" id="wzLastEN" style="width:100%; padding:8px; border:2px solid #dee2e6; border-radius:6px; font-size:13px; text-transform:uppercase; box-sizing:border-box;" placeholder="LAST" oninput="this.value=this.value.toUpperCase(); wzUpdateNames()"></div>' +
+    '</div>' +
+    '<div style="background:white; border-radius:6px; padding:7px 10px; font-size:12px; color:#667eea; font-weight:600;">Full Name: <span id="wzFullEN" style="color:#333; font-weight:700;">&#8212;</span></div>' +
+    '</div>' +
+    '<div style="background:#fefce8; border:1px solid #fde68a; border-radius:10px; padding:14px;">' +
+    '<div style="font-weight:700; font-size:12px; color:#b45309; margin-bottom:10px; text-align:center;">&#1575;&#1604;&#1575;&#1587;&#1605; &#1576;&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;</div>' +
+    '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px;">' +
+    '<div><label style="font-size:11px; font-weight:700; color:#92400e; display:block; margin-bottom:3px; text-align:center;">&#1575;&#1604;&#1575;&#1587;&#1605; &#1575;&#1604;&#1571;&#1608;&#1604;</label><input type="text" id="wzFirstAR" style="width:100%; padding:8px; border:2px solid #fde68a; border-radius:6px; font-size:13px; box-sizing:border-box;" placeholder="&#1575;&#1604;&#1575;&#1587;&#1605; &#1575;&#1604;&#1571;&#1608;&#1604;" dir="rtl" oninput="wzUpdateNames()"></div>' +
+    '<div><label style="font-size:11px; font-weight:700; color:#92400e; display:block; margin-bottom:3px; text-align:center;">&#1575;&#1587;&#1605; &#1575;&#1604;&#1571;&#1576;</label><input type="text" id="wzFatherAR" style="width:100%; padding:8px; border:2px solid #fde68a; border-radius:6px; font-size:13px; box-sizing:border-box;" placeholder="&#1575;&#1587;&#1605; &#1575;&#1604;&#1571;&#1576;" dir="rtl" oninput="wzUpdateNames()"></div>' +
+    '<div><label style="font-size:11px; font-weight:700; color:#92400e; display:block; margin-bottom:3px; text-align:center;">&#1575;&#1587;&#1605; &#1575;&#1604;&#1593;&#1575;&#1574;&#1604;&#1577;</label><input type="text" id="wzFamilyAR" style="width:100%; padding:8px; border:2px solid #fde68a; border-radius:6px; font-size:13px; box-sizing:border-box;" placeholder="&#1575;&#1587;&#1605; &#1575;&#1604;&#1593;&#1575;&#1574;&#1604;&#1577;" dir="rtl" oninput="wzUpdateNames()"></div>' +
+    '</div>' +
+    '<div style="background:white; border-radius:6px; padding:7px 10px; font-size:12px; color:#b45309; font-weight:600; direction:rtl; text-align:right;">&#1575;&#1604;&#1575;&#1587;&#1605; &#1575;&#1604;&#1603;&#1575;&#1605;&#1604;: <span id="wzFullAR" style="color:#333; font-weight:700;">&#8212;</span></div>' +
+    '</div>' +
+    '</div>' +
+
+    // STEP 4
+    '<div id="wzStep4" style="display:none;">' +
+    '<div style="font-size:15px; font-weight:700; color:#333; margin-bottom:4px;">&#128203; Document Details &amp; Scan</div>' +
+    '<div style="color:#888; font-size:12px; margin-bottom:14px;">Enter dates and upload the document scan. All optional.</div>' +
+    '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px;">' +
+    '<div><label style="font-weight:600; font-size:12px; color:#495057; display:block; margin-bottom:5px;">Date of Birth</label><input type="date" id="wzDOB" style="width:100%; padding:9px; border:2px solid #dee2e6; border-radius:7px; font-size:13px; box-sizing:border-box;" onchange="wzChkAge()"><div id="wzAgeWarn" style="color:#dc3545; font-size:11px; margin-top:2px; font-weight:600; display:none;"></div></div>' +
+    '<div><label style="font-weight:600; font-size:12px; color:#495057; display:block; margin-bottom:5px;" id="wzLblIssue">Issue Date</label><input type="date" id="wzIssueDate" style="width:100%; padding:9px; border:2px solid #dee2e6; border-radius:7px; font-size:13px; box-sizing:border-box;"></div>' +
+    '<div><label style="font-weight:600; font-size:12px; color:#495057; display:block; margin-bottom:5px;" id="wzLblExpiry">Expiry Date</label><input type="date" id="wzExpiryDate" style="width:100%; padding:9px; border:2px solid #dee2e6; border-radius:7px; font-size:13px; box-sizing:border-box;" onchange="wzChkValidity()"><div id="wzValidWarn" style="color:#dc3545; font-size:11px; margin-top:2px; font-weight:600; display:none;"></div></div>' +
+    '</div>' +
+    '<div style="margin-bottom:12px;"><label style="font-weight:600; font-size:12px; color:#495057; display:block; margin-bottom:5px;" id="wzLblPlace">Issue Place</label><input type="text" id="wzIssuePlace" style="width:100%; padding:9px; border:2px solid #dee2e6; border-radius:7px; font-size:13px; box-sizing:border-box;" placeholder="e.g., Addis Ababa"></div>' +
+    '<div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:10px; padding:14px;">' +
+    '<div style="font-weight:700; font-size:11px; color:#7c3aed; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;" id="wzUploadLabel">Document Scan (Optional)</div>' +
+    '<div id="wzDropZone" ondragover="event.preventDefault(); this.style.borderColor=\'#7c3aed\';" ondragleave="this.style.borderColor=\'#c4b5fd\';" ondrop="wzHandleScanDrop(event)" onclick="document.getElementById(\'wzScanFile\').click()" style="border:3px dashed #c4b5fd; border-radius:8px; padding:16px; text-align:center; cursor:pointer; background:linear-gradient(135deg,#faf5ff,#ede9fe); transition:all 0.3s;">' +
+    '<div style="font-size:28px; margin-bottom:4px;">&#128196;</div>' +
+    '<div id="wzDropText" style="font-size:12px; font-weight:600; color:#7c3aed;">Drag &amp; Drop or Click to Upload</div>' +
+    '<div style="font-size:10px; color:#999; margin-top:2px;">JPG, PNG, PDF &#8212; Max 5MB</div>' +
+    '</div>' +
+    '<input type="file" id="wzScanFile" accept="image/*,.pdf" style="display:none;" onchange="wzHandleScanSelect(event)">' +
+    '<div id="wzScanProgress" style="display:none; margin-top:10px;">' +
+    '<div style="display:flex; justify-content:space-between; font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;"><span id="wzScanProgText">Processing...</span><span id="wzScanProgPct">0%</span></div>' +
+    '<div style="background:#e9ecef; border-radius:4px; height:8px; overflow:hidden;"><div id="wzScanProgFill" style="height:100%; border-radius:4px; background:linear-gradient(90deg,#667eea,#764ba2); width:0%; transition:width 0.3s;"></div></div>' +
+    '</div>' +
+    '<div id="wzScanDone" style="display:none; margin-top:8px; background:#d4edda; border-left:3px solid #28a745; padding:8px; border-radius:6px; font-size:12px; color:#155724; font-weight:600;"></div>' +
+    '</div>' +
+    '</div>' +
+
+    // STEP 5
+    '<div id="wzStep5" style="display:none;">' +
+    '<div style="font-size:15px; font-weight:700; color:#333; margin-bottom:4px;">&#128247; Worker Photo</div>' +
+    '<div style="color:#888; font-size:12px; margin-bottom:14px;">Upload a photo of the worker. Optional.</div>' +
+    '<div style="display:flex; gap:16px; align-items:flex-start;">' +
+    '<div id="wzPhotoFrame" ondragover="event.preventDefault(); this.style.borderColor=\'#667eea\';" ondragleave="this.style.borderColor=\'#c7d2fe\';" ondrop="wzHandlePhotoDrop(event)" onclick="document.getElementById(\'wzPhotoFile\').click()" style="width:150px; height:190px; border:3px dashed #c7d2fe; border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#f8f9ff; cursor:pointer; flex-shrink:0;">' +
+    '<img id="wzPhotoImg" src="" style="max-width:100%; max-height:100%; object-fit:contain; display:none;">' +
+    '<div id="wzPhotoPlaceholder" style="text-align:center; color:#a0aec0;"><div style="font-size:36px; margin-bottom:6px;">&#128247;</div><div style="font-size:11px; font-weight:600;">Worker Photo</div><div style="font-size:10px; margin-top:3px; color:#667eea;">Click or drag</div></div>' +
+    '</div>' +
+    '<input type="file" id="wzPhotoFile" accept="image/*" style="display:none;" onchange="wzHandlePhotoSelect(event)">' +
+    '<div style="flex:1;">' +
+    '<div style="background:#f0f4ff; border:1px solid #c7d2fe; border-radius:8px; padding:12px; margin-bottom:10px; font-size:12px; color:#334155; line-height:1.8;">Clear face photo preferred<br>JPG or PNG format<br>Max 5MB &#8212; optional step</div>' +
+    '<button onclick="document.getElementById(\'wzPhotoFile\').click()" style="width:100%; padding:9px; background:#667eea; color:white; border:none; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; margin-bottom:8px;">&#128193; Browse Photo</button>' +
+    '<button id="wzPhotoClearBtn" onclick="wzClearPhoto()" style="display:none; width:100%; padding:9px; background:#dc3545; color:white; border:none; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; margin-bottom:8px;">&#128465; Remove Photo</button>' +
+    '<div id="wzPhotoProgress" style="display:none;">' +
+    '<div style="display:flex; justify-content:space-between; font-size:11px; font-weight:600; color:#667eea; margin-bottom:4px;"><span id="wzPhotoProgText">Reading...</span><span id="wzPhotoProgPct">0%</span></div>' +
+    '<div style="background:#e9ecef; border-radius:4px; height:8px; overflow:hidden;"><div id="wzPhotoProgFill" style="height:100%; border-radius:4px; background:linear-gradient(90deg,#667eea,#764ba2); width:0%; transition:width 0.3s;"></div></div>' +
+    '</div>' +
+    '<div id="wzPhotoDone" style="display:none; background:#d4edda; border-left:3px solid #28a745; padding:8px; border-radius:6px; font-size:12px; color:#155724; font-weight:600; margin-top:8px;"></div>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+
+    // STEP 6
+    '<div id="wzStep6" style="display:none;">' +
+    '<div style="font-size:15px; font-weight:700; color:#333; margin-bottom:4px;">&#10003; Review &amp; Confirm</div>' +
+    '<div style="color:#888; font-size:12px; margin-bottom:14px;">Check all details before saving.</div>' +
+    '<div id="wzReviewContent" style="background:#f8f9fa; border-radius:10px; padding:16px;"></div>' +
+    '<div id="wzSaveStatus" style="margin-top:12px; display:none;"></div>' +
+    '</div>' +
+
+    // STEP 7
+    '<div id="wzStep7" style="display:none;">' +
+    '<div style="font-size:15px; font-weight:700; color:#333; margin-bottom:4px;">&#128190; Saving Worker</div>' +
+    '<div style="color:#888; font-size:12px; margin-bottom:18px;">Please wait while we complete the process.</div>' +
+    '<div id="wzTaskList" style="display:flex; flex-direction:column; gap:10px;"></div>' +
+    '<div id="wzFinalStatus" style="margin-top:18px; display:none;"></div>' +
+    '</div>' +
+
+    '</div>' + // end wzBody
+
+    // Footer
+    '<div style="padding:12px 22px; border-top:1px solid #e9ecef; background:#f8f9fa; display:flex; align-items:center; flex-shrink:0; gap:8px;">' +
+    '<button id="wzBtnBack" onclick="wzBack()" style="display:none; padding:9px 22px; background:white; border:2px solid #dee2e6; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; color:#495057;">&#9664; Back</button>' +
+    '<div style="flex:1;"></div>' +
+    '<button id="wzBtnNext" onclick="wzNext()" style="padding:9px 28px; background:linear-gradient(135deg,#667eea,#764ba2); color:white; border:none; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer;">Next &#9654;</button>' +
+    '<button id="wzBtnSave" onclick="wzStartSave()" style="display:none; padding:9px 28px; background:linear-gradient(135deg,#28a745,#20c997); color:white; border:none; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer;">&#128190; Save Worker</button>' +
+    '</div>' +
+
+    '</div></div>';
+
+    document.body.insertAdjacentHTML('beforeend', wizardHTML);
+
+    // ── State ──────────────────────────────────────────────
+    var wz = {
+        step:1, supplierId:'', supplierCode:'', supplierName:'', allowedNats:[],
+        source:'', docType:'', docNumber:'', nationality:'', gender:'',
+        firstEN:'', middleEN:'', lastEN:'', fullEN:'',
+        firstAR:'', fatherAR:'', familyAR:'', fullAR:'',
+        dob:'', issueDate:'', expiryDate:'', issuePlace:'',
+        scanFile:null, scanUrl:'', scanPath:'',
+        photoFile:null, photoDataUrl:'',
+        dupChecked:false, dupPassed:false, nextId:null
+    };
+
+    // ── Open ───────────────────────────────────────────────
+    function openWizard(preSupId) {
+        wzReset(preSupId||'');
+        document.getElementById('addWorkerWizard').style.display = 'flex';
+        wzShowStep(1);
+        // Prefetch next ID in background
+        CloudDB.getNextID('Workers').then(function(id) {
+            if (id && id > 0) { wz.nextId = id; wzUpdateBadge(); }
+        }).catch(function(){});
+    }
+
+    window.closeAddWorkerWizard = function() {
+        document.getElementById('addWorkerWizard').style.display = 'none';
+    };
+
+    function wzReset(preSupId) {
+        wz.step=1; wz.supplierId=''; wz.supplierCode=''; wz.supplierName=''; wz.allowedNats=[];
+        wz.source=''; wz.docType=''; wz.docNumber=''; wz.nationality=''; wz.gender='';
+        wz.firstEN=''; wz.middleEN=''; wz.lastEN=''; wz.fullEN='';
+        wz.firstAR=''; wz.fatherAR=''; wz.familyAR=''; wz.fullAR='';
+        wz.dob=''; wz.issueDate=''; wz.expiryDate=''; wz.issuePlace='';
+        wz.scanFile=null; wz.scanUrl=''; wz.scanPath='';
+        wz.photoFile=null; wz.photoDataUrl='';
+        wz.dupChecked=false; wz.dupPassed=false; wz.nextId=null;
+
+        // Supplier dropdown
+        var sel = document.getElementById('wzSupplier');
+        sel.innerHTML = '<option value="">-- Select Supplier --</option>';
+        (suppliers||[]).forEach(function(s) {
+            var o = document.createElement('option');
+            o.value = s.SupplierID;
+            o.textContent = (s.SupplierCODE||s.SupplierCode||s.SupplierID) + ' \u2014 ' + s.SupplierBusinessName;
+            sel.appendChild(o);
+        });
+        if (preSupId) { sel.value = preSupId; wzOnSupplierChange(); }
+
+        // Clear inputs
+        ['wzDocNum','wzFirstEN','wzMiddleEN','wzLastEN','wzFirstAR','wzFatherAR','wzFamilyAR',
+         'wzDOB','wzIssueDate','wzExpiryDate','wzIssuePlace'].forEach(function(id) {
+            var el = document.getElementById(id); if (el) el.value = '';
+        });
+        document.getElementById('wzFullEN').textContent = '\u2014';
+        document.getElementById('wzFullAR').textContent = '\u2014';
+        document.getElementById('wzNationality').value = '';
+        document.getElementById('wzDupResult').style.display = 'none';
+        document.getElementById('wzAgeWarn').style.display = 'none';
+        document.getElementById('wzValidWarn').style.display = 'none';
+        document.getElementById('wzScanProgress').style.display = 'none';
+        document.getElementById('wzScanDone').style.display = 'none';
+        document.getElementById('wzDropText').textContent = 'Drag & Drop or Click to Upload';
+        document.getElementById('wzScanFile').value = '';
+        document.getElementById('wzSaveStatus').style.display = 'none';
+        document.getElementById('wzCodeBadge').style.display = 'none';
+        document.getElementById('wzPhotoImg').style.display = 'none';
+        document.getElementById('wzPhotoImg').src = '';
+        document.getElementById('wzPhotoPlaceholder').style.display = 'block';
+        document.getElementById('wzPhotoClearBtn').style.display = 'none';
+        document.getElementById('wzPhotoProgress').style.display = 'none';
+        document.getElementById('wzPhotoDone').style.display = 'none';
+        document.getElementById('wzPhotoFile').value = '';
+
+        // Reset cards
+        ['wzCardLocal','wzCardAbroad','wzCardPass','wzCardID','wzGenderM','wzGenderF'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) { el.style.borderColor='#dee2e6'; el.style.background=''; }
+        });
+        // Reset errors
+        ['wzErrSup','wzErrSrc','wzErrDocType','wzErrDocNum','wzErrNat','wzErrGen','wzErrFN'].forEach(function(id) {
+            var el = document.getElementById(id); if (el) el.style.display = 'none';
+        });
+        var sb = document.getElementById('wzBtnSave');
+        sb.disabled=false; sb.textContent='\ud83d\udcbe Save Worker';
+        sb.style.background='linear-gradient(135deg,#28a745,#20c997)';
+    }
+
+    function wzUpdateBadge() {
+        var badge = document.getElementById('wzCodeBadge');
+        var code = wz.supplierCode ? (wz.supplierCode+'-'+(wz.nextId?String(wz.nextId).padStart(4,'0'):'XXXX')) : '';
+        var text = (code?code:'') + (wz.supplierName?' \u2014 '+wz.supplierName:'');
+        if (text) { badge.textContent = text; badge.style.display='block'; }
+        else badge.style.display='none';
+    }
+
+    // ── Step display ───────────────────────────────────────
+    function wzShowStep(n) {
+        wz.step = n;
+        for (var i=1; i<=7; i++) {
+            var s = document.getElementById('wzStep'+i);
+            if (s) s.style.display = (i===n)?'block':'none';
+            var ind = document.getElementById('wzInd'+i);
+            if (ind) {
+                if (i<n)      { ind.style.background='#d4edda'; ind.style.color='#155724'; ind.style.cursor='pointer'; }
+                else if(i===n){ ind.style.background='#667eea'; ind.style.color='white'; ind.style.cursor='pointer'; }
+                else          { ind.style.background='#e9ecef'; ind.style.color='#aaa'; ind.style.cursor='default'; }
+            }
+        }
+        document.getElementById('wzBar').style.width = (n/7*100)+'%';
+        var titles=['','Supplier & Source','Document & Identity','Worker Names','Document Details','Worker Photo','Review & Confirm','Saving...'];
+        document.getElementById('wzSubtitle').textContent = 'Step '+n+' of 7 \u2014 '+titles[n];
+        document.getElementById('wzBtnBack').style.display = (n>1&&n<7)?'inline-block':'none';
+        if (n===6) {
+            document.getElementById('wzBtnNext').style.display='none';
+            document.getElementById('wzBtnSave').style.display='inline-block';
+            wzBuildReview();
+        } else if (n===7) {
+            document.getElementById('wzBtnNext').style.display='none';
+            document.getElementById('wzBtnSave').style.display='none';
+        } else {
+            document.getElementById('wzBtnNext').style.display='inline-block';
+            document.getElementById('wzBtnSave').style.display='none';
+        }
+        document.getElementById('wzBody').scrollTop = 0;
+    }
+
+    window.wzGoToStep = function(n) { if (n < wz.step) wzShowStep(n); };
+    window.wzBack = function() { if (wz.step > 1) wzShowStep(wz.step-1); };
+    window.wzNext = function() {
+        if (!wzValidate(wz.step)) return;
+        wzCollect(wz.step);
+        wzShowStep(wz.step+1);
+    };
+
+    // ── Validate ───────────────────────────────────────────
+    function wzValidate(n) {
+        if (n===1) {
+            var ok=true;
+            if (!document.getElementById('wzSupplier').value) { document.getElementById('wzErrSup').style.display='block'; ok=false; } else document.getElementById('wzErrSup').style.display='none';
+            if (!wz.source) { document.getElementById('wzErrSrc').style.display='block'; ok=false; } else document.getElementById('wzErrSrc').style.display='none';
+            return ok;
+        }
+        if (n===2) {
+            var ok=true;
+            if (!wz.docType) { document.getElementById('wzErrDocType').style.display='block'; ok=false; } else document.getElementById('wzErrDocType').style.display='none';
+            if (!document.getElementById('wzDocNum').value.trim()) { document.getElementById('wzErrDocNum').style.display='block'; ok=false; } else document.getElementById('wzErrDocNum').style.display='none';
+            if (!document.getElementById('wzNationality').value) { document.getElementById('wzErrNat').style.display='block'; ok=false; } else document.getElementById('wzErrNat').style.display='none';
+            if (!wz.gender) { document.getElementById('wzErrGen').style.display='block'; ok=false; } else document.getElementById('wzErrGen').style.display='none';
+            if (!ok) return false;
+            if (!wz.dupChecked) { wzCheckDup(); return false; }
+            if (!wz.dupPassed) return false;
+            return true;
+        }
+        if (n===3) {
+            if (!document.getElementById('wzFirstEN').value.trim()) {
+                document.getElementById('wzErrFN').style.display='block';
+                document.getElementById('wzFirstEN').focus();
+                return false;
+            }
+            document.getElementById('wzErrFN').style.display='none';
+            return true;
+        }
+        return true;
+    }
+
+    // ── Collect ────────────────────────────────────────────
+    function wzCollect(n) {
+        if (n===1) {
+            wz.supplierId = document.getElementById('wzSupplier').value;
+            var sup=(suppliers||[]).find(function(s){return String(s.SupplierID)===String(wz.supplierId);});
+            if (sup) { wz.supplierCode=sup.SupplierCODE||sup.SupplierCode||''; wz.supplierName=sup.SupplierBusinessName||''; }
+        }
+        if (n===2) {
+            wz.docNumber = document.getElementById('wzDocNum').value.trim().toUpperCase();
+            wz.nationality = document.getElementById('wzNationality').value;
+        }
+        if (n===3) {
+            wz.firstEN=document.getElementById('wzFirstEN').value.trim();
+            wz.middleEN=document.getElementById('wzMiddleEN').value.trim();
+            wz.lastEN=document.getElementById('wzLastEN').value.trim();
+            wz.fullEN=[wz.firstEN,wz.middleEN,wz.lastEN].filter(Boolean).join(' ');
+            wz.firstAR=document.getElementById('wzFirstAR').value.trim();
+            wz.fatherAR=document.getElementById('wzFatherAR').value.trim();
+            wz.familyAR=document.getElementById('wzFamilyAR').value.trim();
+            wz.fullAR=[wz.familyAR,wz.fatherAR,wz.firstAR].filter(Boolean).join(' ');
+            wzUpdateBadge();
+        }
+        if (n===4) {
+            wz.dob=document.getElementById('wzDOB').value;
+            wz.issueDate=document.getElementById('wzIssueDate').value;
+            wz.expiryDate=document.getElementById('wzExpiryDate').value;
+            wz.issuePlace=document.getElementById('wzIssuePlace').value.trim();
+        }
+    }
+
+    // ── Step 1 ─────────────────────────────────────────────
+    window.wzOnSupplierChange = function() {
+        var supId=document.getElementById('wzSupplier').value;
+        wz.supplierId=supId; wz.dupChecked=false; wz.dupPassed=false;
+        document.getElementById('wzErrSup').style.display='none';
+        var sup=(suppliers||[]).find(function(s){return String(s.SupplierID)===String(supId);});
+        if (sup) {
+            wz.supplierCode=sup.SupplierCODE||sup.SupplierCode||'';
+            wz.supplierName=sup.SupplierBusinessName||'';
+            var an=sup.AllowedNationalities||sup.allowedNationalities||'';
+            if(an){
+  try{
+    var parsed=JSON.parse(an);
+    wz.allowedNats=Array.isArray(parsed)?parsed.map(function(x){return String(x).trim();}).filter(Boolean):an.split(',').map(function(x){return x.trim();}).filter(Boolean);
+  }catch(e){
+    wz.allowedNats=an.split(',').map(function(x){return x.trim();}).filter(Boolean);
+  }
+}else{
+  wz.allowedNats=[];
+}
+        } else {
+            wz.supplierCode=''; wz.supplierName=''; wz.allowedNats=[];
+        }
+        wzBuildNatDropdown();
+        wzUpdateBadge();
+    };
+
+    function wzBuildNatDropdown() {
+        var ns=document.getElementById('wzNationality');
+        ns.innerHTML='<option value="">-- Select --</option>';
+        var actNats=(nationalities||[]).filter(function(n){return n.Active===true||n.Active==='true'||n.Active==='TRUE';});
+        if (wz.allowedNats.length>0) {
+            var filtered=actNats.filter(function(n){
+                var nm=n.Nationality||n.Country||'';
+                return wz.allowedNats.some(function(a){return a.toLowerCase()===nm.toLowerCase();});
+            });
+            if (filtered.length>0) actNats=filtered;
+        }
+        if (!actNats.length) actNats=[{Nationality:'Ethiopian'},{Nationality:'Filipino'},{Nationality:'Kenyan'},{Nationality:'Nepalese'},{Nationality:'Ugandan'}];
+        actNats.sort(function(a,b){return (a.Nationality||'').localeCompare(b.Nationality||'');}).forEach(function(n){
+            var nm=n.Nationality||n.Country||''; if(!nm) return;
+            var o=document.createElement('option'); o.value=nm; o.textContent=nm; ns.appendChild(o);
+        });
+        if (wz.allowedNats.length>0) {
+            var hint=document.createElement('option'); hint.disabled=true;
+            hint.textContent='(Supplier allows: '+wz.allowedNats.join(', ')+')';
+            ns.appendChild(hint);
+        }
+    }
+
+    window.wzSelectSource = function(src) {
+        wz.source=src;
+        document.getElementById('wzErrSrc').style.display='none';
+        var active={border:'2px solid #667eea', background:'#f0f4ff'};
+        var inactive={border:'2px solid #dee2e6', background:''};
+        var loc=document.getElementById('wzCardLocal'), abr=document.getElementById('wzCardAbroad');
+        if (src==='local') { loc.style.borderColor='#667eea'; loc.style.background='#f0f4ff'; abr.style.borderColor='#dee2e6'; abr.style.background=''; }
+        else { abr.style.borderColor='#667eea'; abr.style.background='#f0f4ff'; loc.style.borderColor='#dee2e6'; loc.style.background=''; }
+    };
+
+    // ── Step 2 ─────────────────────────────────────────────
+    window.wzSelectDocType = function(type) {
+        wz.docType=type; wz.dupChecked=false; wz.dupPassed=false;
+        document.getElementById('wzErrDocType').style.display='none';
+        document.getElementById('wzDupResult').style.display='none';
+        var pass=document.getElementById('wzCardPass'), id=document.getElementById('wzCardID');
+        if (type==='passport') { pass.style.borderColor='#667eea'; pass.style.background='#f0f4ff'; id.style.borderColor='#dee2e6'; id.style.background=''; }
+        else { id.style.borderColor='#667eea'; id.style.background='#f0f4ff'; pass.style.borderColor='#dee2e6'; pass.style.background=''; }
+        document.getElementById('wzDocNumLabel').innerHTML=(type==='passport'?'Passport Number':'National ID Number')+' <span style="color:#dc3545;">*</span>';
+        document.getElementById('wzDocNum').placeholder=type==='passport'?'e.g., A12345678':'e.g., 123456789';
+        document.getElementById('wzUploadLabel').textContent=(type==='passport'?'Passport':'ID')+' Scan (Optional)';
+        document.getElementById('wzLblIssue').textContent=type==='passport'?'Passport Issue Date':'ID Issue Date';
+        document.getElementById('wzLblExpiry').textContent=type==='passport'?'Passport Expiry Date':'ID Expiry Date';
+        document.getElementById('wzLblPlace').textContent=type==='passport'?'Passport Issue Place':'ID Issue Place';
+    };
+
+    window.wzSelectGender = function(g) {
+        wz.gender=g;
+        document.getElementById('wzErrGen').style.display='none';
+        var m=document.getElementById('wzGenderM'), f=document.getElementById('wzGenderF');
+        if (g==='Male') { m.style.borderColor='#667eea'; m.style.background='#f0f4ff'; f.style.borderColor='#dee2e6'; f.style.background=''; }
+        else { f.style.borderColor='#667eea'; f.style.background='#f0f4ff'; m.style.borderColor='#dee2e6'; m.style.background=''; }
+    };
+
+    window.wzResetDup = function() {
+        wz.dupChecked=false; wz.dupPassed=false;
+        document.getElementById('wzDupResult').style.display='none';
+    };
+
+    window.wzCheckDup = function() {
+        var num=document.getElementById('wzDocNum').value.trim().toUpperCase();
+        if (!num) { document.getElementById('wzErrDocNum').style.display='block'; return; }
+        if (!wz.docType) { document.getElementById('wzErrDocType').style.display='block'; return; }
+        var res=document.getElementById('wzDupResult');
+        res.style.display='block';
+        res.innerHTML='<div style="background:#fff3cd; border-left:3px solid #ffc107; padding:10px; border-radius:6px; font-size:12px;">&#128269; Checking...</div>';
+        var dup=(workers||[]).find(function(w){
+            return wz.docType==='passport'
+                ?(w.PassportNumber&&String(w.PassportNumber).trim().toUpperCase()===num)
+                :(w.IDNumber&&String(w.IDNumber).trim().toUpperCase()===num);
+        });
+        wz.dupChecked=true;
+        if (dup) {
+            wz.dupPassed=false;
+            var sup=(suppliers||[]).find(function(s){return String(s.SupplierID)===String(dup.SupplierID);});
+            var empInfo='';
+            if (dup.Selected) {
+                var parts=[];
+                if (dup.EFN||dup.EmployerName) parts.push('Employer: '+(dup.EFN||dup.EmployerName));
+                if (dup.EmployerCode) parts.push('Emp Code: '+dup.EmployerCode);
+                if (dup.AgencyCode) parts.push('Agency: '+dup.AgencyCode);
+                if (parts.length) empInfo='<div style="margin-top:7px; padding:7px 9px; background:rgba(255,255,255,0.7); border-radius:5px; font-size:11px; color:#495057;">'+parts.join(' &nbsp;|&nbsp; ')+'</div>';
+            }
+            res.innerHTML='<div style="background:#f8d7da; border-left:3px solid #dc3545; padding:12px; border-radius:6px;">' +
+                '<div style="font-weight:700; color:#721c24; font-size:12px; margin-bottom:8px;">&#10060; DUPLICATE \u2014 Already Registered</div>' +
+                '<div style="display:grid; grid-template-columns:1fr 1fr; gap:5px; font-size:11px; color:#721c24;">' +
+                '<div><strong>Name:</strong> '+(dup.WFullName||dup.WorkerFirstName||'Worker #'+dup.WorkerID)+'</div>' +
+                '<div><strong>Worker ID:</strong> '+dup.WorkerID+'</div>' +
+                '<div><strong>Nationality:</strong> '+(dup.Nationality||'\u2014')+'</div>' +
+                '<div><strong>Status:</strong> '+(dup.Selected?'&#10003; Selected':(dup.Cancelled?'Cancelled':(dup.Local?'Local':'Pending')))+'</div>' +
+                '<div><strong>Supplier:</strong> '+(sup?sup.SupplierBusinessName:'\u2014')+'</div>' +
+                '<div><strong>Added:</strong> '+(dup.DateAdded||'\u2014')+'</div>' +
+                '</div>'+empInfo+'</div>';
+        } else {
+            wz.dupPassed=true;
+            res.innerHTML='<div style="background:#d4edda; border-left:3px solid #28a745; padding:10px; border-radius:6px; font-size:12px; color:#155724;"><strong>&#10003; Available</strong> \u2014 No duplicate found. You may proceed.</div>';
+        }
+    };
+
+    // ── Step 3 ─────────────────────────────────────────────
+    window.wzUpdateNames = function() {
+        var f=document.getElementById('wzFirstEN').value.trim();
+        var m=document.getElementById('wzMiddleEN').value.trim();
+        var l=document.getElementById('wzLastEN').value.trim();
+        document.getElementById('wzFullEN').textContent=[f,m,l].filter(Boolean).join(' ')||'\u2014';
+        var a1=document.getElementById('wzFirstAR').value.trim();
+        var a2=document.getElementById('wzFatherAR').value.trim();
+        var a3=document.getElementById('wzFamilyAR').value.trim();
+        document.getElementById('wzFullAR').textContent=[a3,a2,a1].filter(Boolean).join(' ')||'\u2014';
+    };
+
+    // ── Step 4 ─────────────────────────────────────────────
+    window.wzChkAge = function() {
+        var dob=document.getElementById('wzDOB').value, w=document.getElementById('wzAgeWarn');
+        if(!dob){w.style.display='none';return;}
+        var d=new Date(dob),t=new Date();
+        var age=t.getFullYear()-d.getFullYear();
+        if(t.getMonth()<d.getMonth()||(t.getMonth()===d.getMonth()&&t.getDate()<d.getDate())) age--;
+        if(age<19){w.textContent='&#9888; Worker is '+age+' years old \u2014 minimum is 19!';w.style.display='block';}
+        else w.style.display='none';
+    };
+
+    window.wzChkValidity = function() {
+        var exp=document.getElementById('wzExpiryDate').value, w=document.getElementById('wzValidWarn');
+        if(!exp||wz.docType!=='passport'){w.style.display='none';return;}
+        var e=new Date(exp),t=new Date();
+        var mo=(e.getFullYear()-t.getFullYear())*12+(e.getMonth()-t.getMonth());
+        if(mo<18){w.textContent='&#9888; Only '+mo+' months validity \u2014 minimum 18 months required!';w.style.display='block';}
+        else w.style.display='none';
+    };
+
+    window.wzHandleScanDrop = function(e) {
+        e.preventDefault();
+        document.getElementById('wzDropZone').style.borderColor='#c4b5fd';
+        var f=e.dataTransfer.files[0]; if(f) wzProcessScan(f);
+    };
+    window.wzHandleScanSelect = function(e){ var f=e.target.files[0]; if(f) wzProcessScan(f); };
+
+    function wzProcessScan(f) {
+        if(f.size>5*1024*1024){
+            var d=document.getElementById('wzScanDone'); d.style.display='block';
+            d.innerHTML='<span style="color:#dc3545;">File too large. Max 5MB.</span>'; return;
+        }
+        wz.scanFile=f;
+        document.getElementById('wzDropText').textContent=f.name;
+        document.getElementById('wzScanDone').style.display='none';
+        var prog=document.getElementById('wzScanProgress'),fill=document.getElementById('wzScanProgFill'),pct=document.getElementById('wzScanProgPct'),txt=document.getElementById('wzScanProgText');
+        prog.style.display='block'; fill.style.width='0%'; pct.textContent='0%'; txt.textContent='Reading file...';
+        var steps=[15,35,60,80,95],i=0;
+        var tmr=setInterval(function(){
+            if(i<steps.length){
+                fill.style.width=steps[i]+'%'; pct.textContent=steps[i]+'%';
+                if(steps[i]>=60) txt.textContent='Processing...';
+                if(steps[i]>=80) txt.textContent='Ready for Save...';
+                i++;
+            } else {
+                clearInterval(tmr); fill.style.width='100%'; pct.textContent='100%';
+                setTimeout(function(){
+                    prog.style.display='none';
+                    var d=document.getElementById('wzScanDone'); d.style.display='block';
+                    d.textContent='Ready: '+f.name+' \u2014 will upload on Save.';
+                },400);
+            }
+        },200);
+    }
+
+    // ── Step 5 ─────────────────────────────────────────────
+    window.wzHandlePhotoDrop = function(e) {
+        e.preventDefault();
+        document.getElementById('wzPhotoFrame').style.borderColor='#c7d2fe';
+        var f=e.dataTransfer.files[0]; if(f) wzProcessPhoto(f);
+    };
+    window.wzHandlePhotoSelect = function(e){ var f=e.target.files[0]; if(f) wzProcessPhoto(f); };
+
+    function wzProcessPhoto(f) {
+        if(!f.type.startsWith('image/')){
+            var d=document.getElementById('wzPhotoDone'); d.style.display='block';
+            d.innerHTML='<span style="color:#dc3545;">Please select an image file.</span>'; return;
+        }
+        if(f.size>5*1024*1024){
+            var d=document.getElementById('wzPhotoDone'); d.style.display='block';
+            d.innerHTML='<span style="color:#dc3545;">File too large. Max 5MB.</span>'; return;
+        }
+        wz.photoFile=f;
+        document.getElementById('wzPhotoDone').style.display='none';
+        var prog=document.getElementById('wzPhotoProgress'),fill=document.getElementById('wzPhotoProgFill'),pct=document.getElementById('wzPhotoProgPct'),txt=document.getElementById('wzPhotoProgText');
+        prog.style.display='block'; fill.style.width='0%'; pct.textContent='0%'; txt.textContent='Reading image...';
+        var reader=new FileReader();
+        reader.onprogress=function(ev){
+            if(ev.lengthComputable){var p=Math.round(ev.loaded/ev.total*80);fill.style.width=p+'%';pct.textContent=p+'%';}
+        };
+        reader.onload=function(){
+            wz.photoDataUrl=reader.result;
+            fill.style.width='100%'; pct.textContent='100%'; txt.textContent='Done!';
+            setTimeout(function(){
+                prog.style.display='none';
+                var img=document.getElementById('wzPhotoImg');
+                img.src=wz.photoDataUrl; img.style.display='block';
+                document.getElementById('wzPhotoPlaceholder').style.display='none';
+                document.getElementById('wzPhotoClearBtn').style.display='block';
+                var d=document.getElementById('wzPhotoDone'); d.style.display='block';
+                d.textContent='Photo ready: '+f.name;
+            },400);
+        };
+        reader.readAsDataURL(f);
+    }
+
+    window.wzClearPhoto = function() {
+        wz.photoFile=null; wz.photoDataUrl='';
+        document.getElementById('wzPhotoImg').style.display='none';
+        document.getElementById('wzPhotoImg').src='';
+        document.getElementById('wzPhotoPlaceholder').style.display='block';
+        document.getElementById('wzPhotoClearBtn').style.display='none';
+        document.getElementById('wzPhotoDone').style.display='none';
+        document.getElementById('wzPhotoFile').value='';
+    };
+
+    // ── Step 6 Review ──────────────────────────────────────
+    function wzBuildReview() {
+        wzCollect(4);
+        var rows=[
+            ['Supplier', (wz.supplierCode?wz.supplierCode+' \u2014 ':'')+wz.supplierName],
+            ['Source', wz.source==='local'?'Local':'From Abroad'],
+            ['Doc Type', wz.docType==='passport'?'Passport':'National ID'],
+            ['Doc Number', wz.docNumber],
+            ['Nationality', wz.nationality],
+            ['Gender', wz.gender],
+            ['Full Name EN', document.getElementById('wzFullEN').textContent],
+            ['Full Name AR', document.getElementById('wzFullAR').textContent],
+            ['Date of Birth', wz.dob||'\u2014'],
+            ['Issue Date', wz.issueDate||'\u2014'],
+            ['Expiry Date', wz.expiryDate||'\u2014'],
+            ['Issue Place', wz.issuePlace||'\u2014'],
+            ['Doc Scan', wz.scanFile?wz.scanFile.name:'None'],
+            ['Photo', wz.photoFile?wz.photoFile.name:'None'],
+        ];
+        document.getElementById('wzReviewContent').innerHTML=rows.map(function(r){
+            return '<div style="display:flex; padding:7px 0; border-bottom:1px solid #e9ecef; font-size:12px;"><div style="font-weight:600; color:#495057; width:140px; flex-shrink:0;">'+r[0]+'</div><div style="color:#212529; flex:1;">'+(r[1]||'\u2014')+'</div></div>';
+        }).join('');
+    }
+
+  // ── Save ───────────────────────────────────────────────
+    window.wzStartSave = function() {
+        wzShowStep(7);
+        document.getElementById('wzTaskList').innerHTML = '';
+        wzTask('id',    'Getting Worker ID');
+        wzTask('folder','Creating Worker Folder');
+        wzTask('scan',  'Uploading Document Scan');
+        wzTask('photo', 'Uploading Worker Photo');
+        wzTask('sheet', 'Saving to Google Sheets');
+        wzTask('passurl','Writing PassportFileURL');
+        wzTask('imgurl', 'Writing WorkerImage');
+        setTimeout(wzDoSave, 300);
+    };
+
+    window.wzSave = window.wzStartSave;
+
+    function wzTask(id, label) {
+        var row = document.createElement('div');
+        row.id = 'wzT_'+id;
+        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 14px;background:#f8f9fa;border-radius:8px;border-left:4px solid #dee2e6;font-size:13px;transition:all 0.3s;';
+        row.innerHTML = '<div id="wzTIcon_'+id+'" style="font-size:18px;width:24px;text-align:center;">&#9744;</div>' +
+            '<div style="flex:1;"><div style="font-weight:600;color:#495057;">'+label+'</div>' +
+            '<div id="wzTSub_'+id+'" style="font-size:11px;color:#aaa;margin-top:2px;"></div></div>';
+        document.getElementById('wzTaskList').appendChild(row);
+    }
+
+    function wzTaskSet(id, state, sub) {
+        var row  = document.getElementById('wzT_'+id);
+        var icon = document.getElementById('wzTIcon_'+id);
+        var subEl= document.getElementById('wzTSub_'+id);
+        if (!row) return;
+        if (state==='running') {
+            row.style.borderLeftColor='#667eea'; row.style.background='#f0f4ff';
+            icon.innerHTML='<div style="width:18px;height:18px;border:3px solid #667eea;border-top-color:transparent;border-radius:50%;animation:wzSpin 0.8s linear infinite;display:inline-block;"></div>';
+        } else if (state==='done')  { row.style.borderLeftColor='#28a745'; row.style.background='#f0fff4'; icon.textContent='✅'; }
+        else if (state==='error') { row.style.borderLeftColor='#dc3545'; row.style.background='#fff5f5'; icon.textContent='❌'; }
+        else if (state==='skip')  { row.style.borderLeftColor='#aaa';    row.style.background='#f8f9fa'; icon.textContent='⏭️'; }
+        if (sub && subEl) subEl.textContent = sub;
+    }
+
+    function wzDoSave() {
+        var finalStat = document.getElementById('wzFinalStatus');
+
+        function done(msg, ok) {
+            finalStat.style.display='block';
+            var bg=ok?'#d4edda':'#fff3cd';
+            var bc=ok?'#28a745':'#ffc107';
+            var tc=ok?'#155724':'#856404';
+            finalStat.innerHTML='<div style="background:'+bg+';border-left:3px solid '+bc+';padding:12px;border-radius:8px;font-size:13px;color:'+tc+';">'+msg+'</div>';
+        }
+
+        function getNextId() {
+            if (wz.nextId) return Promise.resolve(wz.nextId);
+            return CloudDB.getNextID('Workers').then(function(id){
+                if(id&&id>0) return id; throw new Error('no id');
+            }).catch(function(){
+                var mx=0;
+                (workers||[]).forEach(function(w){var id=parseInt(w.WorkerID)||0;if(id>mx)mx=id;});
+                try{JSON.parse(localStorage.getItem('mgsdb_workers')||'[]').forEach(function(w){var id=parseInt(w.WorkerID)||0;if(id>mx)mx=id;});}catch(e){}
+                return mx+1;
+            });
+        }
+
+        wzTaskSet('id','running');
+
+        getNextId().then(function(nextId){
+            wzTaskSet('id','done','ID: '+nextId);
+
+            var wCode  = wz.supplierCode ? wz.supplierCode+'-'+String(nextId).padStart(4,'0') : String(nextId).padStart(4,'0');
+            var safeName = wz.fullEN.replace(/[\/\\:*?"<>|]/g,'').trim();
+            var folder = wz.supplierCode+' ('+String(nextId).padStart(4,'0')+') '+safeName+' '+new Date().toISOString().split('T')[0]+(wz.docType==='passport'?' PASS':' ID');
+            wzTaskSet('folder','done',folder);
+
+            wzTaskSet('scan','running');
+            var scanPromise = Promise.resolve({});
+            if (wz.scanFile) {
+                var scanExt  = wz.scanFile.name.split('.').pop();
+                var scanName = (wz.docType==='passport'?'Passport':'ID')+'_'+wCode+'.'+scanExt;
+                scanPromise  = uploadToGoogleDrive(wz.scanFile, folder, scanName).catch(function(){ return {}; });
+            }
+
+            return scanPromise.then(function(scanRes){
+                var scanUrl = (scanRes&&scanRes.fileUrl)||'';
+                if (wz.scanFile) {
+                    wzTaskSet('scan', scanUrl?'done':'error', scanUrl?'Uploaded successfully':'Upload failed');
+                } else {
+                    wzTaskSet('scan','skip','No scan selected');
+                }
+
+                wzTaskSet('photo','running');
+                var photoPromise = Promise.resolve({});
+                if (wz.photoFile && wz.photoDataUrl) {
+                    var photoExt  = wz.photoFile.name.split('.').pop();
+                    var photoName = 'Photo_'+wCode+'.'+photoExt;
+                    photoPromise  = uploadToGoogleDrive(wz.photoFile, folder, photoName).catch(function(){ return {}; });
+                }
+
+                return photoPromise.then(function(photoRes){
+                    var photoUrl = (photoRes&&photoRes.fileUrl)||'';
+                    if (wz.photoFile) {
+                        wzTaskSet('photo', photoUrl?'done':'error', photoUrl?'Uploaded successfully':'Upload failed');
+                    } else {
+                        wzTaskSet('photo','skip','No photo selected');
+                    }
+
+                    wzTaskSet('sheet','running');
+
+                    var w = {
+                        WorkerID:nextId, WorkerCode:wCode,
+                        SupplierID:wz.supplierId, SupplierCode:wz.supplierCode,
+                        WorkerSource:wz.source, DocumentType:wz.docType,
+                        Nationality:wz.nationality, Gender:wz.gender,
+                        WorkerFirstName:wz.firstEN, WorkerMiddleName:wz.middleEN, WorkerLastName:wz.lastEN, WFullName:wz.fullEN,
+                        ArabicName:wz.firstAR, FatherName:wz.fatherAR, FamilyName:wz.familyAR, ArabicFullName:wz.fullAR,
+                        DocFirstName:wz.firstEN, DocMiddleName:wz.middleEN, DocLastName:wz.lastEN, DocFullName:wz.fullEN,
+                        DocArabicName:wz.firstAR, DocFatherName:wz.fatherAR, DocFamilyName:wz.familyAR, DocArabicFullName:wz.fullAR,
+                        PassportNumber:wz.docType==='passport'?wz.docNumber:'',
+                        IDNumber:wz.docType==='id'?wz.docNumber:'',
+                        DateOfBirth:wz.dob,
+                        PassportIssueDate:wz.docType==='passport'?wz.issueDate:'',
+                        PassportExpiryDate:wz.docType==='passport'?wz.expiryDate:'',
+                        PassportIssuePlace:wz.docType==='passport'?wz.issuePlace:'',
+                        IDIssueDate:wz.docType==='id'?wz.issueDate:'',
+                        IDExpiryDate:wz.docType==='id'?wz.expiryDate:'',
+                        IDIssuePlace:wz.docType==='id'?wz.issuePlace:'',
+                        PassportScanPath:wz.docType==='passport'?(folder+'/'+(wz.scanFile?wz.scanFile.name:'')):'',
+                        PassportFileURL:wz.docType==='passport'?scanUrl:'',
+                        IDScanPath:wz.docType==='id'?(folder+'/'+(wz.scanFile?wz.scanFile.name:'')):'',
+                        IDFileURL:wz.docType==='id'?scanUrl:'',
+                        WorkerImage:photoUrl,
+                        WorkerImagePath:photoUrl?(folder+'/'+(wz.photoFile?wz.photoFile.name:'')):'',
+                        WorkerFolder:folder,
+                        Selected:false, Arrived:false, Cancelled:false, Local:wz.source==='local',
+                        ProcessingStage:'',
+                        DateAdded:new Date().toISOString().split('T')[0],
+                        AgencyCode:'', EmployerCode:'', ContactNumber:'',
+                        VisaNumber:'', WorkPermitNumber:'', MedicalCertNumber:'',
+                        DocumentNotes:'', DocumentScansPath:''
+                    };
+
+                    return CloudDB.saveRow('Workers', w).catch(function(){ return null; }).then(function(res){
+                        if (res&&res.success) {
+                            wzTaskSet('sheet','done','Saved to Google Sheets');
+                            wzTaskSet('passurl', wz.docType==='passport'?(scanUrl?'done':'skip'):'skip',
+                                wz.docType==='passport'?(scanUrl?'Link saved':'No scan uploaded'):'N/A');
+                            wzTaskSet('imgurl', photoUrl?'done':'skip', photoUrl?'Link saved':'No photo uploaded');
+                        } else {
+                            wzTaskSet('sheet','error','Cloud sync failed — saved locally');
+                            wzTaskSet('passurl','skip','Pending sync');
+                            wzTaskSet('imgurl','skip','Pending sync');
+                        }
+                        workers.push(w);
+                        localStorage.setItem('mgsdb_workers', JSON.stringify(workers));
+                        renderWorkerList(); updateCounter();
+                        done('&#10003; Worker <b>'+wCode+'</b> added successfully! Closing in 2 seconds...', true);
+                        setTimeout(function(){
+                            selectWorker(w); closeAddWorkerWizard(); markAsSaved();
+                            if(typeof setStatus==='function') setStatus('Added: '+wz.fullEN+' ('+wCode+')');
+                        }, 2000);
+                    });
+                });
+            });
+        }).catch(function(e){
+            done('Error: '+e.message, false);
+        });
+    }
+
+    // ── Override entry points ──────────────────────────────
+    window.newWorker = function(){ openWizard(document.getElementById('filterSupplier').value||''); };
+    window.newWorkerForSelectedSupplier = function(){ openWizard(document.getElementById('filterSupplier').value||''); };
+
+    window.closeDocumentTypeModal=function(){};
+    window.closePassportCheckModal=function(){};
+    window.closeIDCheckModal=function(){};
+    window.closeWorkerNamesModal=function(){};
+    var spinStyle=document.createElement('style');spinStyle.textContent='@keyframes wzSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';document.head.appendChild(spinStyle);
+    console.log('ADD WORKER WIZARD v1+ loaded OK');
+})();
+</script>
+
 </body>
 </html>
