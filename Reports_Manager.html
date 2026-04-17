@@ -207,6 +207,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--page-bg);color:
     <button class="btn btn-light" onclick="openPage('Accountant')" title="Accountant">💰</button>
     <button class="btn btn-light" onclick="openPage('Worker_Approval')" title="Worker Approval">✅</button>
     <button class="btn btn-light" onclick="openPage('Dashboard')" title="Dashboard">🏛️</button>
+    <div style="width:1px;height:24px;background:var(--border);margin:0 4px;"></div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-muted);">
+      <span id="toolbarCloud">⚪ Connecting...</span>
+      <span style="color:var(--border);">|</span>
+      <span id="toolbarClock">--:--:--</span>
+    </div>
   </div>
   <div class="main-content" id="mainContent">
     <div class="welcome">
@@ -220,8 +226,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--page-bg);color:
         <div class="wc" onclick="loadReport('invoice-summary')"><div class="wc-icon">🧾</div><div class="wc-title">Invoice Summary</div><div class="wc-desc">All invoices overview</div><div id="invoiceTotalBadge" style="margin-top:8px;background:#f1f5f9;color:#64748b;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">💰 <span id="invoiceTotalAmt">$0</span> pending</div></div>
         <div class="wc" onclick="loadReport('supplier-vouchers')"><div class="wc-icon">💳</div><div class="wc-title">Supplier Vouchers</div><div class="wc-desc">Payment vouchers status</div></div>
         <div class="wc" onclick="loadReport('workers-per-agency')"><div class="wc-icon">🏛️</div><div class="wc-title">Workers per Agency</div><div class="wc-desc">Agency breakdown</div></div>
-        <div class="wc" onclick="loadReport('visa-expiry')"><div class="wc-icon">📋</div><div class="wc-title">Visa Expiry</div><div class="wc-desc">Monitor visa validity</div><div id="visaNoTicketBadge" style="margin-top:8px;background:#f1f5f9;color:#64748b;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">⚠️ <span id="visaNoTicketCount">0</span> no ticket / expiring</div></div>
-        <div class="wc" onclick="loadReport('ikama')"><div class="wc-icon">🪪</div><div class="wc-title">Ikama Expiry</div><div class="wc-desc">Residency permit monitoring</div></div>
+        <div class="wc" onclick="loadReport('visa-expiry')"><div class="wc-icon">📋</div><div class="wc-title">Visa Expiry</div><div class="wc-desc">Monitor visa validity</div><div id="visaNoTicketBadge" style="margin-top:8px;background:#f1f5f9;color:#64748b;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">⚠️ <span id="visaNoTicketCount">0</span> expiring in 15d</div></div>
+        <div class="wc" onclick="loadReport('ikama')"><div class="wc-icon">🪪</div><div class="wc-title">Ikama Expiry</div><div class="wc-desc">Residency permit monitoring</div><div id="ikama15Badge" style="margin-top:8px;background:#f1f5f9;color:#64748b;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">🪪 <span id="ikama15Count">0</span> expiring in 15d</div></div>
         <div class="wc" onclick="loadReport('work-permit')"><div class="wc-icon">📜</div><div class="wc-title">Work Permit</div><div class="wc-desc">Work permit expiry alerts</div></div>
         <div class="wc" onclick="loadReport('insurance')"><div class="wc-icon">🛡️</div><div class="wc-title">Insurance Expiry</div><div class="wc-desc">Insurance validity monitoring</div></div>
       </div>
@@ -256,7 +262,12 @@ function getEmpBalance(empId,empCode,workers){
   return t;
 }
 function gsLoad(sheet){return new Promise(function(res){google.script.run.withSuccessHandler(function(d){res((d&&d.data)?d.data:(Array.isArray(d)?d:[]));}).withFailureHandler(function(){res([]);}).gsrGetAll(sheet);});}
-function setCloud(ok,msg){document.getElementById('cloudDot').className='cloud-dot'+(ok?' ok':'');document.getElementById('cloudStatusTxt').textContent=msg;}
+function setCloud(ok,msg){
+  document.getElementById('cloudDot').className='cloud-dot'+(ok?' ok':'');
+  document.getElementById('cloudStatusTxt').textContent=msg;
+  var tc=document.getElementById('toolbarCloud');
+  if(tc) tc.textContent=(ok?'🟢 ':'🔴 ')+msg;
+}
 
 async function init(){
   setCloud(false,'Loading...');
@@ -267,18 +278,27 @@ allWorkers=r[0];allEmployers=r[1];allAgencies=r[2];allSuppliers=r[3];allPayments
   if(currentReport) loadReport(currentReport);
   update72Badge();
   updatePassportBadge();
-  updateVisaBadge();updateInvoiceBadge();
+  updateVisaBadge();updateInvoiceBadge();updateIkamaBadge();
 }
 
 function refreshData(){setCloud(false,'Refreshing...');init();}
-function openPage(page){window.open(SCRIPT_URL+'?page='+page,'_blank');}
+function openPage(page){
+  if(page==='Reports_Manager'){window.location.href=SCRIPT_URL+'?page=Reports_Manager';}
+  else{window.open(SCRIPT_URL+'?page='+page,'_blank');}
+}
 
 function toggleCat(id){
   var cats=['cat-workers','cat-operational','cat-financial','cat-agency'];
   cats.forEach(function(c){
     var b=document.getElementById(c),h=document.getElementById('hdr-'+c);
-    if(c===id){var o=b.classList.contains('open');b.classList.toggle('open',!o);h.classList.toggle('open',!o);}
-    else{b.classList.remove('open');h.classList.remove('open');}
+    if(c===id){
+      var o=b.classList.contains('open');
+      b.classList.toggle('open',!o);
+      h.classList.toggle('open',!o);
+    } else {
+      b.classList.remove('open');
+      h.classList.remove('open');
+    }
   });
 }
 
@@ -302,7 +322,14 @@ function loadReport(name){
     'invoice-summary':'cat-financial','supplier-vouchers':'cat-financial','outstanding-payments':'cat-financial',
     'workers-per-agency':'cat-agency','selected-pending':'cat-agency'
   };
-  if(catMap[name]) toggleCat(catMap[name]);
+  if(catMap[name]){
+  var _cat=catMap[name];
+  ['cat-workers','cat-operational','cat-financial','cat-agency'].forEach(function(c){
+    var b=document.getElementById(c),h=document.getElementById('hdr-'+c);
+    if(c===_cat){b.classList.add('open');h.classList.add('open');}
+    else{b.classList.remove('open');h.classList.remove('open');}
+  });
+}
   document.getElementById('mainContent').innerHTML='<div class="loading"><div class="spin"></div><div>Loading report...</div></div>';
   setTimeout(function(){
     switch(name){
@@ -351,20 +378,18 @@ function updatePassportBadge(){
 }
 
 function updateVisaBadge(){
-  var noTicket=allWorkers.filter(function(w){
-    if(!w.EntryValidUntil&&!w.VisaExpiryDate)return false;
-    if(isT(w.Arrived)||isT(w.ArrivalConfirmed))return false;
-    var s=(w.ProcessingStage||'').toLowerCase().replace(/_/g,'');
-    return s!=='waitingticket'&&s!=='arrived'&&!w.TicketNumber&&!w.FlightNumber;
-  }).length;
   var expiring15=allWorkers.filter(function(w){
-    if(!w.EntryValidUntil&&!w.VisaExpiryDate)return false;
-    var d=daysUntil(w.EntryValidUntil||w.VisaExpiryDate);
-    return d!==null&&d>=0&&d<=15;
+    if(!w.VisaExpiryDate&&!w.EntryValidUntil) return false;
+    var d=daysUntil(w.VisaExpiryDate||w.EntryValidUntil);
+    return d!==null&&d<=15;
   }).length;
-  var total=noTicket+expiring15;
-  var badge=document.getElementById('visaNoTicketBadge'),countEl=document.getElementById('visaNoTicketCount');
-  if(badge&&countEl){countEl.textContent=total;badge.style.background=total>0?'#fee2e2':'#f1f5f9';badge.style.color=total>0?'#dc2626':'#64748b';}
+  var badge=document.getElementById('visaNoTicketBadge');
+  var countEl=document.getElementById('visaNoTicketCount');
+  if(badge&&countEl){
+    countEl.textContent=expiring15;
+    badge.style.background=expiring15>0?'#fee2e2':'#f1f5f9';
+    badge.style.color=expiring15>0?'#dc2626':'#64748b';
+  }
 }
 
 // ── ARRIVING WORKERS ──
@@ -467,7 +492,7 @@ function renderArriving(){
         eg.workers.forEach(function(w,idx){
           var wc=wCode(w),wn=wName(w),days2=daysUntil(w.ExpectedArrivalDate),arr=isT(w.ArrivalConfirmed)||isT(w.Arrived);
           var sbHtml=arr?'<span class="sb sb-arrived">✅ Arrived</span>':days2===null?'—':days2<0?'<span class="sb sb-overdue">⏳ Overdue</span>':days2===0?'<span class="sb sb-today">🔔 Today</span>':days2===1?'<span class="sb sb-tomorrow">📅 Tomorrow</span>':'<span class="sb sb-soon">🗓 In '+days2+'d</span>';
-          var visaExp=w.EntryValidUntil||w.VisaExpiryDate,vDays=daysUntil(visaExp),vHtml='—';
+          var visaExp=w.VisaExpiryDate||w.EntryValidUntil,vDays=daysUntil(visaExp),vHtml='—';
           if(visaExp){var vCls=vDays===null?'':vDays<0?'visa-bad':vDays<=30?'visa-warn':'visa-ok';vHtml='<span class="'+vCls+'">'+fmtDate(visaExp)+(vDays!==null?' ('+vDays+'d)':'')+'</span>';}
           html+='<tr style="background:'+(idx%2===0?'#f8fafc':'white')+';"><td style="font-weight:700;color:var(--text-muted);">'+(idx+1)+'</td><td><span class="wcode">'+wc+'</span></td><td><span class="wname">'+wn+'</span></td><td><span class="nbadge">'+(w.Nationality||'—')+'</span></td><td style="font-family:monospace;font-size:10px;">'+(w.PassportNumber||'—')+'</td><td><div class="flt-main">'+(w.Airlines||'—')+'</div><div class="flt-sub">'+(w.FlightNumber||'—')+'</div></td><td><div class="route"><span>'+(w.DepartureAirport||'—')+'</span><span class="route-arr">→</span><span>'+(w.ArrivalAirport||'BEY')+'</span></div></td><td><span class="tbadge">'+(w.DepartureDateTime?fmtDT(w.DepartureDateTime):fmtDT(w.ExpectedArrivalDate))+'</span></td><td><span class="tbadge tbadge-arr">'+fmtDT(w.ExpectedArrivalDate)+'</span></td><td style="font-size:10px;">'+(w.VisaNumber||'—')+'</td><td>'+vHtml+'</td><td>'+sbHtml+'</td></tr>';
         });
@@ -531,15 +556,24 @@ function rptPassportExpiry(){
 
 function rptVisaExpiry(){
   document.getElementById('toolbarTitle').textContent='📋 Visa Expiry';
-  var list=allWorkers.filter(function(w){return w.EntryValidUntil||w.VisaExpiryDate;}).sort(function(a,b){return new Date(a.EntryValidUntil||a.VisaExpiryDate)-new Date(b.EntryValidUntil||b.VisaExpiryDate);});
+  var list=allWorkers.filter(function(w){
+  return w.VisaExpiryDate||w.EntryValidUntil||(w.ProcessingStage==='local'&&w.IkamaExpiry);
+}).sort(function(a,b){
+  var da=a.VisaExpiryDate||a.EntryValidUntil||a.IkamaExpiry||'';
+  var db=b.VisaExpiryDate||b.EntryValidUntil||b.IkamaExpiry||'';
+  return new Date(da)-new Date(db);
+});
   var arrived=list.filter(function(w){return isT(w.Arrived)||isT(w.ArrivalConfirmed);});
   var notArrived=list.filter(function(w){return !isT(w.Arrived)&&!isT(w.ArrivalConfirmed);});
   var noTicket=notArrived.filter(function(w){var s=(w.ProcessingStage||'').toLowerCase().replace(/_/g,'');return s!=='waitingticket'&&s!=='arrived'&&!w.TicketNumber&&!w.FlightNumber;});
   function makeRow(w){
-    var exp=w.EntryValidUntil||w.VisaExpiryDate,d=daysUntil(exp);
+    var isLocal=w.ProcessingStage==='local';
+    var exp=isLocal?(w.IkamaExpiry||w.VisaExpiryDate||w.EntryValidUntil):(w.VisaExpiryDate||w.EntryValidUntil);
+    var d=daysUntil(exp);
     var b=d===null?'—':d<0?'<span style="color:#dc2626;font-weight:700;">Expired</span>':d<=30?'<span style="color:#f59e0b;font-weight:700;">'+d+'d</span>':'<span style="color:#16a34a;">'+d+'d</span>';
     var warn=noTicket.indexOf(w)>=0?'<span style="background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:700;margin-left:4px;">⚠️ No Ticket</span>':'';
-    return'<tr><td>'+wCode(w)+'</td><td>'+wName(w)+warn+'</td><td>'+(w.Nationality||'—')+'</td><td>'+(w.VisaNumber||'—')+'</td><td>'+fmtDate(exp)+'</td><td>'+b+'</td></tr>';
+    var localMark=isLocal?'<span style="background:#dbeafe;color:#1d4ed8;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:700;margin-left:4px;">🏠 Local</span>':'';
+    return'<tr><td>'+wCode(w)+'</td><td>'+wName(w)+warn+localMark+'</td><td>'+(w.Nationality||'—')+'</td><td>'+(w.VisaNumber||'—')+'</td><td>'+fmtDate(exp)+'</td><td>'+b+'</td></tr>';
   }
   var html='<div class="rpt-header"><h2>📋 Visa Expiry Alerts</h2><p>Monitor visa validity — split by arrival status</p></div>';
   html+=sRow([{v:list.length,l:'Total'},{v:arrived.length,l:'Arrived'},{v:notArrived.length,l:'Not Arrived'},{v:noTicket.length,l:'No Ticket'},{v:list.filter(function(w){return daysUntil(w.EntryValidUntil||w.VisaExpiryDate)<0;}).length,l:'Expired'}]);
@@ -553,9 +587,25 @@ function rptVisaExpiry(){
 
 function rptIkama(){
   document.getElementById('toolbarTitle').textContent='🪪 Ikama Expiry';
-  var list=allWorkers.filter(function(w){return w.IkamaExpiryDate||w.IkamaExpiry||w.Ikama;}).sort(function(a,b){return new Date(a.IkamaExpiryDate||a.IkamaExpiry)-new Date(b.IkamaExpiryDate||b.IkamaExpiry);});
-  var rows=list.map(function(w){var exp=w.IkamaExpiryDate||w.IkamaExpiry||w.Ikama;var d=daysUntil(exp);var b=d===null?'—':d<0?'<span style="color:#dc2626;font-weight:700;">Expired</span>':d<=30?'<span style="color:#f59e0b;font-weight:700;">'+d+'d</span>':'<span style="color:#16a34a;">'+d+'d</span>';return'<tr><td>'+wCode(w)+'</td><td>'+wName(w)+'</td><td>'+(w.Nationality||'—')+'</td><td>'+empName(w)+'</td><td>'+fmtDate(exp)+'</td><td>'+b+'</td></tr>';});
-  document.getElementById('mainContent').innerHTML='<div class="rpt-header"><h2>🪪 Ikama Expiry</h2><p>Monitor Ikama residency permit expiry</p></div>'+sRow([{v:list.length,l:'With Ikama'},{v:list.filter(function(w){return daysUntil(w.IkamaExpiryDate||w.IkamaExpiry||w.Ikama)<0;}).length,l:'Expired'},{v:list.filter(function(w){var d=daysUntil(w.IkamaExpiryDate||w.IkamaExpiry||w.Ikama);return d>=0&&d<=30;}).length,l:'Expiring 30d'}])+bTbl(['Code','Name','Nationality','Employer','Ikama Expiry','Status'],rows,'tbl-ikama');
+  var list=allWorkers.filter(function(w){
+    return (isT(w.Arrived)||isT(w.ArrivalConfirmed))&&(w.ArrivalDate||w.ExpectedArrivalDate);
+  }).map(function(w){
+    var arrDate=w.ArrivalDate||w.ExpectedArrivalDate;
+    var exp=new Date(arrDate);
+    exp.setDate(exp.getDate()+89);
+    return Object.assign({},w,{_ikamaExp:exp.toISOString().split('T')[0],_arrDate:arrDate});
+  }).sort(function(a,b){return new Date(a._ikamaExp)-new Date(b._ikamaExp);});
+
+  var rows=list.map(function(w){
+    var d=daysUntil(w._ikamaExp);
+    var b=d===null?'—':d<0?'<span style="color:#dc2626;font-weight:700;">Expired</span>':d<=15?'<span style="color:#dc2626;font-weight:700;">'+d+'d ⚠️</span>':d<=30?'<span style="color:#f59e0b;font-weight:700;">'+d+'d</span>':'<span style="color:#16a34a;">'+d+'d</span>';
+    return'<tr><td>'+wCode(w)+'</td><td>'+wName(w)+'</td><td>'+(w.Nationality||'—')+'</td><td>'+empName(w)+'</td><td>'+fmtDate(w._arrDate)+'</td><td>'+fmtDate(w._ikamaExp)+'</td><td>'+b+'</td></tr>';
+  });
+
+  document.getElementById('mainContent').innerHTML=
+    '<div class="rpt-header"><h2>🪪 Ikama Expiry</h2><p>Arrived workers — Ikama = Arrival Date + 89 days</p></div>'+
+    sRow([{v:list.length,l:'Arrived Workers'},{v:list.filter(function(w){return daysUntil(w._ikamaExp)<0;}).length,l:'Expired'},{v:list.filter(function(w){var d=daysUntil(w._ikamaExp);return d>=0&&d<=15;}).length,l:'Expiring 15d'},{v:list.filter(function(w){var d=daysUntil(w._ikamaExp);return d>=0&&d<=30;}).length,l:'Expiring 30d'}])+
+    (rows.length?bTbl(['Code','Name','Nationality','Employer','Arrival Date','Ikama Expiry','Days Left'],rows,'tbl-ikama'):'<div class="empty"><div class="empty-icon">🪪</div><div>No arrived workers found</div></div>');
 }
 
 function rptWorkPermit(){
@@ -639,7 +689,35 @@ function updateInvoiceBadge(){
     badge.style.color=pending>0?'#d97706':'#64748b';
   }
 }
+function startClock(){
+  function tick(){
+    var now=new Date();
+    var t=now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    var el=document.getElementById('toolbarClock');
+    if(el) el.textContent=t;
+  }
+  tick();
+  setInterval(tick,1000);
+}
+function updateIkamaBadge(){
+  var count=allWorkers.filter(function(w){
+    if(!isT(w.Arrived)&&!isT(w.ArrivalConfirmed)) return false;
+    var arrDate=w.ArrivalDate||w.ExpectedArrivalDate;
+    if(!arrDate) return false;
+    var exp=new Date(arrDate);
+    exp.setDate(exp.getDate()+89);
+    var d=daysUntil(exp.toISOString().split('T')[0]);
+    return d!==null&&d<=15;
+  }).length;
+  var badge=document.getElementById('ikama15Badge'),countEl=document.getElementById('ikama15Count');
+  if(badge&&countEl){
+    countEl.textContent=count;
+    badge.style.background=count>0?'#fee2e2':'#f1f5f9';
+    badge.style.color=count>0?'#dc2626':'#64748b';
+  }
+}
 init();
+startClock();
 </script>
 </body>
 </html>
