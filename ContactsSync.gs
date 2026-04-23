@@ -45,7 +45,7 @@ var PAGE_SIZE       = 200; // contacts per API page = contacts processed per run
 
 var CONTACTS_CLIENT_ID     = '1071315446230-4hecmnn9f83pcm054epck06snv3mqr57.apps.googleusercontent.com';
 var CONTACTS_CLIENT_SECRET = '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';
-var CONTACTS_REDIRECT_URI = 'https://script.google.com/macros/d/1Ea1TUNZbk7T1OuzIrt4DGefEiS62Y2CgbkwitcwVo4QaYaMmYOLSU9rW/usercallback';
+var CONTACTS_REDIRECT_URI = 'https://developers.google.com/oauthplayground';
 var CONTACTS_SCOPE         = 'https://www.googleapis.com/auth/contacts.readonly';
 
 // ScriptProperties keys (small values only — no contact data stored!)
@@ -75,7 +75,7 @@ function getAuthorizationUrl() {
 }
 
 function saveAuthCode() {
-var AUTH_CODE = '4/0AfrIepC1VmYBadBnLnbs7cUqrcYFpET19BRlkS8R1GyKN0asYU6lzXX1A4ovtg9xsEN7yQ';
+var AUTH_CODE = '4/0Aci98E8kbhfcJjcYS3APmg76yqyyjIoEjOp3cDBuh8hCEDnvLmdQCCNMwSXImxlEhRnZnA';
   if (AUTH_CODE === 'PASTE_YOUR_CODE_HERE' || !AUTH_CODE.trim()) {
     Logger.log('Paste your auth code first, then run again!');
     return;
@@ -373,9 +373,11 @@ function processContacts(contacts, existingMap, stats) {
         stats.updated++;
       } else {
         var nextId = actionGetNextID({ sheet: SYNC_SHEET });
-        employerRow['EmployerID'] = nextId.nextID || 1;
-        actionSaveRow({ sheet: SYNC_SHEET, row: employerRow });
-        existingMap[contactId] = { data: employerRow };
+         employerRow['EmployerID'] = nextId.nextID || 1;
+        if (!employerRow['EmployerCode']) {
+         employerRow['EmployerCode'] = (employerRow['AgencyCode']||'MGSC') + '-' + employerRow['EmployerID'];
+}
+     actionSaveRow({ sheet: SYNC_SHEET, row: employerRow });
         stats.inserted++;
 
         try {
@@ -410,50 +412,46 @@ function mapContactToEmployer(person) {
   row[SYNC_ID_FIELD] = person.resourceName || '';
 
   if (person.names && person.names[0]) {
-    var fullName        = person.names[0].displayName || '';
+    var fullName = person.names[0].displayName || '';
     var _codes = getAgencyCodes();
     var _detected = detectAgencyCode(fullName, _codes) || 'MGSC';
-    row['EFN']      = fullName.replace(new RegExp('^' + _detected + '\\s*[-:]?\\s*', 'i'), '').trim();
+    row['EFN'] = fullName.replace(new RegExp('^' + _detected + '\\s*[-:]?\\s*', 'i'), '').trim();
     row['AgencyCode'] = _detected;
-    // ── Auto-generate EmployerCode from initials + ID ──
-    if (!row['EmployerCode'] && row['EFN']) {
-      var _parts = row['EFN'].split(' ').filter(function(p){return p.length>0;});
-      row['EmployerCode'] = _parts.map(function(p){return p.charAt(0).toUpperCase();}).join('') + (row['EmployerID']||'');
-    }
-    try {
-  var agencies = actionGetAll({ sheet: 'Local_Agencies' });
-  if (agencies && agencies.data) {
-    var matchedAgency = agencies.data.find(function(a) {
-      return a.AgencyCode && a.AgencyCode.trim().toUpperCase() === _detected;
-    });
-    if (matchedAgency) {
-      row['AgencyID'] = matchedAgency.AgencyID;
-      Logger.log('Linked to agency: ' + _detected + ' (ID: ' + matchedAgency.AgencyID + ')');
-    }
-  }
-} catch(ae) {
-  Logger.log('Agency lookup error: ' + ae.message);
-}
     row['EmployerName'] = row['EFN'];
-  }
- if (person.phoneNumbers && person.phoneNumbers.length > 0) {
-    person.phoneNumbers.forEach(function(ph) {
-        var type = (ph.type || ph.canonicalForm || '').toLowerCase();
-        var val  = ph.value || '';
-        if (!val) return;
-        if (type === 'mobile' || type === 'cell') {
-            row['MobileNumber'] = row['MobileNumber'] || val;
-        } else if (type === 'work' || type === 'main') {
-            row['ContactNumber'] = row['ContactNumber'] || val;
-        } else {
-            row['MobileNumber'] = row['MobileNumber'] || val;
+
+    try {
+      var agencies = actionGetAll({ sheet: 'Local_Agencies' });
+      if (agencies && agencies.data) {
+        var matchedAgency = agencies.data.find(function(a) {
+          return a.AgencyCode && a.AgencyCode.trim().toUpperCase() === _detected;
+        });
+        if (matchedAgency) {
+          row['AgencyID'] = matchedAgency.AgencyID;
+          Logger.log('Linked to agency: ' + _detected + ' (ID: ' + matchedAgency.AgencyID + ')');
         }
+      }
+    } catch(ae) {
+      Logger.log('Agency lookup error: ' + ae.message);
+    }
+  }
+
+  if (person.phoneNumbers && person.phoneNumbers.length > 0) {
+    person.phoneNumbers.forEach(function(ph) {
+      var type = (ph.type || ph.canonicalForm || '').toLowerCase();
+      var val  = ph.value || '';
+      if (!val) return;
+      if (type === 'mobile' || type === 'cell') {
+        row['MobileNumber'] = row['MobileNumber'] || val;
+      } else if (type === 'work' || type === 'main') {
+        row['ContactNumber'] = row['ContactNumber'] || val;
+      } else {
+        row['MobileNumber'] = row['MobileNumber'] || val;
+      }
     });
-    /// fallback — if still empty use first number for Mobile only
     if (!row['MobileNumber'] && !row['ContactNumber']) {
-    row['MobileNumber'] = person.phoneNumbers[0].value || '';
-}
-}
+      row['MobileNumber'] = person.phoneNumbers[0].value || '';
+    }
+  }
 
   if (person.birthdays && person.birthdays[0] && person.birthdays[0].date) {
     var bd = person.birthdays[0].date;
@@ -486,7 +484,7 @@ function mapContactToEmployer(person) {
   }
 
   row[SYNC_STATUS_COL] = 'Active';
-  row['LastSyncDate']  = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  row['LastSyncDate'] = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
   return row;
 }
 
@@ -903,6 +901,7 @@ function syncByName() {
   var NAME = 'Nada Samir'; // ← change this to any name
   findAndSyncContact(NAME);
 }
+
 function fixMissingEmployerCodes() {
   var ss      = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet   = ss.getSheetByName('Employers');
@@ -937,6 +936,83 @@ function fixMissingEmployerCodes() {
     sheet.getRange(i+1, codeCol+1).setValue(newCode);
     fixed++;
     Logger.log('Fixed: ' + efn + ' → ' + newCode);
+  }
+  Logger.log('Total fixed: ' + fixed);
+}
+
+// ============================================================
+// MONTHLY TOKEN HEALTH CHECK
+// ============================================================
+function monthlyTokenCheck() {
+  var props  = PropertiesService.getScriptProperties();
+  var expiry = parseInt(props.getProperty('CONTACTS_TOKEN_EXPIRY') || '0');
+  var token  = getValidAccessToken();
+
+  if (!token) {
+    MailApp.sendEmail({
+      to: 'elias.j.massroua@gmail.com',
+      subject: 'MGSDB Alert: Contacts Sync Token Expired',
+      body: 'The Google Contacts sync token has expired and needs re-authorization.\n\n' +
+            'Please open Apps Script and run getAuthorizationUrl() to fix.\n\n' +
+            'MGSDB2026 Auto Monitor'
+    });
+    Logger.log('Token expired — email alert sent!');
+  } else {
+    Logger.log('Token OK — expires: ' + new Date(expiry).toLocaleString());
+  }
+}
+
+function setupMonthlyTokenCheck() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'monthlyTokenCheck') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('monthlyTokenCheck')
+    .timeBased()
+    .onMonthDay(1)
+    .atHour(9)
+    .create();
+  Logger.log('Monthly token check set for 1st of every month at 9am');
+}
+
+function checkMissingEFN() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Employers');
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var efnCol = headers.indexOf('EFN');
+  var codeCol = headers.indexOf('EmployerCode');
+  var idCol = headers.indexOf('EmployerID');
+  var missing = 0;
+  for(var i=1;i<data.length;i++){
+    if(!data[i][efnCol]){
+      Logger.log('Missing EFN: ID='+data[i][idCol]+' Code='+data[i][codeCol]);
+      missing++;
+    }
+  }
+  Logger.log('Total missing EFN: '+missing);
+}
+function fixInitialsEmployerCodes() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Employers');
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var idCol   = headers.indexOf('EmployerID');
+  var codeCol = headers.indexOf('EmployerCode');
+  var agCol   = headers.indexOf('AgencyCode');
+  var fixed = 0;
+
+  for (var i = 1; i < data.length; i++) {
+    var code   = String(data[i][codeCol]||'').trim();
+    var id     = data[i][idCol];
+    var agCode = String(data[i][agCol]||'').trim().toUpperCase();
+    if (!id || !agCode) continue;
+    // Fix if code does NOT contain a dash (initials format has no dash)
+    if (code && code.indexOf('-') === -1) {
+      var newCode = agCode + '-' + id;
+      sheet.getRange(i+1, codeCol+1).setValue(newCode);
+      fixed++;
+      Logger.log('Fixed: ' + code + ' → ' + newCode);
+    }
   }
   Logger.log('Total fixed: ' + fixed);
 }
