@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MGS - Workers Section</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👥</text></svg>">
     <style>
         * {
             margin: 0;
@@ -684,6 +685,40 @@
     </style>
 </head>
 <body>
+
+<!-- ============================================================ -->
+<!-- FIREBASE SDK INIT (module script - runs after parsing)      -->
+<!-- Exposes window._fb = { db, storage, and SDK helpers }       -->
+<!-- Dispatches 'firebase-ready' event when initialized          -->
+<!-- ============================================================ -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, listAll } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+    authDomain: "mgsd2026.firebaseapp.com",
+    projectId: "mgsd2026",
+    storageBucket: "mgsd2026.firebasestorage.app",
+    messagingSenderId: "918582360831",
+    appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const storage = getStorage(app);
+
+  window._fb = {
+    db, storage,
+    collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where,
+    ref, uploadBytes, getDownloadURL, deleteObject, listAll
+  };
+  // (removed: this was clobbering the _fbReady() function in the main script)
+  window.dispatchEvent(new Event('firebase-ready'));
+  console.log('\uD83D\uDD25 Firebase SDK initialized');
+</script>
+
     <!-- Document Type Selection Modal -->
     <div id="documentTypeModal" class="modal-overlay">
         <div class="modal-box">
@@ -1633,123 +1668,396 @@
         });
 
         // ==========================================
-        // GOOGLE DRIVE CONFIGURATION
+        // FIREBASE CLOUD MODULES (ported from Apps Script)
         // ==========================================
-        // Google Apps Script deployment URL for file uploads
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEbNo287tvEezLwy8vYHrNWxPXELlzzsGVg9yeA6XXDIkXdR0ILEKOTWbG88PxHiIf/exec';
-        
+        // SHEET_MAP: friendly sheet name -> Firestore collection name
+        // KEY_MAP:   friendly sheet name -> primary key field
+        const SHEET_MAP = {
+            'Workers': 'Workers',
+            'Suppliers': 'supplier_manager',
+            'Worker_Documents': 'worker_documents',
+            'Nationalities': 'nationalities',
+            'Employer_Documents': 'employer_documents',
+            'employers': 'employers'
+        };
+        const KEY_MAP = {
+            'Workers': 'WorkerID',
+            'Suppliers': 'SupplierID',
+            'Worker_Documents': 'DocumentID',
+            'Nationalities': 'NationalityID',
+            'Employer_Documents': 'DocumentID',
+            'employers': 'EmployerID'
+        };
+
+        // Wait for Firebase SDK (loaded by the module script above)
+        function _fbReady() {
+            if (window._fb) return Promise.resolve(window._fb);
+            return new Promise(function(resolve) {
+                if (window._fb) return resolve(window._fb);
+                window.addEventListener('firebase-ready', function() { resolve(window._fb); }, { once: true });
+            });
+        }
+
         // ==========================================
-        // CLOUD DATABASE MODULE
+        // CLOUD DATABASE MODULE (Firestore-backed)
+        // Same public API as Apps Script version:
+        //   loadSheet, saveRow, deleteRow, getNextID, get, post, loadAll
         // ==========================================
         const CloudDB = {
-            url: GOOGLE_SCRIPT_URL,
             ready: false,
-            
-            // GET request to cloud
-            async get(params) {
+
+            // Load all rows from a sheet -> array (or null if empty)
+            async loadSheet(sheetName) {
                 try {
-                    var qs = Object.keys(params).map(k => k + '=' + encodeURIComponent(params[k])).join('&');
-                    var resp = await fetch(this.url + '?' + qs);
-                    return await resp.json();
-                } catch(e) {
-                    console.warn('\u2601\uFE0F CloudDB GET failed:', e.message);
+                    const fb = await _fbReady();
+                    const collName = SHEET_MAP[sheetName] || sheetName;
+                    const snap = await fb.getDocs(fb.collection(fb.db, collName));
+                    const rows = [];
+                    snap.forEach(function(d) { rows.push(d.data()); });
+                    return rows.length > 0 ? rows : null;
+                } catch (e) {
+                    console.warn('\u2601\uFE0F loadSheet(' + sheetName + ') failed:', e.message);
                     return null;
                 }
             },
-            
-            // POST request to cloud
-            async post(data) {
-                try {
-                    var resp = await fetch(this.url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: JSON.stringify(data)
-                    });
-                    var text = await resp.text();
-                    try { return JSON.parse(text); } catch(e) { return null; }
-                } catch(e) {
-                    console.warn('\u2601\uFE0F CloudDB POST failed:', e.message);
-                    return null;
-                }
-            },
-            
-            // Load all data from a sheet
-            loadSheet(sheetName) {
-                return new Promise(function(resolve) {
-                    google.script.run
-                        .withSuccessHandler(function(data){
-                            var d = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-                            resolve(d.length > 0 ? d : null);
-                        })
-                        .withFailureHandler(function(){ resolve(null); })
-                        .gsrGetAll(sheetName);
-                });
-            },
-            
-            // Save a single row to a sheet
+
+            // Save a single row. rowData must contain the key field value.
             async saveRow(sheetName, rowData) {
-                return await this.post({ action: 'saveRow', sheet: sheetName, row: rowData });
+                try {
+                    const fb = await _fbReady();
+                    const collName = SHEET_MAP[sheetName] || sheetName;
+                    const kf = KEY_MAP[sheetName] || 'id';
+                    const id = String(rowData[kf] || '');
+                    if (!id) return { success: false, error: 'Missing key field: ' + kf };
+                    // Firestore rejects undefined — strip it out recursively before save.
+                    const clean = JSON.parse(JSON.stringify(rowData, function(k, v){ return v === undefined ? null : v; }));
+                    await fb.setDoc(fb.doc(fb.db, collName, id), clean);
+                    return { success: true };
+                } catch (e) {
+                    console.warn('\u2601\uFE0F saveRow failed:', e.message);
+                    return { success: false, error: e.message };
+                }
             },
-            
-            // Delete a row from a sheet
+
+            // Delete a row by ID.
             async deleteRow(sheetName, id) {
-                return await this.post({ action: 'deleteRow', sheet: sheetName, id: id });
+                try {
+                    const fb = await _fbReady();
+                    const collName = SHEET_MAP[sheetName] || sheetName;
+                    await fb.deleteDoc(fb.doc(fb.db, collName, String(id)));
+                    return { success: true };
+                } catch (e) {
+                    console.warn('\u2601\uFE0F deleteRow failed:', e.message);
+                    return { success: false, error: e.message };
+                }
             },
-            
-            // Get next ID
+
+            // Compute next numeric ID by scanning the collection.
             async getNextID(sheetName) {
-                var result = await this.post({ action: 'getNextID', sheet: sheetName });
-                if (result && result.success) return result.nextID;
-                return null;
+                try {
+                    const rows = await this.loadSheet(sheetName) || [];
+                    const kf = KEY_MAP[sheetName] || 'id';
+                    let max = 0;
+                    rows.forEach(function(r) {
+                        const v = parseInt(String(r[kf] || '0').replace(/\D/g, ''), 10) || 0;
+                        if (v > max) max = v;
+                    });
+                    return max + 1;
+                } catch (e) {
+                    console.warn('\u2601\uFE0F getNextID failed:', e.message);
+                    return 1;
+                }
             },
-            
-            // Load ALL data for Workers Manager (workers + suppliers + documents + nationalities)
+
+            // Backward-compat: generic GET (used by some legacy code).
+            async get(params) {
+                if (!params || !params.action) return null;
+                if (params.action === 'getAll')    { const r = await this.loadSheet(params.sheet); return { success: true, data: r || [] }; }
+                if (params.action === 'getNextID') { return { success: true, nextID: await this.getNextID(params.sheet) }; }
+                return await _fbHandleAction(params);
+            },
+
+            // Backward-compat: generic POST (used by some legacy code for file ops).
+            async post(data) {
+                let payload = data;
+                if (typeof payload === 'string') {
+                    try { payload = JSON.parse(payload); } catch (e) { return null; }
+                }
+                return await _fbHandleAction(payload);
+            },
+
+            // Load all core collections in parallel (used on page init).
             async loadAll() {
-                console.log('\u2601\uFE0F Loading data from Google Sheets...');
+                console.log('\u2601\uFE0F Loading data from Firestore...');
                 var results = { workers: null, suppliers: null, worker_documents: null, nationalities: null };
                 var self = this;
-                
-                // Helper: load with timeout
+
                 function loadWithTimeout(sheetName, ms) {
                     return Promise.race([
                         self.loadSheet(sheetName),
                         new Promise(function(resolve) { setTimeout(function() { resolve(null); }, ms); })
                     ]);
                 }
-                
+
                 try {
-                    // Load in parallel with 10 second timeout each
                     var [w, s, wd, n] = await Promise.all([
                         loadWithTimeout('Workers', 10000),
                         loadWithTimeout('Suppliers', 10000),
                         loadWithTimeout('Worker_Documents', 10000),
                         loadWithTimeout('Nationalities', 10000)
                     ]);
-                    
+
                     results.workers = w;
                     results.suppliers = s;
                     results.worker_documents = wd;
                     results.nationalities = n;
-                    
-                    // Cache to localStorage as backup
+
                     if (w && w.length > 0) localStorage.setItem('mgsdb_workers', JSON.stringify(w));
                     if (s && s.length > 0) localStorage.setItem('mgsdb_suppliers', JSON.stringify(s));
                     if (wd && wd.length > 0) localStorage.setItem('mgsdb_worker_documents', JSON.stringify(wd));
-                    if (n && n.length > 0) { /* nationalities cached after normalization */ }
-                    
+
                     this.ready = true;
-                    console.log('\u2601\uFE0F Cloud data loaded:', 
+                    console.log('\u2601\uFE0F Cloud data loaded:',
                         (w ? w.length : 0), 'workers,',
                         (s ? s.length : 0), 'suppliers,',
                         (wd ? wd.length : 0), 'doc types,',
                         (n ? n.length : 0), 'nationalities');
-                } catch(e) {
+                } catch (e) {
                     console.warn('\u2601\uFE0F Cloud load failed, using localStorage cache:', e.message);
                 }
-                
+
                 return results;
             }
         };
+
+        // ==========================================
+        // CLOUD STORAGE MODULE (Firebase Storage-backed)
+        //   uploadBase64, uploadFile, deleteFile, deleteFolder, listFiles
+        // ==========================================
+        const CloudStorage = {
+            ready: false,
+
+            async uploadBase64(path, base64Data, mimeType) {
+                try {
+                    const fb = await _fbReady();
+                    const bs = atob(base64Data);
+                    const ab = new ArrayBuffer(bs.length);
+                    const ia = new Uint8Array(ab);
+                    for (let i = 0; i < bs.length; i++) ia[i] = bs.charCodeAt(i);
+                    const blob = new Blob([ab], { type: mimeType });
+                    const r = fb.ref(fb.storage, path);
+                    const snap = await fb.uploadBytes(r, blob);
+                    const url = await fb.getDownloadURL(snap.ref);
+                    this.ready = true;
+                    return { success: true, url: url, fileUrl: url, path: path };
+                } catch (e) {
+                    return { success: false, error: e.message };
+                }
+            },
+
+            async uploadFile(path, file) {
+                try {
+                    const fb = await _fbReady();
+                    const r = fb.ref(fb.storage, path);
+                    const snap = await fb.uploadBytes(r, file);
+                    const url = await fb.getDownloadURL(snap.ref);
+                    return { success: true, url: url, fileUrl: url, path: path };
+                } catch (e) {
+                    return { success: false, error: e.message };
+                }
+            },
+
+            async deleteFile(path) {
+                try {
+                    const fb = await _fbReady();
+                    await fb.deleteObject(fb.ref(fb.storage, path));
+                    return { success: true };
+                } catch (e) {
+                    return { success: false, error: e.message };
+                }
+            },
+
+            async deleteFolder(folderPath) {
+                try {
+                    const fb = await _fbReady();
+                    const listRef = fb.ref(fb.storage, folderPath);
+                    const res = await fb.listAll(listRef);
+                    await Promise.all(res.items.map(function(itemRef) { return fb.deleteObject(itemRef); }));
+                    var self = this;
+                    await Promise.all(res.prefixes.map(function(p) { return self.deleteFolder(p.fullPath); }));
+                    return { success: true };
+                } catch (e) {
+                    return { success: false, error: e.message };
+                }
+            },
+
+            async listFiles(folderPath) {
+                try {
+                    const fb = await _fbReady();
+                    const listRef = fb.ref(fb.storage, folderPath);
+                    const res = await fb.listAll(listRef);
+                    const files = await Promise.all(res.items.map(async function(itemRef) {
+                        const url = await fb.getDownloadURL(itemRef);
+                        return { name: itemRef.name, path: itemRef.fullPath, url: url, fileUrl: url };
+                    }));
+                    return { success: true, files: files };
+                } catch (e) {
+                    return { success: false, error: e.message, files: [] };
+                }
+            }
+        };
+
+        // ==========================================
+        // UNIFIED ACTION ROUTER
+        // Maps legacy Apps Script payload actions to Firebase operations.
+        // Used by: gsrCall, gsrPost, google.script.run shim, CloudDB.post
+        // ==========================================
+        async function _fbHandleAction(payload) {
+            try {
+                if (typeof payload === 'string') {
+                    try { payload = JSON.parse(payload); } catch (e) { return { error: 'Invalid JSON payload' }; }
+                }
+                if (!payload || !payload.action) return { error: 'No action specified' };
+                const action = payload.action;
+
+                // --- Sheet/data operations ---
+                if (action === 'getAll') {
+                    const r = await CloudDB.loadSheet(payload.sheet);
+                    return { success: true, data: r || [] };
+                }
+                if (action === 'saveRow')   return await CloudDB.saveRow(payload.sheet, payload.row);
+                if (action === 'deleteRow') return await CloudDB.deleteRow(payload.sheet, payload.id);
+                if (action === 'getNextID') {
+                    const n = await CloudDB.getNextID(payload.sheet);
+                    return { success: true, nextID: n };
+                }
+
+                // --- File upload (base64) ---
+                if (action === 'uploadFile') {
+                    const parent = payload.parentFolder || 'workers';
+                    const path = parent + '/' + payload.folderName + '/' + payload.fileName;
+                    const r = await CloudStorage.uploadBase64(path, payload.fileData, payload.mimeType);
+                    if (r.success) {
+                        return {
+                            success: true,
+                            fileUrl: r.url,
+                            url: r.url,
+                            folderId: parent + '/' + payload.folderName,
+                            folderName: payload.folderName
+                        };
+                    }
+                    return { error: r.error };
+                }
+
+                // --- Delete an entire worker/employer folder ---
+                if (action === 'deleteFolder') {
+                    const parent = payload.parentFolder || 'workers';
+                    const path = payload.folderId || (parent + '/' + (payload.folderName || ''));
+                    return await CloudStorage.deleteFolder(path);
+                }
+
+                // --- List files in a folder ---
+                if (action === 'listFiles') {
+                    const parent = payload.parentFolder || payload.parentType || 'workers';
+                    const path = payload.folderId || (parent + '/' + (payload.folderName || ''));
+                    return await CloudStorage.listFiles(path);
+                }
+
+                // --- Get file ID (Firebase: path IS the id) ---
+                if (action === 'getFileId') {
+                    const parent = payload.parentFolder || 'workers';
+                    return { success: true, fileId: parent + '/' + payload.folder + '/' + payload.file, fileUrl: '' };
+                }
+
+                // --- Backup / Restore (store in _Backups Firestore collection) ---
+                if (action === 'backupData') {
+                    try {
+                        const fb = await _fbReady();
+                        await fb.setDoc(fb.doc(fb.db, '_Backups', payload.backupType + '_' + Date.now()), {
+                            type: payload.backupType,
+                            source: payload.source || 'manual',
+                            data: payload.jsonData,
+                            createdAt: new Date().toISOString()
+                        });
+                        return { success: true };
+                    } catch (e) { return { success: false, error: e.message }; }
+                }
+                if (action === 'restoreData') {
+                    try {
+                        const fb = await _fbReady();
+                        const snap = await fb.getDocs(fb.query(fb.collection(fb.db, '_Backups'), fb.where('type', '==', payload.backupType)));
+                        let latest = null;
+                        snap.forEach(function(d) {
+                            const r = d.data();
+                            if (!latest || r.createdAt > latest.createdAt) latest = r;
+                        });
+                        if (latest) return { success: true, jsonData: latest.data };
+                        return { success: false, error: 'No backup found' };
+                    } catch (e) { return { success: false, error: e.message }; }
+                }
+
+                // --- createZip: no native Firebase equivalent (was Apps Script/Drive feature) ---
+                if (action === 'createZip') {
+                    console.warn('\u26A0\uFE0F createZip not yet ported to Firebase');
+                    return { success: false, error: 'Zip creation not yet ported to Firebase' };
+                }
+
+                return { success: false, error: 'Unknown action: ' + action };
+            } catch (e) {
+                return { error: e.message || String(e) };
+            }
+        }
+
+        // Expose for legacy window-scoped callers
+        window.CloudDB = CloudDB;
+        window.CloudStorage = CloudStorage;
+        window._fbHandleAction = _fbHandleAction;
+
+        // ==========================================
+        // google.script.run COMPATIBILITY SHIM
+        // Lets legacy code keep using:
+        //   google.script.run.withSuccessHandler(fn).gsrPost(json)
+        //   google.script.run.withSuccessHandler(fn).gsrGetAll(sheet)
+        // All calls route through _fbHandleAction / CloudDB.
+        // ==========================================
+        if (typeof window.google === 'undefined') window.google = {};
+        if (!window.google.script) window.google.script = {};
+        window.google.script.run = (function() {
+            function makeChain(ctx) {
+                return {
+                    withSuccessHandler: function(fn) { ctx.onSuccess = fn; return makeChain(ctx); },
+                    withFailureHandler: function(fn) { ctx.onFailure = fn; return makeChain(ctx); },
+                    gsrPost: function(payload) {
+                        _fbHandleAction(payload).then(function(result) {
+                            try { if (ctx.onSuccess) ctx.onSuccess(result); } catch (e) { console.error(e); }
+                        }).catch(function(err) {
+                            try { if (ctx.onFailure) ctx.onFailure(err); } catch (e) { console.error(e); }
+                        });
+                    },
+                    gsrGetAll: function(sheetName) {
+                        CloudDB.loadSheet(sheetName).then(function(data) {
+                            try { if (ctx.onSuccess) ctx.onSuccess({ success: true, data: data || [] }); } catch (e) { console.error(e); }
+                        }).catch(function(err) {
+                            try { if (ctx.onFailure) ctx.onFailure(err); } catch (e) { console.error(e); }
+                        });
+                    }
+                };
+            }
+            return {
+                withSuccessHandler: function(fn) { return makeChain({ onSuccess: fn }); },
+                withFailureHandler: function(fn) { return makeChain({ onFailure: fn }); },
+                gsrPost: function(payload) { return makeChain({}).gsrPost(payload); },
+                gsrGetAll: function(sheet) { return makeChain({}).gsrGetAll(sheet); }
+            };
+        })();
+
+        // Legacy helpers (same names, now Firebase-backed)
+        function gsrCall(data) { return _fbHandleAction(data); }
+        function gsrPost(data) { return _fbHandleAction(data); }
+        function gsrGetAll(sheetName) { return CloudDB.loadSheet(sheetName); }
+        window.gsrCall = gsrCall;
+        window.gsrPost = gsrPost;
+        window.gsrGetAll = gsrGetAll;
         
         // Track folder name for new workers (before first save)
         let _pendingWorkerFolder = '';
@@ -5715,646 +6023,9 @@
     </div>
     <style>@keyframes uploadSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>
 
-<script>
-(function() {
-    'use strict';
-    console.log('🔧 CORS Fix Patch v2.4 loading...');
-
-    // ==========================================
-    // HELPER: Call server via google.script.run
-    // ==========================================
-    function gsrCall(data) {
-        return new Promise(function(resolve) {
-            google.script.run
-                .withSuccessHandler(function(result) { resolve(result); })
-                .withFailureHandler(function(err) {
-                    console.warn('☁️ gsrCall failed:', err);
-                    resolve(null);
-                })
-                .gsrPost(typeof data === 'string' ? data : JSON.stringify(data));
-        });
-    }
-
-    // ==========================================
-    // 0. GLOBAL FETCH OVERRIDE
-    //    Intercept ALL fetch() to GAS URLs
-    // ==========================================
-    var _origFetch = window.fetch;
-    window.fetch = function(url, opts) {
-        if (typeof url === 'string' && url.indexOf('script.google.com') !== -1) {
-            if (opts && opts.method === 'POST') {
-                console.log('🔧 CORS: Intercepting POST fetch');
-                return gsrCall(opts.body || '{}').then(function(result) {
-                    return {
-                        ok: true, status: 200,
-                        json: function() { return Promise.resolve(result); },
-                        text: function() { return Promise.resolve(typeof result === 'string' ? result : JSON.stringify(result)); }
-                    };
-                });
-            } else {
-                console.log('🔧 CORS: Intercepting GET fetch');
-                var params = {};
-                try {
-                    var qs = url.indexOf('?') !== -1 ? url.substring(url.indexOf('?') + 1) : '';
-                    qs.split('&').forEach(function(p) {
-                        var kv = p.split('=');
-                        if (kv[0]) params[kv[0]] = decodeURIComponent(kv[1] || '');
-                    });
-                } catch(e) {}
-                return gsrCall(params).then(function(result) {
-                    return {
-                        ok: true, status: 200,
-                        json: function() { return Promise.resolve(result); },
-                        text: function() { return Promise.resolve(typeof result === 'string' ? result : JSON.stringify(result)); }
-                    };
-                });
-            }
-        }
-        return _origFetch.apply(window, arguments);
-    };
-
-    // ==========================================
-    // 1. OVERRIDE CloudDB MODULE
-    // ==========================================
-    CloudDB.ready = true;
-
-    CloudDB.get = function(params) { return gsrCall(params); };
-    CloudDB.post = function(data) { return gsrCall(data); };
-
-    CloudDB.loadSheet = function(sheetName) {
-        return gsrCall({ action: 'getAll', sheet: sheetName }).then(function(result) {
-            if (result && result.success) return result.data;
-            if (Array.isArray(result)) return result;
-            return null;
-        });
-    };
-
-    CloudDB.saveRow = function(sheetName, rowData) {
-        return gsrCall({ action: 'saveRow', sheet: sheetName, row: rowData });
-    };
-
-    CloudDB.deleteRow = function(sheetName, id) {
-        return gsrCall({ action: 'deleteRow', sheet: sheetName, id: id });
-    };
-
-    CloudDB.getNextID = function(sheetName) {
-        return gsrCall({ action: 'getNextID', sheet: sheetName }).then(function(result) {
-            if (result && result.success) return result.nextID;
-            return null;
-        });
-    };
-
-    CloudDB.loadAll = async function() {
-        console.log('☁️ Loading data from Google Sheets (CORS-fixed v2.4)...');
-        var results = { workers: null, suppliers: null, worker_documents: null, nationalities: null };
-        try {
-            var arr = await Promise.all([
-                CloudDB.loadSheet('Workers'),
-                CloudDB.loadSheet('Suppliers'),
-                CloudDB.loadSheet('Worker_Documents'),
-                CloudDB.loadSheet('Nationalities')
-            ]);
-            results.workers = arr[0];
-            results.suppliers = arr[1];
-            results.worker_documents = arr[2];
-            results.nationalities = arr[3];
-
-            if (results.workers && results.workers.length > 0) localStorage.setItem('mgsdb_workers', JSON.stringify(results.workers));
-            if (results.suppliers && results.suppliers.length > 0) localStorage.setItem('mgsdb_suppliers', JSON.stringify(results.suppliers));
-            if (results.worker_documents && results.worker_documents.length > 0) localStorage.setItem('mgsdb_worker_documents', JSON.stringify(results.worker_documents));
-
-            CloudDB.ready = true;
-            console.log('☁️ Cloud data loaded:',
-                (results.workers ? results.workers.length : 0), 'workers,',
-                (results.suppliers ? results.suppliers.length : 0), 'suppliers,',
-                (results.worker_documents ? results.worker_documents.length : 0), 'doc types,',
-                (results.nationalities ? results.nationalities.length : 0), 'nationalities');
-        } catch(e) {
-            console.warn('☁️ Cloud load failed:', e.message || e);
-        }
-        return results;
-    };
-
-    // ==========================================
-    // 2. OVERRIDE uploadToGoogleDrive
-    // ==========================================
-    window.uploadToGoogleDrive = async function(file, folderName, fileName) {
-        try {
-            var statusMsg = document.getElementById('uploadStatus');
-            if (statusMsg) { statusMsg.textContent = '📤 Uploading...'; statusMsg.style.display = 'block'; }
-
-            var base64Data = await fileToBase64(file);
-            console.log('🔑 workerID being sent:', currentWorker ? currentWorker.WorkerID : 'NULL - currentWorker is empty');
-            var result = await gsrCall({
-                action: 'uploadFile', folderName: folderName, fileName: fileName,
-                fileData: base64Data, mimeType: file.type, parentFolder: 'workers',
-                workerID: (typeof currentWorker !== 'undefined' && currentWorker) ? currentWorker.WorkerID : ''
-            });
-
-            if (result && result.error) {
-                if (result.error.indexOf && result.error.indexOf('permission') !== -1) {
-                    return { success: true, warning: result.error, fileUrl: result.fileUrl || '' };
-                }
-                throw new Error(result.error);
-            }
-            return { success: true, fileUrl: (result && (result.fileUrl || result.url)) || '', message: 'Uploaded!' };
-        } catch (error) {
-            console.error('Upload error:', error);
-            return { success: false, error: error.message };
-        }
-    };
-
-    // ==========================================
-    // 3. OVERRIDE doAutoBackup
-    // ==========================================
-    window.doAutoBackup = async function() {
-        try {
-            updateBackupStatus('syncing', '☁️ Backing up...');
-            var backupPayload = {
-                workers: workers,
-                worker_documents: JSON.parse(localStorage.getItem('mgsdb_worker_documents') || '[]'),
-                suppliers: JSON.parse(localStorage.getItem('mgsdb_suppliers') || '[]'),
-                timestamp: new Date().toISOString(), source: 'Workers_Manager'
-            };
-            var result = await gsrCall({
-                action: 'backupData', backupType: 'workers', source: 'auto',
-                jsonData: JSON.stringify(backupPayload)
-            });
-            if (result && result.success) {
-                _lastBackupTime = new Date().toLocaleString();
-                localStorage.setItem('mgsdb_lastBackup_workers', _lastBackupTime);
-                updateBackupStatus('ok', '☁️ Saved ' + _lastBackupTime);
-            } else { updateBackupStatus('error', '⚠️ Backup failed'); }
-        } catch(e) { updateBackupStatus('error', '⚠️ Backup failed'); }
-    };
-
-    // ==========================================
-    // 4. OVERRIDE restoreFromBackup
-    // ==========================================
-    window.restoreFromBackup = async function() {
-        var confirmed = await showConfirm('⚠️ Restore workers data from Google Drive?\n\nThis will REPLACE all current local data.\n\nContinue?');
-        if (!confirmed) return;
-        try {
-            updateBackupStatus('syncing', '☁️ Restoring...');
-            var result = await gsrCall({ action: 'restoreData', backupType: 'workers' });
-            if (result && result.success) {
-                var backupData = JSON.parse(result.jsonData);
-                if (backupData.workers) { workers = backupData.workers; localStorage.setItem('mgsdb_workers', JSON.stringify(workers)); }
-                if (backupData.worker_documents) localStorage.setItem('mgsdb_worker_documents', JSON.stringify(backupData.worker_documents));
-                if (backupData.suppliers && backupData.suppliers.length > 0) localStorage.setItem('mgsdb_suppliers', JSON.stringify(backupData.suppliers));
-                renderWorkerList(); updateCounter();
-                if (workers.length > 0) selectWorker(workers[0]);
-                updateBackupStatus('ok', '✅ Restored from ' + result.backupDate);
-                alert('✅ Data restored!\n\n📄 ' + result.fileName + '\n👥 ' + (backupData.workers ? backupData.workers.length : 0) + ' workers');
-            } else {
-                updateBackupStatus('error', '❌ Restore failed');
-                alert('❌ Restore failed: ' + (result ? result.error : 'Unknown'));
-            }
-        } catch(e) { updateBackupStatus('error', '❌ Restore failed'); alert('❌ ' + (e.message || e)); }
-    };
-
-    // ==========================================
-    // 5. FIX: Child window ZIP download
-    // ==========================================
-    window._gsrCreateZip = function(fileIds, zipName) {
-        return gsrCall({ action: 'createZip', fileIds: fileIds, zipName: zipName });
-    };
-
-    var _realWindowOpen = window.open.bind(window);
-    window.open = function() {
-        var childWin = _realWindowOpen.apply(null, arguments);
-        if (childWin) {
-            try {
-                var pa = 0;
-                var pi = setInterval(function() {
-                    pa++;
-                    if (pa > 50) { clearInterval(pi); return; }
-                    try {
-                        if (childWin.closed) { clearInterval(pi); return; }
-                        if (childWin.galDownload) {
-                            childWin._parentGsrCall = gsrCall;
-                            var cof = childWin.fetch;
-                            childWin.fetch = function(url, opts) {
-                                if (typeof url === 'string' && url.indexOf('script.google.com') !== -1 && opts && opts.method === 'POST') {
-                                    return childWin._parentGsrCall(opts.body || '{}').then(function(r) {
-                                        return { ok: true, json: function() { return Promise.resolve(r); }, text: function() { return Promise.resolve(JSON.stringify(r)); } };
-                                    });
-                                }
-                                return cof ? cof.apply(childWin, arguments) : Promise.reject('No fetch');
-                            };
-                            console.log('🔧 Child window patched');
-                            clearInterval(pi);
-                        }
-                    } catch(e) { clearInterval(pi); }
-                }, 100);
-            } catch(e) {}
-        }
-        return childWin;
-    };
-
-    // ==========================================
-    // 6. FIX: AdditionalPassports string bug
-    //    Data comes from Sheets as JSON string
-    //    instead of array — must parse before use
-    // ==========================================
-    function fixWorkerDataTypes(w) {
-        if (!w) return;
-        // AdditionalPassports
-        if (typeof w.AdditionalPassports === 'string') {
-            try { w.AdditionalPassports = JSON.parse(w.AdditionalPassports); } catch(e) { w.AdditionalPassports = []; }
-        }
-        if (!Array.isArray(w.AdditionalPassports)) w.AdditionalPassports = [];
-
-        // RequiredWorkerDocs
-        if (typeof w.RequiredWorkerDocs === 'string') {
-            try { w.RequiredWorkerDocs = JSON.parse(w.RequiredWorkerDocs); } catch(e) { w.RequiredWorkerDocs = []; }
-        }
-        if (!Array.isArray(w.RequiredWorkerDocs)) w.RequiredWorkerDocs = [];
-
-        // UploadedWorkerDocs
-        if (typeof w.UploadedWorkerDocs === 'string') {
-            try { w.UploadedWorkerDocs = JSON.parse(w.UploadedWorkerDocs); } catch(e) { w.UploadedWorkerDocs = {}; }
-        }
-        if (w.UploadedWorkerDocs === null || w.UploadedWorkerDocs === undefined) w.UploadedWorkerDocs = {};
-    }
-
-    // Wrap selectWorker to fix data types before rendering
-    var _origSelectWorker = window.selectWorker;
-    window.selectWorker = function(worker) {
-        fixWorkerDataTypes(worker);
-        return _origSelectWorker.apply(this, arguments);
-    };
-
-    // Wrap renderAdditionalPassports as safety net
-    if (window.renderAdditionalPassports) {
-        var _origRenderAP = window.renderAdditionalPassports;
-        window.renderAdditionalPassports = function() {
-            if (typeof currentWorker !== 'undefined' && currentWorker) {
-                fixWorkerDataTypes(currentWorker);
-            }
-            return _origRenderAP.apply(this, arguments);
-        };
-    }
-
-    // ==========================================
-    // 7. UPDATE VERSION TAG
-    // ==========================================
-    var vTag = document.getElementById('versionTag');
-    if (vTag) vTag.textContent = 'v4.0-CORS';
-
-    // ==========================================
-    // 8. RE-TRIGGER CLOUD SYNC
-    //    init() already ran with broken fetch()
-    //    and loaded stale localStorage cache.
-    //    Now re-sync using fixed google.script.run
-    // ==========================================
-    console.log('🔄 Re-triggering cloud sync (patch loaded after init)...');
-
-    (async function reSyncFromCloud() {
-        try {
-            var cloudData = await CloudDB.loadAll();
-            var updated = false;
-
-            // Update workers
-            if (cloudData.workers && cloudData.workers.length > 0) {
-    workers = cloudData.workers;
-    workers.forEach(fixWorkerDataTypes);
-    updated = true;
-    console.log('☁️ Workers synced from cloud:', workers.length);
-    if (currentWorker) {
-    var synced = workers.find(function(w){ return w.WorkerID === currentWorker.WorkerID; });
-    if (synced && synced.WorkerID === currentWorker.WorkerID) { 
-        currentWorker = synced;
-    }
-}
-
-// Update suppliers
-if (cloudData.suppliers && cloudData.suppliers.length > 0) {
-    suppliers = cloudData.suppliers;
-    updated = true;
-    console.log('☁️ Suppliers synced from cloud:', suppliers.length);
-}
-
-            // Update nationalities
-            if (cloudData.nationalities && cloudData.nationalities.length > 0) {
-                nationalities = cloudData.nationalities.map(function(n) {
-                    return {
-                        NationalityID: n.NationalityID || n.nationalityID || 0,
-                        Country: n.Country || n.country || n.NationalityEN || '',
-                        Nationality: n.Nationality || n.nationality || n.NationalityEN || '',
-                        CountryAr: n.CountryAr || n.countryAr || n.NationalityAR || '',
-                        NationalityAr: n.NationalityAr || n.nationalityAr || n.NationalityAR || '',
-                        Active: n.Active === true || n.Active === 'true' || n.Active === 'TRUE' || false
-                    };
-                });
-                localStorage.setItem('mgsdb_nationalities', JSON.stringify(nationalities));
-                updated = true;
-                console.log('☁️ Nationalities synced from cloud:', nationalities.length);
-            }
-
-            // Update worker documents
-            if (cloudData.worker_documents && cloudData.worker_documents.length > 0) {
-                localStorage.setItem('mgsdb_worker_documents', JSON.stringify(cloudData.worker_documents));
-            }
-
-            // Refresh the UI with fresh data
-            if (updated) {
-                if (typeof populateSupplierDropdown === 'function') populateSupplierDropdown();
-                if (typeof populateNationalityDropdown === 'function') populateNationalityDropdown();
-                renderWorkerList();
-                updateCounter();
-
-                // Re-select current worker or first worker
-                if (workers.length > 0) {
-                    if (typeof currentWorker !== 'undefined' && currentWorker && currentWorker.WorkerID) {
-                        var refreshWorker = workers.find(function(w) { return w.WorkerID === currentWorker.WorkerID; });
-                        if (refreshWorker) selectWorker(refreshWorker);
-                        else selectWorker(workers[0]);
-                    } else {
-                        selectWorker(workers[0]);
-                    }
-                }
-                console.log('✅ UI refreshed with cloud data');
-            }
-
-            // Update cloud status badge
-            var cloudBadge = document.getElementById('cloudStatus');
-            if (cloudBadge) {
-                cloudBadge.textContent = '☁️ Cloud ' + new Date().toLocaleTimeString();
-                cloudBadge.style.background = '#d4edda';
-                cloudBadge.style.color = '#155724';
-            }
-
-        } catch(e) {
-            console.warn('⚠️ Cloud re-sync failed:', e.message || e);
-            var cloudBadge = document.getElementById('cloudStatus');
-            if (cloudBadge) {
-                cloudBadge.textContent = '📦 Cache';
-                cloudBadge.style.background = '#fff3cd';
-                cloudBadge.style.color = '#856404';
-            }
-        }
-    })();
-
-    // ==========================================
-    // 9. RE-INIT DRAG & DROP ZONES
-    //    Re-attach drop handlers after patch load
-    //    with explicit dropEffect = 'copy'
-    // ==========================================
-    setTimeout(function() {
-        var pz = document.getElementById('passportDropZone');
-        if (pz) {
-            pz.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.dataTransfer.dropEffect = 'copy';
-            }, false);
-            pz.addEventListener('drop', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                var files = e.dataTransfer && e.dataTransfer.files;
-                if (files && files.length > 0) {
-                    handlePassportUpload({ target: { files: files, value: '' } });
-                }
-            }, false);
-            console.log('🔧 Passport drop zone re-initialized');
-        }
-        var iz = document.getElementById('idDropZone');
-        if (iz) {
-            iz.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.dataTransfer.dropEffect = 'copy';
-            }, false);
-            iz.addEventListener('drop', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                var files = e.dataTransfer && e.dataTransfer.files;
-                if (files && files.length > 0) {
-                    handleIDUpload({ target: { files: files, value: '' } });
-                }
-            }, false);
-            console.log('🔧 ID drop zone re-initialized');
-        }
-    }, 500);
-
-    // ==========================================
-    // 10. FIX: Passport upload keeps old copies
-    //     Add timestamp to filename to avoid
-    //     overwriting previous passport scans
-    // ==========================================
-    window.handlePassportUpload = async function(event) {
-        var files = event.target.files;
-        if (!files || files.length === 0) return;
-        var file = files[0];
-        var workerId = document.getElementById('WorkerID').value;
-        var supplierCode = document.getElementById('SupplierCode').value;
-        if (!workerId) { alert('⚠️ Please save the worker first!'); return; }
-        var workerCode = supplierCode ? supplierCode + '-' + String(workerId).padStart(4, '0') : 'W' + workerId;
-        var folderName = getWorkerFolder(workerCode);
-        saveWorkerFolder(folderName);
-        var ext = file.name.substring(file.name.lastIndexOf('.'));
-        var ts = new Date().toISOString().replace(/[-:T]/g, '').substring(0, 14);
-        var fileName = workerCode + '-Passport_' + ts + ext;
-        var fileInfo = document.getElementById('passportFileInfo');
-        if (fileInfo) { fileInfo.textContent = '⏳ Uploading passport...'; fileInfo.style.color = '#856404'; }
-        showUploadOverlay('📤 Uploading Passport', fileName);
-        try {
-            var result = await uploadToGoogleDrive(file, folderName, fileName);
-            if (result.success) {
-                document.getElementById('PassportScanPath').value = folderName + '/' + fileName;
-                if (result.fileUrl) { 
-                    document.getElementById('PassportFileURL').value = result.fileUrl;
-                    if (currentWorker) currentWorker.PassportFileURL = result.fileUrl;
-           }
-                if (result.fileUrl) { document.getElementById('PassportFileURL').value = result.fileUrl; }
-                if (fileInfo) { fileInfo.textContent = '✅ Passport scan uploaded'; fileInfo.style.color = '#28a745'; }
-                document.getElementById('openFolderBtn').style.display = 'inline-block';
-                silentSaveWorker();
-                hideUploadOverlay(true, 'Passport saved to ' + folderName);
-                setTimeout(function() { alert('✅ Passport uploaded!\n\n📁 Folder: ' + folderName + '\n📄 File: ' + fileName + '\n\n💾 Old copies are kept.'); }, 1600);
-            } else { throw new Error(result.error || 'Upload failed'); }
-        } catch (error) {
-            if (fileInfo) { fileInfo.textContent = '❌ Upload failed: ' + error.message; fileInfo.style.color = '#dc3545'; }
-            hideUploadOverlay(false, error.message);
-            setTimeout(function() { alert('❌ Passport upload failed!\n\n' + error.message); }, 1600);
-        }
-    };
-
-    // Also fix ID upload to keep old copies
-    window.handleIDUpload = async function(event) {
-        var files = event.target.files;
-        if (!files || files.length === 0) return;
-        var file = files[0];
-        var workerId = document.getElementById('WorkerID').value;
-        var supplierCode = document.getElementById('SupplierCode').value;
-        if (!workerId) { alert('⚠️ Please save the worker first!'); return; }
-        var workerCode = supplierCode ? supplierCode + '-' + String(workerId).padStart(4, '0') : 'W' + workerId;
-        var folderName = getWorkerFolder(workerCode);
-        saveWorkerFolder(folderName);
-        var ext = file.name.substring(file.name.lastIndexOf('.'));
-        var ts = new Date().toISOString().replace(/[-:T]/g, '').substring(0, 14);
-        var fileName = workerCode + '-ID_' + ts + ext;
-        var fileInfo = document.getElementById('idFileInfo');
-        if (fileInfo) { fileInfo.textContent = '⏳ Uploading ID...'; fileInfo.style.color = '#856404'; }
-        showUploadOverlay('📤 Uploading ID Scan', fileName);
-        try {
-            var result = await uploadToGoogleDrive(file, folderName, fileName);
-            if (result.success) {
-                document.getElementById('IDScanPath').value = folderName + '/' + fileName;
-                if (fileInfo) { fileInfo.textContent = '✅ ID scan uploaded'; fileInfo.style.color = '#28a745'; }
-                document.getElementById('openIDFolderBtn').style.display = 'inline-block';
-                silentSaveWorker();
-                hideUploadOverlay(true, 'ID saved to ' + folderName);
-                setTimeout(function() { alert('✅ ID uploaded!\n\n📁 Folder: ' + folderName + '\n📄 File: ' + fileName + '\n\n💾 Old copies are kept.'); }, 1600);
-            } else { throw new Error(result.error || 'Upload failed'); }
-        } catch (error) {
-            if (fileInfo) { fileInfo.textContent = '❌ Upload failed: ' + error.message; fileInfo.style.color = '#dc3545'; }
-            hideUploadOverlay(false, error.message);
-            setTimeout(function() { alert('❌ ID upload failed!\n\n' + error.message); }, 1600);
-        }
-    };
-
-    // ==========================================
-    // 11. FIX: getWorkerFolder - Persistent folder lookup
-    //     Prevents duplicate folders when uploading
-    //     photos or docs after passport upload.
-    //     Uses localStorage registry as fallback.
-    // ==========================================
-
-    // Persistent folder registry: WorkerID -> folderName
-    function _getFolderRegistry() {
-        try { return JSON.parse(localStorage.getItem('mgsdb_worker_folders') || '{}'); } catch(e) { return {}; }
-    }
-    function _setFolderRegistry(workerId, folderName) {
-        if (!workerId || !folderName) return;
-        var reg = _getFolderRegistry();
-        reg[String(workerId)] = folderName;
-        localStorage.setItem('mgsdb_worker_folders', JSON.stringify(reg));
-    }
-
-    // Override saveWorkerFolder to also persist to registry
-    var _origSaveWorkerFolder = window.saveWorkerFolder;
-    window.saveWorkerFolder = function(folderName) {
-        if (_origSaveWorkerFolder) _origSaveWorkerFolder(folderName);
-        var wid = currentWorker ? currentWorker.WorkerID : document.getElementById('WorkerID').value;
-        if (wid && folderName) _setFolderRegistry(wid, folderName);
-    };
-
-    // Override getWorkerFolder with robust multi-source lookup
-    window.getWorkerFolder = function(workerCode) {
-        
-        // 1. currentWorker.WorkerFolder
-        if (currentWorker && currentWorker.WorkerFolder && currentWorker.WorkerFolder.indexOf('=') === -1) {
-            console.log('📁 Folder from currentWorker.WorkerFolder:', currentWorker.WorkerFolder);
-            return currentWorker.WorkerFolder;
-        }
-        
-        // 2. Pending folder (new worker before save)
-        if (_pendingWorkerFolder && _pendingWorkerFolder.indexOf('=') === -1) {
-            console.log('📁 Folder from _pendingWorkerFolder:', _pendingWorkerFolder);
-            return _pendingWorkerFolder;
-        }
-        
-        // 3. currentWorker.PassportScanPath property
-        if (currentWorker && currentWorker.PassportScanPath && currentWorker.PassportScanPath.includes('/')) {
-            var f = currentWorker.PassportScanPath.substring(0, currentWorker.PassportScanPath.lastIndexOf('/'));
-            if (f && f.indexOf('=') === -1) { console.log('📁 Folder from currentWorker.PassportScanPath:', f); return f; }
-        }
-        
-        // 4. currentWorker.IDScanPath property
-        if (currentWorker && currentWorker.IDScanPath && currentWorker.IDScanPath.includes('/')) {
-            var f = currentWorker.IDScanPath.substring(0, currentWorker.IDScanPath.lastIndexOf('/'));
-            if (f && f.indexOf('=') === -1) { console.log('📁 Folder from currentWorker.IDScanPath:', f); return f; }
-        }
-        
-        // 5. DOM PassportScanPath input
-        var pp = document.getElementById('PassportScanPath');
-        if (pp && pp.value && pp.value.includes('/')) {
-            var f = pp.value.substring(0, pp.value.lastIndexOf('/'));
-            if (f && f.indexOf('=') === -1) { console.log('📁 Folder from DOM PassportScanPath:', f); return f; }
-        }
-        
-        // 6. DOM IDScanPath input
-        var ip = document.getElementById('IDScanPath');
-        if (ip && ip.value && ip.value.includes('/')) {
-            var f = ip.value.substring(0, ip.value.lastIndexOf('/'));
-            if (f && f.indexOf('=') === -1) { console.log('📁 Folder from DOM IDScanPath:', f); return f; }
-        }
-        
-        // 7. UploadedWorkerDocs folderPath
-        if (currentWorker && currentWorker.UploadedWorkerDocs) {
-            var docs = currentWorker.UploadedWorkerDocs;
-            if (typeof docs === 'string') { try { docs = JSON.parse(docs); } catch(e) { docs = {}; } }
-            for (var docId in docs) {
-                var uploads = docs[docId];
-                if (Array.isArray(uploads)) {
-                    for (var i = 0; i < uploads.length; i++) {
-                        if (uploads[i].folderPath && uploads[i].folderPath.indexOf('=') === -1) {
-                            console.log('📁 Folder from UploadedWorkerDocs:', uploads[i].folderPath); return uploads[i].folderPath;
-                        }
-                    }
-                } else if (uploads && uploads.folderPath && uploads.folderPath.indexOf('=') === -1) {
-                    console.log('📁 Folder from UploadedWorkerDocs:', uploads.folderPath); return uploads.folderPath;
-                }
-            }
-        }
-        
-        // 8. Persistent localStorage folder registry
-        var wid = currentWorker ? currentWorker.WorkerID : document.getElementById('WorkerID').value;
-        if (wid) {
-            var reg = _getFolderRegistry();
-            var saved = reg[String(wid)];
-            if (saved && saved.indexOf('=') === -1) { console.log('📁 Folder from registry:', saved); return saved; }
-        }
-        
-        // 9. Workers array lookup
-        if (wid) {
-            var w = workers.find(function(w) { return String(w.WorkerID) === String(wid); });
-            if (w) {
-                if (w.WorkerFolder && w.WorkerFolder.indexOf('=') === -1) { console.log('📁 Folder from workers array:', w.WorkerFolder); return w.WorkerFolder; }
-                if (w.PassportScanPath && w.PassportScanPath.includes('/')) {
-                    var f = w.PassportScanPath.substring(0, w.PassportScanPath.lastIndexOf('/'));
-                    if (f && f.indexOf('=') === -1) { console.log('📁 Folder from workers array PSP:', f); return f; }
-                }
-                if (w.IDScanPath && w.IDScanPath.includes('/')) {
-                    var f = w.IDScanPath.substring(0, w.IDScanPath.lastIndexOf('/'));
-                    if (f && f.indexOf('=') === -1) { console.log('📁 Folder from workers array ISP:', f); return f; }
-                }
-            }
-        }
-        
-        // 10. LAST RESORT: Create new folder name
-        console.warn('⚠️ No existing folder found — creating new folder name for', workerCode);
-        var today = new Date().toISOString().split('T')[0];
-        var parts = workerCode.split('-');
-        var supplierCode = parts[0] || '';
-        var wIdPart = parts.slice(1).join('-') || workerCode;
-        var workerName = '';
-        if (currentWorker) { workerName = currentWorker.WFullName || currentWorker.WorkerName || currentWorker.FullName || currentWorker.WorkerFirstName || ''; }
-        var docType = '';
-        if (currentWorker && currentWorker.DocumentType) { docType = currentWorker.DocumentType; }
-        else { var dtf = document.getElementById('DocumentType'); if (dtf) docType = dtf.value || ''; }
-        var suffix = docType === 'passport' ? ' PASS' : (docType === 'id' ? ' ID' : '');
-        var newFolder = '';
-        if (supplierCode && workerName) { newFolder = supplierCode + ' (' + wIdPart + ') ' + workerName + ' ' + today + suffix; }
-        else if (supplierCode) { newFolder = supplierCode + ' (' + wIdPart + ') ' + today + suffix; }
-        else { newFolder = workerCode + ' ' + today + suffix; }
-        if (wid) _setFolderRegistry(wid, newFolder);
-        return newFolder;
-    };
-
-    console.log('🔧 getWorkerFolder override applied — persistent folder registry enabled');
-
-    // ==========================================
-    // PATCH COMPLETE
-    // ==========================================
-    console.log('✅ CORS Fix Patch v2.4 applied!');
-    console.log('☁️ All calls routed through google.script.run.gsrPost()');
-    console.log('🔧 fetch() intercepted | Cloud re-sync | Data types fixed | Drag-drop fixed | Upload keeps copies | Folder registry fix');
-
-})();
-</script>
+<!-- CORS Fix Patch v2.4 removed: no longer needed in Firebase port.
+     All calls now route through Firestore/Storage via CloudDB/CloudStorage
+     defined in the main script above. -->
 <!-- ============================================================ -->
 <!-- PATCH v2.5 - Fix duplicate Drive folders                    -->
 <!-- Paste AFTER the CORS v2.4 patch, BEFORE </body>             -->
@@ -7585,6 +7256,7 @@ function showPhotoPreview(url) {
     frame.onclick = function() { window.open(url, '_blank'); };
   }
 }
+</script>
 <!-- PATCH: Passport validity warning — tab-aware -->
 <script>
 (function(){
@@ -8403,10 +8075,6 @@ setTimeout(function(){
 (function(){
 'use strict';
 
-<script>
-(function(){
-'use strict';
-
 /* ── Admin password check ───────────────────────────── */
 function checkAdminPass() {
     var pass = prompt('🔒 Admin Password Required:');
@@ -8608,11 +8276,12 @@ console.log('✅ Stage transition buttons patch loaded');
     '<div style="margin-bottom:14px;">' +
     '<label style="font-weight:600; font-size:13px; color:#495057; display:block; margin-bottom:6px;">Supplier <span style="color:#dc3545;">*</span></label>' +
     '<select id="wzSupplier" style="width:100%; padding:10px 12px; border:2px solid #dee2e6; border-radius:8px; font-size:14px;" onchange="wzOnSupplierChange()"><option value="">-- Select Supplier --</option></select>' +
+    '<div id="wzSupplierDisplay" style="display:none; background:#f0f4ff; border:2px solid #c7d2fe; border-radius:8px; padding:12px 14px; font-size:14px; color:#334155;"><span style="font-size:11px; font-weight:700; color:#667eea; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:3px;">&#127970; Supplier (pre-selected)</span><span id="wzSupplierDisplayText" style="font-weight:700; font-size:15px; color:#1e293b;"></span></div>' +
     '<div id="wzErrSup" style="color:#dc3545; font-size:12px; margin-top:4px; display:none;">&#9888; Please select a supplier</div>' +
     '</div>' +
     '<div>' +
     '<label style="font-weight:600; font-size:13px; color:#495057; display:block; margin-bottom:6px;">Worker Source <span style="color:#dc3545;">*</span></label>' +
-    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">' +
+    '<div id="wzSourceGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">' +
     '<div id="wzCardLocal" onclick="wzSelectSource(\'local\')" style="border:2px solid #dee2e6; border-radius:10px; padding:14px; text-align:center; cursor:pointer; transition:all 0.2s;"><div style="font-size:26px;">&#127968;</div><div style="font-weight:700; font-size:13px; margin-top:5px;">Local</div><div style="font-size:11px; color:#888; margin-top:2px;">Already in Lebanon</div></div>' +
     '<div id="wzCardAbroad" onclick="wzSelectSource(\'abroad\')" style="border:2px solid #dee2e6; border-radius:10px; padding:14px; text-align:center; cursor:pointer; transition:all 0.2s;"><div style="font-size:26px;">&#9992;&#65039;</div><div style="font-weight:700; font-size:13px; margin-top:5px;">From Abroad</div><div style="font-size:11px; color:#888; margin-top:2px;">Coming from home country</div></div>' +
     '</div>' +
@@ -8794,8 +8463,10 @@ console.log('✅ Stage transition buttons patch loaded');
         wz.photoFile=null; wz.photoDataUrl='';
         wz.dupChecked=false; wz.dupPassed=false; wz.nextId=null;
 
-        // Supplier dropdown
+        // Supplier dropdown vs static display (shown read-only when supplier is pre-selected)
         var sel = document.getElementById('wzSupplier');
+        var disp = document.getElementById('wzSupplierDisplay');
+        var dispText = document.getElementById('wzSupplierDisplayText');
         sel.innerHTML = '<option value="">-- Select Supplier --</option>';
         (suppliers||[]).forEach(function(s) {
             var o = document.createElement('option');
@@ -8803,7 +8474,26 @@ console.log('✅ Stage transition buttons patch loaded');
             o.textContent = (s.SupplierCODE||s.SupplierCode||s.SupplierID) + ' \u2014 ' + s.SupplierBusinessName;
             sel.appendChild(o);
         });
-        if (preSupId) { sel.value = preSupId; wzOnSupplierChange(); }
+        if (preSupId) {
+            // Supplier pre-selected from main page: show read-only display, hide dropdown
+            sel.value = preSupId;
+            var preSup = (suppliers||[]).find(function(s){return String(s.SupplierID)===String(preSupId);});
+            if (preSup && disp && dispText) {
+                var code = preSup.SupplierCODE||preSup.SupplierCode||preSup.SupplierID;
+                dispText.textContent = code + ' \u2014 ' + (preSup.SupplierBusinessName||'');
+                disp.style.display = 'block';
+                sel.style.display = 'none';
+            } else {
+                // Fallback: supplier not found in list — revert to dropdown mode
+                if (disp) disp.style.display = 'none';
+                sel.style.display = '';
+            }
+            wzOnSupplierChange();
+        } else {
+            // No pre-selection: show dropdown, hide display
+            if (disp) disp.style.display = 'none';
+            sel.style.display = '';
+        }
 
         // Clear inputs
         ['wzDocNum','wzFirstEN','wzMiddleEN','wzLastEN','wzFirstAR','wzFatherAR','wzFamilyAR',
@@ -8835,6 +8525,17 @@ console.log('✅ Stage transition buttons patch loaded');
             var el = document.getElementById(id);
             if (el) { el.style.borderColor='#dee2e6'; el.style.background=''; }
         });
+        // Ensure Local/ID cards + their grids are restored to default visibility.
+        // (wzOnSupplierChange will re-hide them if the selected supplier disallows them.)
+        var _locCard = document.getElementById('wzCardLocal');
+        var _srcGrid = document.getElementById('wzSourceGrid');
+        var _idCardReset = document.getElementById('wzCardID');
+        if (_locCard) _locCard.style.display = '';
+        if (_srcGrid) _srcGrid.style.gridTemplateColumns = '1fr 1fr';
+        if (_idCardReset) {
+            _idCardReset.style.display = '';
+            if (_idCardReset.parentElement) _idCardReset.parentElement.style.gridTemplateColumns = '1fr 1fr';
+        }
         // Reset errors
         ['wzErrSup','wzErrSrc','wzErrDocType','wzErrDocNum','wzErrNat','wzErrGen','wzErrFN'].forEach(function(id) {
             var el = document.getElementById(id); if (el) el.style.display = 'none';
@@ -8975,6 +8676,168 @@ console.log('✅ Stage transition buttons patch loaded');
         } else {
             wz.supplierCode=''; wz.supplierName=''; wz.allowedNats=[];
         }
+
+        // ── AllowLocal enforcement (explicit opt-in) ────────────
+        // Local is hidden unless the supplier record explicitly has AllowLocal = true.
+        // Accepts variants: true, "true", 1, "1", "yes", "Yes", "YES" and checks common field-name casings.
+        var _allowLocalRaw = null;
+        if (sup) {
+            _allowLocalRaw = (sup.AllowLocal !== undefined) ? sup.AllowLocal
+                           : (sup.allowLocal !== undefined) ? sup.allowLocal
+                           : (sup.Allow_Local !== undefined) ? sup.Allow_Local
+                           : (sup.allow_local !== undefined) ? sup.allow_local
+                           : null;
+        }
+        var allowLocal = (_allowLocalRaw === true || _allowLocalRaw === 'true' || _allowLocalRaw === 'TRUE'
+                       || _allowLocalRaw === 1    || _allowLocalRaw === '1'
+                       || _allowLocalRaw === 'yes' || _allowLocalRaw === 'Yes' || _allowLocalRaw === 'YES');
+        console.log('[AllowLocal check] supplierId:', sup && sup.SupplierID, 'raw:', _allowLocalRaw, 'effective allowLocal:', allowLocal);
+
+        // DISABLE (gray out + unclickable) the Local card when not allowed — more robust than hiding.
+        // Default to allowed when no supplier is selected yet (so both cards are usable initially).
+        if (!sup) allowLocal = true;
+        var _locCard2 = document.getElementById('wzCardLocal');
+        var _srcGrid2 = document.getElementById('wzSourceGrid');
+        if (_locCard2) {
+            _locCard2.style.display       = '';
+            _locCard2.style.opacity       = allowLocal ? ''        : '0.4';
+            _locCard2.style.pointerEvents = allowLocal ? ''        : 'none';
+            _locCard2.style.cursor        = allowLocal ? 'pointer' : 'not-allowed';
+            _locCard2.title               = allowLocal ? ''        : 'This supplier does not allow Local workers';
+            console.log('[AllowLocal apply] locCard disabled:', !allowLocal);
+        }
+        if (_srcGrid2) _srcGrid2.style.gridTemplateColumns = '1fr 1fr';
+        if (!allowLocal && wz && wz.source === 'local') {
+            wz.source = '';
+            if (_locCard2) { _locCard2.style.borderColor = '#dee2e6'; _locCard2.style.background = ''; }
+        }
+        var locCard = document.getElementById('wzCardLocal');
+        var abrCard = document.getElementById('wzCardAbroad');
+        var srcGrid = document.getElementById('wzSourceGrid');
+        if (locCard && srcGrid) {
+            if (allowLocal) {
+                locCard.style.display = '';
+                srcGrid.style.gridTemplateColumns = '1fr 1fr';
+            } else {
+                locCard.style.display = 'none';
+                srcGrid.style.gridTemplateColumns = '1fr';
+                if (wz.source === 'local') {
+                    wz.source = '';
+                    if (abrCard) { abrCard.style.borderColor = '#dee2e6'; abrCard.style.background = ''; }
+                }
+            }
+        }
+
+        // ── AllowNationalID enforcement (explicit opt-in) ───────
+        // National ID card is hidden unless supplier record has AllowNationalID = true.
+        var _allowIDRaw = null;
+        if (sup) {
+            _allowIDRaw = (sup.AllowNationalID !== undefined) ? sup.AllowNationalID
+                        : (sup.allowNationalID !== undefined) ? sup.allowNationalID
+                        : (sup.AllowID         !== undefined) ? sup.AllowID
+                        : (sup.allowID         !== undefined) ? sup.allowID
+                        : null;
+        }
+        var allowID = (_allowIDRaw === true || _allowIDRaw === 'true' || _allowIDRaw === 'TRUE'
+                    || _allowIDRaw === 1    || _allowIDRaw === '1'
+                    || _allowIDRaw === 'yes' || _allowIDRaw === 'Yes' || _allowIDRaw === 'YES');
+        console.log('[AllowNationalID check] supplierId:', sup && sup.SupplierID, 'raw:', _allowIDRaw, 'effective allowID:', allowID);
+
+        var _idCard = document.getElementById('wzCardID');
+        var _passCard = document.getElementById('wzCardPass');
+        if (_idCard) {
+            _idCard.style.display = allowID ? '' : 'none';
+            if (_idCard.parentElement) {
+                _idCard.parentElement.style.gridTemplateColumns = allowID ? '1fr 1fr' : '1fr';
+            }
+        }
+        // If user had already selected ID type but it's no longer allowed, clear it
+        if (!allowID && wz.docType === 'id') {
+            wz.docType = '';
+            if (_passCard) { _passCard.style.borderColor = '#dee2e6'; _passCard.style.background = ''; }
+        }
+
+        // ── AllowNationalID enforcement (explicit opt-in, disable-not-hide) ──
+        var _allowIDRaw = null;
+        if (sup) {
+            _allowIDRaw = (sup.AllowNationalID !== undefined) ? sup.AllowNationalID
+                        : (sup.allowNationalID !== undefined) ? sup.allowNationalID
+                        : (sup.AllowID         !== undefined) ? sup.AllowID
+                        : null;
+        }
+        var allowID = !sup ? true : (_allowIDRaw === true || _allowIDRaw === 'true' || _allowIDRaw === 'TRUE'
+                     || _allowIDRaw === 1    || _allowIDRaw === '1'
+                     || _allowIDRaw === 'yes' || _allowIDRaw === 'Yes' || _allowIDRaw === 'YES');
+        console.log('[AllowNationalID check] supplierId:', sup && sup.SupplierID, 'raw:', _allowIDRaw, 'effective allowID:', allowID);
+
+        var _idCard2 = document.getElementById('wzCardID');
+        if (_idCard2) {
+            _idCard2.style.display       = '';
+            _idCard2.style.opacity       = allowID ? ''        : '0.4';
+            _idCard2.style.pointerEvents = allowID ? ''        : 'none';
+            _idCard2.style.cursor        = allowID ? 'pointer' : 'not-allowed';
+            _idCard2.title               = allowID ? ''        : 'This supplier does not allow National ID workers';
+            console.log('[AllowNationalID apply] idCard disabled:', !allowID);
+        }
+        if (!allowID && wz && wz.docType === 'id') {
+            wz.docType = '';
+            if (_idCard2) { _idCard2.style.borderColor = '#dee2e6'; _idCard2.style.background = ''; }
+        }
+
+        // ── AllowNationalID enforcement (explicit opt-in, disable-not-hide) ──
+        var _allowIDRaw = null;
+        if (sup) {
+            _allowIDRaw = (sup.AllowNationalID !== undefined) ? sup.AllowNationalID
+                        : (sup.allowNationalID !== undefined) ? sup.allowNationalID
+                        : (sup.AllowID         !== undefined) ? sup.AllowID
+                        : null;
+        }
+        var allowID = !sup ? true : (_allowIDRaw === true || _allowIDRaw === 'true' || _allowIDRaw === 'TRUE'
+                     || _allowIDRaw === 1    || _allowIDRaw === '1'
+                     || _allowIDRaw === 'yes' || _allowIDRaw === 'Yes' || _allowIDRaw === 'YES');
+        console.log('[AllowNationalID check] supplierId:', sup && sup.SupplierID, 'raw:', _allowIDRaw, 'effective allowID:', allowID);
+
+        var _idCard2 = document.getElementById('wzCardID');
+        if (_idCard2) {
+            _idCard2.style.display       = '';
+            _idCard2.style.opacity       = allowID ? ''        : '0.4';
+            _idCard2.style.pointerEvents = allowID ? ''        : 'none';
+            _idCard2.style.cursor        = allowID ? 'pointer' : 'not-allowed';
+            _idCard2.title               = allowID ? ''        : 'This supplier does not allow National ID workers';
+            console.log('[AllowNationalID apply] idCard disabled:', !allowID);
+        }
+        if (!allowID && wz && wz.docType === 'id') {
+            wz.docType = '';
+            if (_idCard2) { _idCard2.style.borderColor = '#dee2e6'; _idCard2.style.background = ''; }
+        }
+    
+    // ── AllowNationalID enforcement (explicit opt-in, disable-not-hide) ──
+        var _allowIDRaw = null;
+        if (sup) {
+            _allowIDRaw = (sup.AllowNationalID !== undefined) ? sup.AllowNationalID
+                        : (sup.allowNationalID !== undefined) ? sup.allowNationalID
+                        : (sup.AllowID         !== undefined) ? sup.AllowID
+                        : null;
+        }
+        var allowID = !sup ? true : (_allowIDRaw === true || _allowIDRaw === 'true' || _allowIDRaw === 'TRUE'
+                     || _allowIDRaw === 1    || _allowIDRaw === '1'
+                     || _allowIDRaw === 'yes' || _allowIDRaw === 'Yes' || _allowIDRaw === 'YES');
+        console.log('[AllowNationalID check] supplierId:', sup && sup.SupplierID, 'raw:', _allowIDRaw, 'effective allowID:', allowID);
+
+        var _idCard2 = document.getElementById('wzCardID');
+        if (_idCard2) {
+            _idCard2.style.display       = '';
+            _idCard2.style.opacity       = allowID ? ''        : '0.4';
+            _idCard2.style.pointerEvents = allowID ? ''        : 'none';
+            _idCard2.style.cursor        = allowID ? 'pointer' : 'not-allowed';
+            _idCard2.title               = allowID ? ''        : 'This supplier does not allow National ID workers';
+            console.log('[AllowNationalID apply] idCard disabled:', !allowID);
+        }
+        if (!allowID && wz && wz.docType === 'id') {
+            wz.docType = '';
+            if (_idCard2) { _idCard2.style.borderColor = '#dee2e6'; _idCard2.style.background = ''; }
+        }
+
         wzBuildNatDropdown();
         wzUpdateBadge();
     };
@@ -9400,6 +9263,893 @@ console.log('✅ Stage transition buttons patch loaded');
     window.closeWorkerNamesModal=function(){};
     var spinStyle=document.createElement('style');spinStyle.textContent='@keyframes wzSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';document.head.appendChild(spinStyle);
     console.log('ADD WORKER WIZARD v1+ loaded OK');
+})();
+</script>
+<!-- ============================================================ -->
+<!-- Supplier rules guard: blocks disallowed Local / National ID  -->
+<!-- at the click-handler level, regardless of CSS styling        -->
+<!-- ============================================================ -->
+<script>
+(function(){
+    'use strict';
+
+    function isTrue(v) {
+        return v===true||v==='true'||v==='TRUE'||v===1||v==='1'||v==='yes'||v==='Yes'||v==='YES';
+    }
+    function getSupList() {
+        if (typeof suppliers !== 'undefined' && suppliers) return suppliers;
+        if (window.suppliers) return window.suppliers;
+        return [];
+    }
+    function getSelectedSup() {
+        var el = document.getElementById('wzSupplier');
+        var id = el ? el.value : '';
+        if (!id) return null;
+        return getSupList().find(function(s){ return String(s.SupplierID) === String(id); }) || null;
+    }
+    function supAllowLocal(sup) {
+        if (!sup) return true;
+        var v = (sup.AllowLocal !== undefined) ? sup.AllowLocal : sup.allowLocal;
+        return isTrue(v);
+    }
+    function supAllowID(sup) {
+        if (!sup) return true;
+        var v = (sup.AllowNationalID !== undefined) ? sup.AllowNationalID
+              : (sup.allowNationalID !== undefined) ? sup.allowNationalID
+              : sup.AllowID;
+        return isTrue(v);
+    }
+
+    function install() {
+        if (!window.wzSelectSource || !window.wzSelectDocType || !window.wzOnSupplierChange) {
+            return setTimeout(install, 150);
+        }
+
+        // Guard: block Local click when supplier disallows
+        var _origSource = window.wzSelectSource;
+        window.wzSelectSource = function(src){
+            if (src === 'local' && !supAllowLocal(getSelectedSup())) {
+                alert('⚠️ This supplier does not allow Local workers. Please choose "From Abroad".');
+                return;
+            }
+            return _origSource.apply(this, arguments);
+        };
+
+        // Guard: block National ID click when supplier disallows
+        var _origDocType = window.wzSelectDocType;
+        window.wzSelectDocType = function(type){
+            if (type === 'id' && !supAllowID(getSelectedSup())) {
+                alert('⚠️ This supplier does not allow National ID workers. Please choose "Passport".');
+                return;
+            }
+            return _origDocType.apply(this, arguments);
+        };
+
+        // Wrap wzOnSupplierChange: apply disabled styling AFTER the original runs,
+        // using setTimeout so we're last in queue (nothing else can override us)
+        var _origSupChange = window.wzOnSupplierChange;
+        window.wzOnSupplierChange = function(){
+            var r = _origSupChange.apply(this, arguments);
+            setTimeout(function(){
+                var sup = getSelectedSup();
+                var locOK = supAllowLocal(sup);
+                var idOK  = supAllowID(sup);
+                var loc = document.getElementById('wzCardLocal');
+                var idc = document.getElementById('wzCardID');
+                if (loc) {
+                    loc.style.opacity = locOK ? '' : '0.4';
+                    loc.style.cursor  = locOK ? 'pointer' : 'not-allowed';
+                    loc.style.filter  = locOK ? '' : 'grayscale(1)';
+                    loc.title         = locOK ? '' : 'This supplier does not allow Local workers';
+                }
+                if (idc) {
+                    idc.style.opacity = idOK ? '' : '0.4';
+                    idc.style.cursor  = idOK ? 'pointer' : 'not-allowed';
+                    idc.style.filter  = idOK ? '' : 'grayscale(1)';
+                    idc.title         = idOK ? '' : 'This supplier does not allow National ID workers';
+                }
+                console.log('[Supplier rules guard]', {
+                    supplierId: sup && sup.SupplierID,
+                    allowLocal: locOK, allowID: idOK
+                });
+            }, 0);
+            return r;
+        };
+
+        console.log('🔒 Supplier rules guard installed (Local, National ID)');
+    }
+
+    if (document.readyState === 'complete') setTimeout(install, 300);
+    else window.addEventListener('load', function(){ setTimeout(install, 300); });
+})();
+</script>
+<!-- ============================================================ -->
+<!-- Supplier-driven Required Docs + Upload Files (final) -->
+<script>
+(function(){
+    'use strict';
+
+    function getSupplierFor(worker) {
+        if (!worker || typeof suppliers === 'undefined' || !suppliers) return null;
+        return suppliers.find(function(s){ return String(s.SupplierID) === String(worker.SupplierID); }) || null;
+    }
+
+    function getSupplierRequiredDocs(worker) {
+        var sup = getSupplierFor(worker);
+        if (!sup) return [];
+        var r = sup.RequiredWorkerDocs;
+        if (typeof r === 'string') { try { r = JSON.parse(r); } catch(e) { r = []; } }
+        if (!Array.isArray(r)) return [];
+        return r.map(function(x){ return parseInt(x); }).filter(function(x){ return !isNaN(x); });
+    }
+
+    function sanitizePathSegment(s) {
+        return String(s||'').replace(/[\/\\\x00-\x1f]/g, '').trim() || 'unknown';
+    }
+    function sanitizeFilenameSegment(s) {
+        return String(s||'').replace(/[\/\\?%*:|"<>\x00-\x1f]/g, '').replace(/\s+/g, ' ').trim();
+    }
+    function workerFolderKeyFor(worker) {
+        // Use the worker's existing WorkerFolder (set when passport/photo uploaded).
+        // Falls back to a reconstructed name only if WorkerFolder is missing.
+        if (worker && worker.WorkerFolder) return worker.WorkerFolder;
+        var sup = getSupplierFor(worker);
+        var code = sanitizePathSegment((sup && (sup.SupplierCODE || sup.SupplierCode)) || 'WRK').toUpperCase();
+        var wid = String(worker.WorkerID || '0').padStart(4, '0');
+        var fn = worker.WorkerFirstName  || worker.DocFirstName  || worker.FirstNameEN  || '';
+        var mn = worker.WorkerMiddleName || worker.DocMiddleName || worker.MiddleNameEN || '';
+        var ln = worker.WorkerLastName   || worker.DocLastName   || worker.LastNameEN   || '';
+        var full = (worker.WFullName || (fn + ' ' + mn + ' ' + ln)).replace(/\s+/g, ' ').trim() || 'UNNAMED';
+        // Map DocumentType to suffix
+        var dt = String(worker.DocumentType || '').toLowerCase().trim();
+        var suffix = (dt === 'id' || dt === 'nationalid' || dt === 'national_id') ? 'ID' : (dt === 'visa' ? 'VISA' : 'PASS');
+        // Use DateAdded (never changes after creation) — fall back to today only if missing
+        var dateStr = worker.DateAdded || new Date().toISOString().split('T')[0];
+        // Final format: TTHO (0001) WILI OBA MEKONNEN 2026-04-23 PASS
+        var computed = code + ' (' + wid + ') ' + sanitizePathSegment(full).toUpperCase() + ' ' + dateStr + ' ' + suffix;
+        return computed;
+    }
+    function getFileExt(fileName) {
+        var m = /\.([a-z0-9]+)$/i.exec(fileName || '');
+        return m ? m[1].toLowerCase() : 'bin';
+    }
+    function getBaseName(fileName) {
+        var n = String(fileName || '').replace(/\.[^.]+$/, '');
+        return sanitizeFilenameSegment(n) || 'file';
+    }
+
+    // ─────── Required Docs: read-only, supplier-driven ───────
+    async function renderRequiredDocs() {
+        var container = document.getElementById('workerDocsList');
+        if (!container) return;
+        if (typeof currentWorker === 'undefined' || !currentWorker) {
+            container.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">\u26A0\uFE0F Please select a worker first!</p>';
+            return;
+        }
+        var sup = getSupplierFor(currentWorker);
+        if (!sup) {
+            container.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">\u26A0\uFE0F Worker has no linked supplier.</p>';
+            return;
+        }
+        var allDocs = [];
+        try {
+            var result = await CloudDB.loadSheet('Worker_Documents');
+            if (result && result.length > 0) { allDocs = result; localStorage.setItem('mgsdb_worker_documents', JSON.stringify(allDocs)); }
+        } catch(e) {}
+        if (allDocs.length === 0) allDocs = JSON.parse(localStorage.getItem('mgsdb_worker_documents') || '[]');
+
+        var requiredIds = getSupplierRequiredDocs(currentWorker);
+        var supplierName = sup.SupplierBusinessName || sup.SupplierCODE || sup.SupplierID;
+
+        // Hide the old Save button (it belongs to the checkbox version)
+        document.querySelectorAll('button[onclick*="saveWorkerRequiredDocs"]').forEach(function(btn){ btn.style.display = 'none'; });
+
+        if (requiredIds.length === 0) {
+            container.style.cssText = '';
+            container.innerHTML =
+                '<div style="padding:20px;background:#fff3cd;border:1px solid #ffe69c;border-radius:8px;color:#856404;">' +
+                    '<strong>No required documents set for this supplier.</strong><br>' +
+                    '<span style="font-size:13px;">Supplier: ' + supplierName + '</span><br><br>' +
+                    '<span style="font-size:13px;">Go to Supplier Manager \u2192 ' + supplierName + ' \u2192 Required Docs tab to set them.</span>' +
+                '</div>';
+            return;
+        }
+
+        container.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:8px;';
+        container.innerHTML = '';
+        var header = document.createElement('div');
+        header.style.cssText = 'grid-column:1/-1;padding:10px 14px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;color:#334155;font-size:13px;';
+        header.innerHTML =
+            '<span style="font-weight:700;color:#667eea;">\uD83D\uDCCB Documents required by supplier:</span> ' +
+            '<strong>' + supplierName + '</strong> ' +
+            '<span style="color:#888;font-size:12px;">(' + requiredIds.length + ' document' + (requiredIds.length!==1?'s':'') + ', read-only)</span>';
+        container.appendChild(header);
+
+        requiredIds.forEach(function(docId){
+            var doc = allDocs.find(function(d){ return parseInt(d.DocumentID) === docId; });
+            if (!doc) return;
+            var div = document.createElement('div');
+            div.style.cssText = 'background:white;border:2px solid #28a745;border-radius:8px;padding:10px;';
+            var icon = doc.Icon || '\uD83D\uDCC4';
+            var name = doc.DocumentNameEN || doc.DocumentName || doc.Name || ('Doc #' + docId);
+            var desc = doc.Description || '';
+            div.innerHTML =
+                '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">' +
+                    '<span style="font-size:20px;">' + icon + '</span>' +
+                    '<span style="background:#d4edda;color:#155724;font-size:10px;font-weight:700;padding:3px 7px;border-radius:12px;">REQUIRED</span>' +
+                '</div>' +
+                '<div style="font-weight:700;font-size:13px;color:#212529;line-height:1.3;">' + name + '</div>' +
+                (desc ? '<div style="font-size:11px;color:#888;margin-top:4px;line-height:1.3;">' + desc + '</div>' : '');
+            container.appendChild(div);
+        });
+    }
+
+    // ─────── Upload Files: drag-and-drop, multi-file, supplier-driven ───────
+    function renderUploadFiles() {
+        var container = document.getElementById('workerUploadList');
+        if (!container) return;
+        if (typeof currentWorker === 'undefined' || !currentWorker) {
+            container.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">\u26A0\uFE0F Please select a worker first!</p>';
+            return;
+        }
+        var sup = getSupplierFor(currentWorker);
+        if (!sup) {
+            container.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">\u26A0\uFE0F Worker has no linked supplier.</p>';
+            return;
+        }
+        var required = getSupplierRequiredDocs(currentWorker);
+        var allDocs = JSON.parse(localStorage.getItem('mgsdb_worker_documents') || '[]');
+        var uploaded = currentWorker.UploadedWorkerDocs || {};
+        var supplierName = sup.SupplierBusinessName || sup.SupplierCODE || sup.SupplierID;
+
+        container.innerHTML = '';
+
+        if (required.length === 0) {
+            container.innerHTML =
+                '<div style="padding:20px;background:#fff3cd;border:1px solid #ffe69c;border-radius:8px;color:#856404;">' +
+                    '<strong>No required documents set for this supplier.</strong><br>' +
+                    '<span style="font-size:13px;">Supplier: ' + supplierName + '</span>' +
+                '</div>';
+            return;
+        }
+
+        var header = document.createElement('div');
+        header.style.cssText = 'padding:10px 14px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;color:#334155;font-size:13px;margin-bottom:12px;';
+        header.innerHTML =
+            '<span style="font-weight:700;color:#667eea;">\uD83D\uDCE4 Upload files for:</span> ' +
+            '<strong>' + supplierName + '</strong> ' +
+            '<span style="color:#888;font-size:12px;">(' + required.length + ' document' + (required.length!==1?'s':'') + ' required)</span>';
+        container.appendChild(header);
+
+        required.forEach(function(docId){
+            var doc = allDocs.find(function(d){ return parseInt(d.DocumentID) === docId; });
+            if (!doc) return;
+            var uploadedData = uploaded[docId];
+            var uploadedFiles = Array.isArray(uploadedData) ? uploadedData :
+                                (uploadedData && typeof uploadedData === 'object' ? [uploadedData] : []);
+            var div = document.createElement('div');
+            div.id = 'docSlot-' + docId;
+            div.style.cssText = 'background:white;border:2px solid #e9ecef;border-radius:8px;padding:15px;margin-bottom:12px;';
+            container.appendChild(div);
+            renderDocSlot(div, doc, uploadedFiles);
+        });
+    }
+
+    function renderDocSlot(div, doc, uploadedFiles) {
+        var docId = parseInt(doc.DocumentID);
+        var icon = doc.Icon || '\uD83D\uDCC4';
+        var name = doc.DocumentNameEN || doc.DocumentName || doc.Name || ('Doc #' + docId);
+        var desc = doc.Description || '';
+        var fileCount = uploadedFiles.length;
+
+        var filesHTML = '';
+        if (fileCount > 0) {
+            filesHTML = '<div style="background:#d4edda;padding:10px;border-radius:6px;margin-top:10px;">' +
+                '<div style="color:#155724;font-weight:600;margin-bottom:4px;font-size:12px;">\u2705 ' + fileCount + ' file' + (fileCount!==1?'s':'') + ' uploaded</div>';
+            uploadedFiles.forEach(function(fileData, idx){
+                var fname = (fileData && fileData.fileName) || ('File ' + (idx+1));
+                var furl  = (fileData && (fileData.fileUrl || fileData.url)) || '';
+                filesHTML += '<div style="margin-top:4px;padding:6px 10px;background:white;border-radius:4px;display:flex;justify-content:space-between;align-items:center;font-size:12px;">' +
+                    '<span style="color:#334155;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">\uD83D\uDCC4 ' + fname + '</span>' +
+                    (furl ? '<a href="' + furl + '" target="_blank" style="color:#667eea;text-decoration:none;font-weight:600;margin-left:8px;">View</a>' : '') +
+                '</div>';
+            });
+            filesHTML += '</div>';
+        }
+
+        div.innerHTML =
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+                '<h4 style="margin:0;font-size:15px;color:#212529;">' + icon + ' ' + name + '</h4>' +
+                '<span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:3px 7px;border-radius:12px;">REQUIRED</span>' +
+            '</div>' +
+            (desc ? '<div style="font-size:12px;color:#888;margin-bottom:10px;">' + desc + '</div>' : '') +
+            '<div class="doc-dropzone" style="border:2px dashed #c7d2fe;border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:#faf5ff;transition:all 0.2s;">' +
+                '<div style="font-size:28px;margin-bottom:4px;">\uD83D\uDCC2</div>' +
+                '<div style="font-size:13px;font-weight:600;color:#7c3aed;">Drag &amp; Drop files here or click to browse</div>' +
+                '<div style="font-size:11px;color:#999;margin-top:2px;">Multiple files supported \u2014 JPG, PNG, PDF (max 10MB each)</div>' +
+            '</div>' +
+            '<div class="doc-progress" style="display:none;margin-top:10px;">' +
+                '<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:#7c3aed;margin-bottom:4px;">' +
+                    '<span class="doc-progress-text">Uploading...</span><span class="doc-progress-pct">0%</span>' +
+                '</div>' +
+                '<div style="background:#e9ecef;border-radius:4px;height:8px;overflow:hidden;">' +
+                    '<div class="doc-progress-fill" style="height:100%;border-radius:4px;background:linear-gradient(90deg,#667eea,#764ba2);width:0%;transition:width 0.2s;"></div>' +
+                '</div>' +
+            '</div>' +
+            filesHTML;
+
+        var dz = div.querySelector('.doc-dropzone');
+        dz.addEventListener('click', function(){
+            var input = document.createElement('input');
+            input.type = 'file'; input.multiple = true; input.accept = 'image/*,.pdf';
+            input.onchange = function(e){ handleDocFiles(docId, e.target.files); };
+            input.click();
+        });
+        dz.addEventListener('dragover',  function(e){ e.preventDefault(); dz.style.background='#ede9fe'; dz.style.borderColor='#7c3aed'; });
+        dz.addEventListener('dragleave', function(){ dz.style.background='#faf5ff'; dz.style.borderColor='#c7d2fe'; });
+        dz.addEventListener('drop',      function(e){
+            e.preventDefault(); dz.style.background='#faf5ff'; dz.style.borderColor='#c7d2fe';
+            if (e.dataTransfer && e.dataTransfer.files) handleDocFiles(docId, e.dataTransfer.files);
+        });
+    }
+
+    async function handleDocFiles(docId, fileList) {
+        if (!currentWorker) { alert('\u26A0\uFE0F Please select a worker first.'); return; }
+        if (!fileList || !fileList.length) return;
+
+        var slot = document.getElementById('docSlot-' + docId);
+        if (!slot) return;
+        var progBox  = slot.querySelector('.doc-progress');
+        var progText = slot.querySelector('.doc-progress-text');
+        var progPct  = slot.querySelector('.doc-progress-pct');
+        var progFill = slot.querySelector('.doc-progress-fill');
+        var files = Array.prototype.slice.call(fileList);
+
+        for (var i = 0; i < files.length; i++) {
+            if (files[i].size > 10 * 1024 * 1024) {
+                alert('\u274C "' + files[i].name + '" exceeds 10MB. Skipping.');
+                files.splice(i, 1); i--;
+            }
+        }
+        if (!files.length) return;
+
+        progBox.style.display = 'block';
+        if (!currentWorker.UploadedWorkerDocs || typeof currentWorker.UploadedWorkerDocs !== 'object') currentWorker.UploadedWorkerDocs = {};
+        var existing = currentWorker.UploadedWorkerDocs[docId];
+        if (!Array.isArray(existing)) existing = (existing && typeof existing === 'object') ? [existing] : [];
+
+        var folder = workerFolderKeyFor(currentWorker);
+        // Short prefix for file names (code-id), keep full folder name for the folder itself
+        var sup = getSupplierFor(currentWorker);
+        var supCode = (sup && (sup.SupplierCODE || sup.SupplierCode)) || 'WRK';
+        var wid = String(currentWorker.WorkerID || '0').padStart(4, '0');
+        var filePrefix = supCode + '-' + wid;
+
+        function countExistingByBase(baseName) {
+            var lower = baseName.toLowerCase(); var n = 0;
+            existing.forEach(function(f){
+                var dn = ((f && f.displayName) || '').toLowerCase();
+                if (dn === lower || dn.indexOf(lower + ' ') === 0) n++;
+            });
+            return n;
+        }
+
+        var totalBytes = files.reduce(function(a, f){ return a + f.size; }, 0);
+        var doneBytes = 0;
+
+        // Look up the required document's name for filename
+        var allDocsLookup = JSON.parse(localStorage.getItem('mgsdb_worker_documents') || '[]');
+        var docRecord = allDocsLookup.find(function(d){ return parseInt(d.DocumentID) === docId; });
+        var docName = (docRecord && (docRecord.DocumentNameEN || docRecord.DocumentName || docRecord.Name)) || ('Doc' + docId);
+        // Keep spaces in the name; only strip filesystem-illegal chars
+        var safeDocName = sanitizeFilenameSegment(docName);
+
+        for (var i = 0; i < files.length; i++) {
+            var file = files[i];
+            var ext = getFileExt(file.name);
+            var versionNum = countExistingByBase(docName) + 1;
+            var displayName = (versionNum === 1) ? docName : (docName + ' ' + versionNum);
+            // Filename pattern: {DocName}[N]-{SupCode-WorkerID}.{ext}
+            // First file:  "Police clearance-TTHO-0001.jpg"
+            // Second file: "Police clearance2-TTHO-0001.jpg"
+            var versionSuffix = (versionNum === 1) ? '' : String(versionNum);
+            var storageFileName = safeDocName + versionSuffix + '-' + filePrefix + '.' + ext;
+            var storagePath = 'workers/' + folder + '/' + storageFileName;
+
+            progText.textContent = 'Uploading ' + (i+1) + ' of ' + files.length + ': ' + displayName;
+
+            try {
+                var r = await CloudStorage.uploadFile(storagePath, file);
+                if (!r || !r.success) throw new Error((r && r.error) || 'Upload failed');
+                existing.push({
+                    fileName: displayName + '.' + ext,
+                    displayName: displayName,
+                    baseName: docName,
+                    version: versionNum,
+                    fileUrl: r.url || r.fileUrl || '',
+                    url: r.url || r.fileUrl || '',
+                    path: r.path || storagePath,
+                    docId: docId,
+                    uploadedAt: new Date().toISOString()
+                });
+            } catch (err) {
+                console.error('Upload failed for', file.name, err);
+                alert('\u274C Upload failed for "' + file.name + '": ' + (err.message || err));
+            }
+
+            doneBytes += file.size;
+            var pct = totalBytes > 0 ? Math.round(doneBytes / totalBytes * 100) : 100;
+            progFill.style.width = pct + '%';
+            progPct.textContent = pct + '%';
+        }
+
+        currentWorker.UploadedWorkerDocs[docId] = existing;
+        if (typeof workers !== 'undefined' && workers) {
+            var wIdx = workers.findIndex(function(w){ return String(w.WorkerID) === String(currentWorker.WorkerID); });
+            if (wIdx >= 0) workers[wIdx].UploadedWorkerDocs = JSON.parse(JSON.stringify(currentWorker.UploadedWorkerDocs));
+        }
+        try { await CloudDB.saveRow('Workers', currentWorker); } catch(e){}
+
+        progText.textContent = '\u2705 Complete';
+        progPct.textContent = '100%';
+        setTimeout(function(){
+            var allDocs = JSON.parse(localStorage.getItem('mgsdb_worker_documents') || '[]');
+            var doc = allDocs.find(function(d){ return parseInt(d.DocumentID) === docId; });
+            if (doc) renderDocSlot(slot, doc, existing);
+        }, 600);
+    }
+
+    // ─────── Hook into openTab so our renders run LAST ───────
+    function install() {
+        if (typeof window.openTab !== 'function') return setTimeout(install, 200);
+        var _origOpenTab = window.openTab;
+        window.openTab = function(tabName) {
+            var r = _origOpenTab.apply(this, arguments);
+            if (tabName === 'reqdocs')    { setTimeout(renderRequiredDocs, 150); setTimeout(renderRequiredDocs, 500); }
+            if (tabName === 'uploaddocs') { setTimeout(renderUploadFiles,  150); setTimeout(renderUploadFiles,  500); }
+            return r;
+        };
+        console.log('\u2705 Supplier-driven Required Docs + Upload installed');
+    }
+
+    if (document.readyState === 'complete') setTimeout(install, 500);
+    else window.addEventListener('load', function(){ setTimeout(install, 500); });
+})();
+</script>
+
+<!-- ============================================================ -->
+<!-- All Files: Firebase Storage browser                         -->
+<!-- Movable modal, zoom, thumbnails, pagination, download, print -->
+<!-- ============================================================ -->
+<script>
+(function(){
+    'use strict';
+
+    var _pdfLibPromise = null;
+    function ensurePdfLib() {
+        if (window.PDFLib) return Promise.resolve(window.PDFLib);
+        if (_pdfLibPromise) return _pdfLibPromise;
+        _pdfLibPromise = new Promise(function(resolve, reject) {
+            var s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+            s.onload = function(){ resolve(window.PDFLib); };
+            s.onerror = function(){ reject(new Error('Failed to load pdf-lib')); };
+            document.head.appendChild(s);
+        });
+        return _pdfLibPromise;
+    }
+
+    var _state = { files: [], idx: 0, selected: {}, folderPath: '', workerCode: '', workerName: '', view: 'single', zoom: 1 };
+
+    function fileExt(name){ var m=/\.([a-z0-9]+)$/i.exec(name||''); return m?m[1].toLowerCase():''; }
+    function isImageExt(e){ return /^(jpe?g|png|gif|webp)$/i.test(e); }
+    function isPdfExt(e){ return e==='pdf'; }
+
+    function buildModal(){
+        if (document.getElementById('allFilesModal')) return document.getElementById('allFilesModal');
+        var m = document.createElement('div');
+        m.id = 'allFilesModal';
+        m.innerHTML =
+            '<div class="afm-backdrop" onclick="closeAllFilesModal()"></div>' +
+            '<div class="afm-box" id="afmBox">' +
+                '<div class="afm-hdr" id="afmDragHandle">' +
+                    '<div style="flex:1;min-width:0;"><div class="afm-title">\uD83D\uDCC2 All Worker Files</div><div class="afm-sub" id="afmSub">Loading...</div></div>' +
+                    '<div class="afm-hdr-btns">' +
+                        '<button class="afm-icon-btn" title="Maximize/Restore" onclick="afmToggleMax()">\u2922</button>' +
+                        '<button class="afm-close" onclick="closeAllFilesModal()">\u2715</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="afm-toolbar">' +
+                    '<div class="afm-tabgroup">' +
+                        '<button class="afm-tabbtn afm-tabbtn-active" id="afmTabSingle" onclick="afmSetView(\'single\')">\uD83D\uDCC4 Single</button>' +
+                        '<button class="afm-tabbtn" id="afmTabGrid" onclick="afmSetView(\'grid\')">\u25A6 Thumbnails</button>' +
+                    '</div>' +
+                    '<label class="afm-checklabel"><input type="checkbox" id="afmSelectAll"> Select all</label>' +
+                    '<span id="afmSelCount" style="color:#888;font-size:12px;">0 selected</span>' +
+                    '<div style="flex:1;"></div>' +
+                    '<button class="afm-btn" onclick="downloadAllFiles()">\u2B07\uFE0F Download all</button>' +
+                    '<button class="afm-btn afm-btn-primary" onclick="downloadSelectedFiles()">\u2B07\uFE0F Download selected</button>' +
+                    '<button class="afm-btn afm-btn-accent" onclick="printSelectedFiles(event)">\uD83D\uDDA8\uFE0F Print selected</button>' +
+                '</div>' +
+                '<div class="afm-body"><div class="afm-viewer" id="afmViewer"></div></div>' +
+                '<div class="afm-nav" id="afmNav">' +
+                    '<button class="afm-btn" onclick="afmPrev()">\u25C0 Prev</button>' +
+                    '<div class="afm-zoom">' +
+                        '<button class="afm-icon-btn" title="Zoom out" onclick="afmZoom(-0.25)">\u2212</button>' +
+                        '<span id="afmZoomPct" style="min-width:50px;text-align:center;font-size:12px;color:#334155;font-weight:600;">100%</span>' +
+                        '<button class="afm-icon-btn" title="Zoom in" onclick="afmZoom(0.25)">+</button>' +
+                        '<button class="afm-icon-btn" title="Reset zoom" onclick="afmZoomReset()">\u21BA</button>' +
+                    '</div>' +
+                    '<div class="afm-pageinfo">' +
+                        '<input type="checkbox" id="afmItemCheck" onchange="afmToggleCurrent()" title="Select this file"> ' +
+                        '<span>Page <input id="afmPageNum" type="number" min="1" value="1" style="width:55px;padding:4px;border:1px solid #ccc;border-radius:4px;text-align:center;" onchange="afmJumpTo()"> of <span id="afmPageTotal">0</span></span>' +
+                    '</div>' +
+                    '<div style="flex:1;text-align:center;font-size:12px;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="afmFileName"></div>' +
+                    '<button class="afm-btn" onclick="afmNext()">Next \u25B6</button>' +
+                '</div>' +
+                '<div class="afm-resize-handle" id="afmResizeHandle"></div>' +
+            '</div>';
+        m.style.cssText = 'display:none;position:fixed;inset:0;z-index:99998;';
+        document.body.appendChild(m);
+
+        var style = document.createElement('style');
+        style.textContent =
+            '#allFilesModal .afm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.75);}' +
+            '#allFilesModal .afm-box{position:absolute;top:5%;left:5%;width:90%;height:88%;background:white;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.4);display:flex;flex-direction:column;overflow:hidden;}' +
+            '#allFilesModal .afm-hdr{padding:12px 18px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;cursor:move;user-select:none;}' +
+            '#allFilesModal .afm-title{font-size:17px;font-weight:700;}' +
+            '#allFilesModal .afm-sub{font-size:12px;opacity:0.9;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}' +
+            '#allFilesModal .afm-hdr-btns{display:flex;gap:6px;flex-shrink:0;}' +
+            '#allFilesModal .afm-icon-btn{background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:6px;font-size:14px;cursor:pointer;font-weight:700;display:flex;align-items:center;justify-content:center;}' +
+            '#allFilesModal .afm-icon-btn:hover{background:rgba(255,255,255,0.35);}' +
+            '#allFilesModal .afm-nav .afm-icon-btn{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;}' +
+            '#allFilesModal .afm-nav .afm-icon-btn:hover{background:#e0e7ff;}' +
+            '#allFilesModal .afm-close{background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;font-size:15px;cursor:pointer;font-weight:700;}' +
+            '#allFilesModal .afm-close:hover{background:rgba(255,80,80,0.7);}' +
+            '#allFilesModal .afm-toolbar{padding:10px 18px;background:#f8f9fa;border-bottom:1px solid #e9ecef;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;}' +
+            '#allFilesModal .afm-tabgroup{display:flex;background:white;border:1px solid #dee2e6;border-radius:7px;overflow:hidden;}' +
+            '#allFilesModal .afm-tabbtn{padding:6px 12px;background:white;border:none;color:#64748b;cursor:pointer;font-size:12px;font-weight:600;}' +
+            '#allFilesModal .afm-tabbtn:hover{background:#f1f5f9;}' +
+            '#allFilesModal .afm-tabbtn-active{background:#667eea !important;color:white !important;}' +
+            '#allFilesModal .afm-checklabel{font-size:13px;color:#334155;display:flex;align-items:center;gap:6px;cursor:pointer;}' +
+            '#allFilesModal .afm-btn{padding:7px 12px;background:white;border:1px solid #c7d2fe;color:#4338ca;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;}' +
+            '#allFilesModal .afm-btn:hover{background:#eef2ff;}' +
+            '#allFilesModal .afm-btn:disabled{opacity:0.5;cursor:not-allowed;}' +
+            '#allFilesModal .afm-btn-primary{background:#667eea;border-color:#667eea;color:white;}' +
+            '#allFilesModal .afm-btn-primary:hover{background:#5568d3;}' +
+            '#allFilesModal .afm-btn-accent{background:#28a745;border-color:#28a745;color:white;}' +
+            '#allFilesModal .afm-btn-accent:hover{background:#218838;}' +
+            '#allFilesModal .afm-body{flex:1;overflow:hidden;background:#2a2a2a;display:flex;padding:10px;}' +
+            '#allFilesModal .afm-viewer{width:100%;height:100%;background:#1e1e1e;border-radius:8px;overflow:auto;position:relative;}' +
+            '#allFilesModal .afm-viewer-single{display:flex;align-items:center;justify-content:center;}' +
+            '#allFilesModal .afm-zoomwrap{transform-origin:center center;transition:transform 0.15s;display:inline-block;}' +
+            '#allFilesModal .afm-viewer-single img{max-width:100%;max-height:calc(100vh - 260px);object-fit:contain;background:white;display:block;}' +
+            '#allFilesModal .afm-viewer-single iframe{width:100%;height:calc(100vh - 260px);border:0;background:white;}' +
+            '#allFilesModal .afm-placeholder{color:#aaa;text-align:center;padding:60px 20px;width:100%;}' +
+            '#allFilesModal .afm-placeholder .ico{font-size:64px;margin-bottom:10px;}' +
+            '#allFilesModal .afm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;padding:16px;background:#1e1e1e;width:100%;align-content:start;}' +
+            '#allFilesModal .afm-thumb{background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;transition:transform 0.15s;position:relative;}' +
+            '#allFilesModal .afm-thumb:hover{transform:translateY(-3px);box-shadow:0 5px 16px rgba(0,0,0,0.5);}' +
+            '#allFilesModal .afm-thumb-chk{position:absolute;top:6px;left:6px;z-index:2;}' +
+            '#allFilesModal .afm-thumb-preview{height:140px;background:#f8f9fa;display:flex;align-items:center;justify-content:center;overflow:hidden;}' +
+            '#allFilesModal .afm-thumb-preview img{max-width:100%;max-height:100%;object-fit:contain;}' +
+            '#allFilesModal .afm-thumb-preview .ph{font-size:44px;color:#999;}' +
+            '#allFilesModal .afm-thumb-label{padding:8px 10px;font-size:11px;color:#334155;font-weight:600;border-top:1px solid #eee;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:white;}' +
+            '#allFilesModal .afm-thumb-num{position:absolute;top:6px;right:6px;background:rgba(102,126,234,0.95);color:white;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;z-index:2;}' +
+            '#allFilesModal .afm-nav{padding:10px 18px;background:#f8f9fa;border-top:1px solid #e9ecef;display:flex;align-items:center;gap:14px;flex-shrink:0;flex-wrap:wrap;}' +
+            '#allFilesModal .afm-zoom{display:flex;align-items:center;gap:4px;}' +
+            '#allFilesModal .afm-pageinfo{font-size:13px;color:#334155;display:flex;align-items:center;gap:8px;}' +
+            '#allFilesModal .afm-resize-handle{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 50%,#999 50%,#999 60%,transparent 60%,transparent 70%,#999 70%,#999 80%,transparent 80%);border-bottom-right-radius:14px;}' +
+            '#allFilesModal.afm-max .afm-box{top:0 !important;left:0 !important;width:100% !important;height:100% !important;border-radius:0 !important;}' +
+            '#allFilesModal.afm-max .afm-resize-handle{display:none;}';
+        document.head.appendChild(style);
+
+        document.getElementById('afmSelectAll').addEventListener('change', function(e){
+            var checked = e.target.checked;
+            _state.files.forEach(function(f){ _state.selected[f.path || f.name] = checked; });
+            if (_state.view === 'grid') renderGrid(); else updateSelectionUI();
+        });
+        makeDraggable(document.getElementById('afmBox'), document.getElementById('afmDragHandle'));
+        makeResizable(document.getElementById('afmBox'), document.getElementById('afmResizeHandle'));
+        return m;
+    }
+
+    function makeDraggable(box, handle){
+        var sx=0, sy=0, bl=0, bt=0, dragging=false;
+        handle.addEventListener('mousedown', function(e){
+            if (e.target.closest('button')) return;
+            dragging=true; sx=e.clientX; sy=e.clientY;
+            var r=box.getBoundingClientRect();
+            bl=r.left; bt=r.top;
+            box.style.top=bt+'px'; box.style.left=bl+'px';
+            box.style.width=r.width+'px'; box.style.height=r.height+'px';
+            document.body.style.userSelect='none';
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e){
+            if (!dragging) return;
+            box.style.left=(bl+e.clientX-sx)+'px';
+            box.style.top=(bt+e.clientY-sy)+'px';
+        });
+        document.addEventListener('mouseup', function(){ if(dragging){dragging=false; document.body.style.userSelect='';} });
+    }
+    function makeResizable(box, handle){
+        var sx=0, sy=0, sw=0, sh=0, resizing=false;
+        handle.addEventListener('mousedown', function(e){
+            resizing=true; sx=e.clientX; sy=e.clientY;
+            var r=box.getBoundingClientRect();
+            sw=r.width; sh=r.height;
+            box.style.top=r.top+'px'; box.style.left=r.left+'px';
+            document.body.style.userSelect='none';
+            e.preventDefault(); e.stopPropagation();
+        });
+        document.addEventListener('mousemove', function(e){
+            if (!resizing) return;
+            box.style.width=Math.max(500, sw+e.clientX-sx)+'px';
+            box.style.height=Math.max(400, sh+e.clientY-sy)+'px';
+        });
+        document.addEventListener('mouseup', function(){ if(resizing){resizing=false; document.body.style.userSelect='';} });
+    }
+    window.afmToggleMax = function(){ document.getElementById('allFilesModal').classList.toggle('afm-max'); };
+
+    function updateSelectionUI(){
+        var count=0;
+        _state.files.forEach(function(f){ if(_state.selected[f.path||f.name]) count++; });
+        var cc=document.getElementById('afmSelCount'); if(cc) cc.textContent = count+' of '+_state.files.length+' selected';
+        var cur=_state.files[_state.idx];
+        var curChecked = cur ? !!_state.selected[cur.path||cur.name] : false;
+        var ic=document.getElementById('afmItemCheck'); if(ic) ic.checked = curChecked;
+        var sa=document.getElementById('afmSelectAll'); if(sa) sa.checked = (count===_state.files.length && _state.files.length>0);
+    }
+
+    function showPage(i){
+        if (!_state.files.length) return;
+        if (i<0) i=0;
+        if (i>=_state.files.length) i=_state.files.length-1;
+        _state.idx=i; _state.zoom=1; _state.view='single';
+        setTabBtn();
+        var f=_state.files[i], ext=fileExt(f.name), url=f.url||f.fileUrl||'';
+        var viewer=document.getElementById('afmViewer');
+        viewer.className='afm-viewer afm-viewer-single';
+        var inner;
+        if (isImageExt(ext)) inner='<img src="'+url+'" alt="'+f.name+'">';
+        else if (isPdfExt(ext)) inner='<iframe src="'+url+'#view=FitH" title="'+f.name+'"></iframe>';
+        else inner='<div class="afm-placeholder"><div class="ico">\uD83D\uDCC4</div><div style="font-size:15px;font-weight:600;margin-bottom:6px;">'+(ext.toUpperCase()||'FILE')+'</div><div style="font-size:12px;margin-bottom:12px;">Preview not available</div><a href="'+url+'" target="_blank" style="color:#c7d2fe;padding:8px 16px;background:rgba(255,255,255,0.1);border-radius:6px;text-decoration:none;font-size:12px;">\uD83D\uDD17 Open in new tab</a></div>';
+        viewer.innerHTML='<div class="afm-zoomwrap" id="afmZoomWrap" style="transform:scale(1);">'+inner+'</div>';
+        applyZoom();
+        document.getElementById('afmPageNum').value=i+1;
+        document.getElementById('afmPageTotal').textContent=_state.files.length;
+        document.getElementById('afmFileName').textContent=f.name;
+        document.getElementById('afmNav').style.display='flex';
+        updateSelectionUI();
+    }
+
+    function renderGrid(){
+        _state.view='grid'; setTabBtn();
+        var viewer=document.getElementById('afmViewer');
+        viewer.className='afm-viewer';
+        var html='<div class="afm-grid">';
+        _state.files.forEach(function(f, idx){
+            var ext=fileExt(f.name), url=f.url||f.fileUrl||'';
+            var checked=!!_state.selected[f.path||f.name];
+            var preview;
+            if (isImageExt(ext)) preview='<img src="'+url+'" alt="'+f.name+'" loading="lazy">';
+            else if (isPdfExt(ext)) preview='<div class="ph">\uD83D\uDCC4</div>';
+            else preview='<div class="ph">\uD83D\uDCCE</div>';
+            html+='<div class="afm-thumb" data-idx="'+idx+'"><input type="checkbox" class="afm-thumb-chk" data-idx="'+idx+'"'+(checked?' checked':'')+'><span class="afm-thumb-num">'+(idx+1)+'</span><div class="afm-thumb-preview">'+preview+'</div><div class="afm-thumb-label" title="'+f.name+'">'+f.name+'</div></div>';
+        });
+        html+='</div>';
+        viewer.innerHTML=html;
+        viewer.querySelectorAll('.afm-thumb').forEach(function(el){
+            el.addEventListener('click', function(e){
+                if (e.target.classList.contains('afm-thumb-chk')) return;
+                showPage(parseInt(el.getAttribute('data-idx'),10));
+            });
+        });
+        viewer.querySelectorAll('.afm-thumb-chk').forEach(function(cb){
+            cb.addEventListener('click', function(e){ e.stopPropagation(); });
+            cb.addEventListener('change', function(){
+                var idx=parseInt(cb.getAttribute('data-idx'),10);
+                _state.selected[_state.files[idx].path||_state.files[idx].name]=cb.checked;
+                updateSelectionUI();
+            });
+        });
+        document.getElementById('afmNav').style.display='none';
+        updateSelectionUI();
+    }
+    function setTabBtn(){
+        document.getElementById('afmTabSingle').classList.toggle('afm-tabbtn-active', _state.view==='single');
+        document.getElementById('afmTabGrid').classList.toggle('afm-tabbtn-active', _state.view==='grid');
+    }
+    function applyZoom(){
+        var wrap=document.getElementById('afmZoomWrap'); if (wrap) wrap.style.transform='scale('+_state.zoom+')';
+        var pct=document.getElementById('afmZoomPct'); if (pct) pct.textContent=Math.round(_state.zoom*100)+'%';
+    }
+    window.afmSetView = function(v){ if (v==='grid') renderGrid(); else showPage(_state.idx); };
+    window.afmZoom = function(d){ _state.zoom=Math.max(0.25, Math.min(4, _state.zoom+d)); applyZoom(); };
+    window.afmZoomReset = function(){ _state.zoom=1; applyZoom(); };
+    window.afmPrev = function(){ showPage(_state.idx-1); };
+    window.afmNext = function(){ showPage(_state.idx+1); };
+    window.afmJumpTo = function(){ var v=parseInt(document.getElementById('afmPageNum').value,10); if (!isNaN(v)) showPage(v-1); };
+    window.afmToggleCurrent = function(){
+        var cur=_state.files[_state.idx]; if (!cur) return;
+        var k=cur.path||cur.name;
+        _state.selected[k]=!_state.selected[k];
+        updateSelectionUI();
+    };
+    window.closeAllFilesModal = function(){ var m=document.getElementById('allFilesModal'); if (m) m.style.display='none'; };
+
+    document.addEventListener('wheel', function(e){
+        var m=document.getElementById('allFilesModal');
+        if (!m || m.style.display==='none') return;
+        if (_state.view!=='single') return;
+        var viewer=document.getElementById('afmViewer');
+        if (!viewer || !viewer.contains(e.target)) return;
+        e.preventDefault();
+        window.afmZoom(e.deltaY>0 ? -0.15 : 0.15);
+    }, { passive:false });
+
+    async function downloadOne(url, name){
+        try {
+            var resp=await fetch(url);
+            var blob=await resp.blob();
+            var link=document.createElement('a');
+            link.href=URL.createObjectURL(blob); link.download=name;
+            document.body.appendChild(link); link.click();
+            setTimeout(function(){ document.body.removeChild(link); URL.revokeObjectURL(link.href); },500);
+        } catch(e){ window.open(url,'_blank'); }
+    }
+    window.downloadAllFiles = async function(){
+        for (var i=0; i<_state.files.length; i++){
+            await downloadOne(_state.files[i].url||_state.files[i].fileUrl||'', _state.files[i].name);
+            await new Promise(function(r){ setTimeout(r,300); });
+        }
+    };
+    window.downloadSelectedFiles = async function(){
+        var sel=_state.files.filter(function(f){ return _state.selected[f.path||f.name]; });
+        if (!sel.length){ alert('\u26A0\uFE0F No files selected.'); return; }
+        for (var i=0; i<sel.length; i++){
+            await downloadOne(sel[i].url||sel[i].fileUrl||'', sel[i].name);
+            await new Promise(function(r){ setTimeout(r,300); });
+        }
+    };
+    window.printSelectedFiles = async function(ev){
+        var sel=_state.files.filter(function(f){ return _state.selected[f.path||f.name]; });
+        if (!sel.length){ alert('\u26A0\uFE0F No files selected.'); return; }
+        var btn=ev&&ev.target; var origText=btn?btn.textContent:'';
+        if (btn){ btn.textContent='\u23F3 Building PDF...'; btn.disabled=true; }
+        try {
+            var PDFLib=await ensurePdfLib();
+            var outPdf=await PDFLib.PDFDocument.create();
+            var HEADER_H = 24;
+            var headerBg = PDFLib.rgb(0.4, 0.31, 0.64);
+            var headerFg = PDFLib.rgb(1, 1, 1);
+            function stampHeader(page, name, idx, total, opacity) {
+                var sz = page.getSize();
+                var op = (opacity === undefined) ? 1 : opacity;
+                page.drawRectangle({ x:0, y:sz.height-HEADER_H, width:sz.width, height:HEADER_H, color:headerBg, opacity:op });
+                var dn = name.length > 80 ? name.substring(0, 77) + '...' : name;
+                page.drawText(dn, { x:10, y:sz.height-16, size:10, color:headerFg, opacity:op });
+                page.drawText((idx+1) + ' / ' + total, { x:sz.width-50, y:sz.height-16, size:10, color:headerFg, opacity:op });
+            }
+            for (var i=0; i<sel.length; i++){
+                var f=sel[i], url=f.url||f.fileUrl||'', ext=fileExt(f.name);
+                if (btn) btn.textContent='\u23F3 '+(i+1)+'/'+sel.length;
+                try {
+                    var resp=await fetch(url); var buf=await resp.arrayBuffer();
+                    if (isPdfExt(ext)){
+                        try {
+                            var srcPdf=await PDFLib.PDFDocument.load(buf, { ignoreEncryption:true, throwOnInvalidObject:false });
+                            var pages=await outPdf.copyPages(srcPdf, srcPdf.getPageIndices());
+                            pages.forEach(function(p, pi){
+                                outPdf.addPage(p);
+                                var label = f.name + (pages.length > 1 ? ' (p.' + (pi+1) + '/' + pages.length + ')' : '');
+                                stampHeader(p, label, i, sel.length, 0.85);
+                            });
+                        } catch(pe) {
+                            console.warn('PDF skip:', f.name, pe.message);
+                            var ep=outPdf.addPage([595, 842]);
+                            stampHeader(ep, f.name + ' (error)', i, sel.length);
+                            ep.drawText('Could not embed PDF', {x:40, y:400, size:14});
+                            ep.drawText(pe.message.substring(0, 80), {x:40, y:370, size:10});
+                        }
+                    } else if (ext==='jpg'||ext==='jpeg'){
+                        var img=await outPdf.embedJpg(buf);
+                        var pg=outPdf.addPage([img.width, img.height + HEADER_H]);
+                        pg.drawImage(img, {x:0, y:0, width:img.width, height:img.height});
+                        stampHeader(pg, f.name, i, sel.length);
+                    } else if (ext==='png'){
+                        var imgP=await outPdf.embedPng(buf);
+                        var pgP=outPdf.addPage([imgP.width, imgP.height + HEADER_H]);
+                        pgP.drawImage(imgP, {x:0, y:0, width:imgP.width, height:imgP.height});
+                        stampHeader(pgP, f.name, i, sel.length);
+                    } else {
+                        var np=outPdf.addPage([595, 842]);
+                        stampHeader(np, f.name, i, sel.length);
+                        np.drawText('Skipped (unsupported type)', {x:40, y:400, size:14});
+                    }
+                } catch(e){
+                    var eep=outPdf.addPage([595, 842]);
+                    stampHeader(eep, f.name + ' (error)', i, sel.length);
+                    eep.drawText('Error loading file', {x:40, y:400, size:14});
+                    eep.drawText((e.message||String(e)).substring(0, 80), {x:40, y:370, size:10});
+                }
+            }
+            var pdfBytes=await outPdf.save();
+            var blob=new Blob([pdfBytes],{type:'application/pdf'});
+            var blobUrl=URL.createObjectURL(blob);
+            var pw=window.open(blobUrl,'_blank');
+            if (pw) pw.addEventListener('load', function(){ setTimeout(function(){ try{pw.print();}catch(e){} },400); });
+        } catch(e){
+            console.error('Print failed:', e);
+            alert('\u274C Print failed: '+(e.message||e));
+        } finally {
+            if (btn){ btn.textContent=origText; btn.disabled=false; }
+        }
+    };
+
+    async function openAllFiles(){
+        if (typeof currentWorker==='undefined' || !currentWorker){ alert('\u26A0\uFE0F No worker selected.'); return; }
+        if (!window.CloudStorage || !window.CloudStorage.listFiles){ alert('\u26A0\uFE0F CloudStorage not available.'); return; }
+        var folderName=currentWorker.WorkerFolder;
+        if (!folderName){ alert('\u26A0\uFE0F Worker has no folder yet. Upload at least one document first.'); return; }
+
+        var modal=buildModal();
+        modal.style.display='block';
+        var folderPath='workers/'+folderName;
+        var workerCode=(currentWorker.SupplierCode||currentWorker.SupplierCODE||'')+'-'+String(currentWorker.WorkerID||'').padStart(4,'0');
+        var workerName=currentWorker.WFullName||currentWorker.DocFullName||currentWorker.WorkerFirstName||'';
+
+        document.getElementById('afmSub').textContent='Loading files...';
+        document.getElementById('afmViewer').innerHTML='<div class="afm-placeholder"><div class="ico">\u23F3</div><div>Loading from Firebase Storage...</div></div>';
+
+        var result;
+        try { result=await window.CloudStorage.listFiles(folderPath); }
+        catch(e){
+            document.getElementById('afmViewer').innerHTML='<div class="afm-placeholder"><div class="ico">\u274C</div><div>'+(e.message||e)+'</div></div>';
+            return;
+        }
+        if (!result || !result.success){
+            document.getElementById('afmViewer').innerHTML='<div class="afm-placeholder"><div class="ico">\u274C</div><div>'+((result&&result.error)||'Unknown error')+'</div></div>';
+            return;
+        }
+        var files=(result.files||[]).slice();
+        if (!files.length){
+            document.getElementById('afmViewer').innerHTML='<div class="afm-placeholder"><div class="ico">\uD83D\uDCC1</div><div>No files in this folder yet.</div></div>';
+            document.getElementById('afmSub').textContent=folderPath+' \u2014 empty';
+            return;
+        }
+        files.sort(function(a,b){
+            function rank(n){ var e=fileExt(n); if (isImageExt(e)) return 0; if (isPdfExt(e)) return 1; return 2; }
+            var ra=rank(a.name), rb=rank(b.name);
+            if (ra!==rb) return ra-rb;
+            return a.name.localeCompare(b.name);
+        });
+
+        _state.files=files; _state.idx=0; _state.selected={};
+        _state.folderPath=folderPath; _state.workerCode=workerCode; _state.workerName=workerName;
+        _state.view='single'; _state.zoom=1;
+
+        document.getElementById('afmSub').textContent=workerCode+(workerName?' \u2014 '+workerName:'')+' \u2014 '+files.length+' file'+(files.length!==1?'s':'');
+        document.getElementById('afmSelectAll').checked=false;
+        showPage(0);
+    }
+
+    document.addEventListener('keydown', function(e){
+        var m=document.getElementById('allFilesModal');
+        if (!m || m.style.display==='none') return;
+        if (e.target.tagName==='INPUT') return;
+        if (_state.view==='single'){
+            if (e.key==='ArrowLeft'){ window.afmPrev(); e.preventDefault(); }
+            if (e.key==='ArrowRight'){ window.afmNext(); e.preventDefault(); }
+            if (e.key==='+'||e.key==='='){ window.afmZoom(0.25); e.preventDefault(); }
+            if (e.key==='-'){ window.afmZoom(-0.25); e.preventDefault(); }
+        }
+        if (e.key==='Escape') window.closeAllFilesModal();
+    });
+
+    window.openAllWorkerFiles=openAllFiles;
+    console.log('\u2705 All Files modal (clean final) installed');
 })();
 </script>
 
