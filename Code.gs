@@ -57,7 +57,8 @@ function doGet(e) {
         'Processing_Manager': 'Processing_Manager',
         'Documents_Manager': 'Documents_Manager',
         'Accountant': 'Accountant',
-        'Cleanup_Unlinked_Employers': 'Cleanup_Unlinked_Employers'
+        'Cleanup_Unlinked_Employers': 'Cleanup_Unlinked_Employers',
+        'Workers_In_Lebanon': 'Workers_In_Lebanon'
       };
       var fileName = validPages[page] || 'Reports';
       var titles = {
@@ -85,7 +86,8 @@ function doGet(e) {
         'Processing_Manager': 'Processing Manager - MGSDB2026',
         'Accountant': 'Accountant - MGSDB2026',
         'Documents_Manager': 'Documents Manager - MGSDB2026',
-        'Cleanup_Unlinked_Employers': 'Cleanup Unlinked Employers - MGSDB2026'
+        'Cleanup_Unlinked_Employers': 'Cleanup Unlinked Employers - MGSDB2026',
+        'Workers_In_Lebanon': 'Workers in Lebanon - MGSDB2026'
       };
       var html = HtmlService.createTemplateFromFile(fileName).evaluate().getContent();
       if (page !== 'Message_Templates' && page !== 'Messaging_Manager') {
@@ -153,6 +155,9 @@ function handleRequest(params) {
     case 'deleteRow':                return actionDeleteRow(params);
     case 'getNextID':                return actionGetNextID(params);
     case 'uploadFile':               return actionUploadFile(params);
+    case 'getWorkerCompliance':      return gsrGetWorkerCompliance(params.workerID);
+    case 'getWorkersComplianceBatch': return gsrGetWorkersComplianceBatch(params.workerIDs);
+    case 'getComplianceAll':         return gsrGetComplianceAll(params.sheet);
     case 'uploadDocsChunk':          return actionUploadFile(params);
     case 'deleteOldReports':         return actionDeleteOldReports(params);
     case 'createFolder':             return actionCreateFolder(params);
@@ -2110,4 +2115,507 @@ function fixEmployerAgencyCodes() {
 }
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+function clearWorkerField(workerId, fieldName) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Workers');
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var colIdx = headers.indexOf(fieldName);
+  var idIdx  = headers.indexOf('WorkerID');
+  if (colIdx < 0 || idIdx < 0) return { success: false };
+  var data = sheet.getRange(2, idIdx + 1, sheet.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][0]) === String(workerId)) {
+      sheet.getRange(i + 2, colIdx + 1).setValue('');
+      return { success: true };
+    }
+  }
+  return { success: false };
+}
+// ════════════════════════════════════════════════════════════
+// COMPLIANCE SERVICES — Sheet Setup & CRUD Functions
+// Add these functions to your existing Code.gs
+// ════════════════════════════════════════════════════════════
+
+// ── SHEET HEADERS ──
+var COMPLIANCE_SHEETS = {
+  'WorkPermit': [
+    'RecordID','WorkerID','WorkerCode','WorkerName','EmployerID','EmployerCode','EmployerName',
+    'PermitNumber','IssueDate','ExpiryDate','RenewalDate','Status','Cost','PaidBy','Notes','CreatedDate','ModifiedDate'
+  ],
+  'Insurance': [
+    'RecordID','WorkerID','WorkerCode','WorkerName','EmployerID','EmployerCode','EmployerName',
+    'PolicyNumber','Provider','IssueDate','ExpiryDate','RenewalDate','Amount','Status','PaidBy','Notes','CreatedDate','ModifiedDate'
+  ],
+  'Ikama': [
+    'RecordID','WorkerID','WorkerCode','WorkerName','EmployerID','EmployerCode','EmployerName',
+    'IkamaNumber','IssueDate','ExpiryDate','RenewalDate','Status','Cost','PaidBy','Notes','CreatedDate','ModifiedDate'
+  ],
+  'PassportRenewal': [
+    'RecordID','WorkerID','WorkerCode','WorkerName','EmployerID','EmployerCode','EmployerName',
+    'PassportNumber','CurrentExpiry','RequestDate','NewExpiry','Status','Cost','PaidBy','Notes','CreatedDate','ModifiedDate'
+  ]
+};
+
+// ── CREATE ALL COMPLIANCE SHEETS ──
+function createComplianceSheets() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var created = [];
+  var exists = [];
+
+  Object.keys(COMPLIANCE_SHEETS).forEach(function(sheetName) {
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      var headers = COMPLIANCE_SHEETS[sheetName];
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      // Format header row
+      sheet.getRange(1, 1, 1, headers.length)
+        .setBackground('#667eea')
+        .setFontColor('white')
+        .setFontWeight('bold')
+        .setFontSize(11);
+      sheet.setFrozenRows(1);
+      // Auto-resize columns
+      sheet.autoResizeColumns(1, headers.length);
+      created.push(sheetName);
+    } else {
+      exists.push(sheetName);
+    }
+  });
+
+  var msg = '';
+  if (created.length) msg += '✅ Created: ' + created.join(', ') + '\n';
+  if (exists.length)  msg += 'ℹ️ Already exists: ' + exists.join(', ');
+  Logger.log(msg);
+  return msg;
+}
+
+// ── GENERATE RECORD ID ──
+function generateComplianceID(prefix) {
+  return prefix + '-' + new Date().getTime();
+}
+
+// ── GET ALL COMPLIANCE RECORDS ──
+function gsrGetComplianceAll(sheetName) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return { success: false, error: 'Sheet not found: ' + sheetName };
+    var data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return { success: true, data: [] };
+    var headers = data[0];
+    var records = [];
+    for (var i = 1; i < data.length; i++) {
+      var row = {};
+      headers.forEach(function(h, j) { row[h] = data[i][j]; });
+      if (row.RecordID) records.push(row);
+    }
+    return { success: true, data: records };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
+function gsrGetWorkerCompliance(workerID) {
+  try {
+    var result = {WorkPermit:null, Insurance:null, Ikama:null, PassportRenewal:null};
+    Object.keys(COMPLIANCE_SHEETS).forEach(function(sheetName) {
+      var all = gsrGetComplianceAll(sheetName);
+      if (all.success && all.data) {
+        var records = all.data.filter(function(r) {
+          return String(r.WorkerID) === String(workerID);
+        });
+        if (records.length) {
+          // Sort by CreatedDate descending, take latest
+          records.sort(function(a,b){
+            return new Date(b.CreatedDate||0) - new Date(a.CreatedDate||0);
+          });
+          result[sheetName] = records[0];
+        }
+      }
+    });
+    return result;
+  } catch(e) {
+    return null;
+  }
+}
+
+function gsrGetWorkersComplianceBatch(workerIDs) {
+  try {
+    var ids = typeof workerIDs === 'string' ? workerIDs.split(',') : workerIDs;
+    var idSet = {};
+    ids.forEach(function(id){idSet[String(id).trim()]=true;});
+    var result = {};
+    ids.forEach(function(id){
+      result[String(id).trim()] = {WorkPermit:null, Insurance:null, Ikama:null, PassportRenewal:null};
+    });
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    Object.keys(COMPLIANCE_SHEETS).forEach(function(sheetName) {
+      var sheet = ss.getSheetByName(sheetName);
+      if (!sheet) return;
+      var data = sheet.getDataRange().getValues();
+      if (data.length <= 1) return;
+      var headers = data[0];
+      var widIdx = headers.indexOf('WorkerID');
+      var createdIdx = headers.indexOf('CreatedDate');
+      if (widIdx < 0) return;
+      for (var i = 1; i < data.length; i++) {
+        var wid = String(data[i][widIdx]).trim();
+        if (!idSet[wid]) continue;
+        var row = {};
+        headers.forEach(function(h, j){row[h] = data[i][j];});
+        var existing = result[wid][sheetName];
+        if (!existing || (new Date(row.CreatedDate||0) > new Date(existing.CreatedDate||0))) {
+          result[wid][sheetName] = row;
+        }
+      }
+    });
+    return result;
+  } catch(e) {
+    return null;
+  }
+}
+// ── SAVE COMPLIANCE RECORD (Add or Update) ──
+function gsrSaveComplianceRecord(sheetName, record) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return { success: false, error: 'Sheet not found: ' + sheetName };
+    var headers = COMPLIANCE_SHEETS[sheetName];
+    var now = new Date().toISOString();
+
+    // Check if record exists
+    var data = sheet.getDataRange().getValues();
+    var rowIndex = -1;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(record.RecordID)) { rowIndex = i + 1; break; }
+    }
+
+    if (rowIndex === -1) {
+      // New record
+      if (!record.RecordID) record.RecordID = generateComplianceID(sheetName.substring(0,3).toUpperCase());
+      record.CreatedDate = now;
+      record.ModifiedDate = now;
+      var newRow = headers.map(function(h) { return record[h] || ''; });
+      sheet.appendRow(newRow);
+    } else {
+      // Update existing
+      record.ModifiedDate = now;
+      // Preserve and append DocumentURL instead of overwriting
+      var docUrlIdx = headers.indexOf('DocumentURL');
+      if (docUrlIdx >= 0) {
+        var existingUrl = data[rowIndex-1][docUrlIdx] || '';
+        var newUrl = record.DocumentURL || '';
+        if (existingUrl && newUrl && newUrl !== existingUrl) {
+          record.DocumentURL = existingUrl + ',' + newUrl;
+        } else if (existingUrl && !newUrl) {
+          record.DocumentURL = existingUrl;
+        }
+      }
+      var updRow = headers.map(function(h) { return record[h] !== undefined ? record[h] : data[rowIndex-1][headers.indexOf(h)]; });
+      sheet.getRange(rowIndex, 1, 1, headers.length).setValues([updRow]);
+
+    }
+    return { success: true, record: record };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function gsrSaveComplianceDocument(doc) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('ComplianceDocuments');
+    if (!sheet) {
+      sheet = ss.insertSheet('ComplianceDocuments');
+      sheet.appendRow(['DocID','RecordID','WorkerID','WorkerCode','WorkerName','EmployerID','EmployerCode','Sheet','DocType','FileName','FileURL','UploadedDate']);
+    }
+    var docID = 'DOC-' + Date.now();
+    sheet.appendRow([docID,doc.RecordID||'',doc.WorkerID||'',doc.WorkerCode||'',doc.WorkerName||'',doc.EmployerID||'',doc.EmployerCode||'',doc.Sheet||'',doc.DocType||'',doc.FileName||'',doc.FileURL||'',new Date().toISOString()]);
+    return {success:true, docID:docID};
+  } catch(e) {
+    return {success:false, error:e.message};
+  }
+}
+function gsrGetComplianceDocuments(workerID){
+  try{
+    var ss=SpreadsheetApp.getActiveSpreadsheet();
+    var sheet=ss.getSheetByName('ComplianceDocuments');
+    if(!sheet) return [];
+    var data=sheet.getDataRange().getValues();
+    if(data.length<=1) return [];
+    var headers=data[0];
+    var rows=[];
+    for(var i=1;i<data.length;i++){
+      var row={};
+      headers.forEach(function(h,j){row[h]=data[i][j];});
+      if(String(row.WorkerID)===String(workerID)) rows.push(row);
+    }
+    return rows;
+  }catch(e){return [];}
+}
+// ── DELETE COMPLIANCE RECORD ──
+function gsrDeleteComplianceRecord(sheetName, recordID) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return { success: false, error: 'Sheet not found' };
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(recordID)) {
+        sheet.deleteRow(i + 1);
+        return { success: true };
+      }
+    }
+    return { success: false, error: 'Record not found' };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// ── GET COMPLIANCE RECORDS BY WORKER ──
+function gsrGetComplianceByWorker(workerID) {
+  try {
+    var result = {};
+    Object.keys(COMPLIANCE_SHEETS).forEach(function(sheetName) {
+      var all = gsrGetComplianceAll(sheetName);
+      if (all.success) {
+        result[sheetName] = all.data.filter(function(r) {
+          return String(r.WorkerID) === String(workerID);
+        });
+      }
+    });
+    return { success: true, data: result };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// ── GET EXPIRING SOON (within N days) ──
+function gsrGetExpiringSoon(days) {
+  try {
+    days = days || 30;
+    var now = new Date();
+    var cutoff = new Date(now.getTime() + days * 86400000);
+    var result = {};
+
+    Object.keys(COMPLIANCE_SHEETS).forEach(function(sheetName) {
+      var all = gsrGetComplianceAll(sheetName);
+      if (all.success) {
+        var expiryField = sheetName === 'PassportRenewal' ? 'NewExpiry' : 'ExpiryDate';
+        result[sheetName] = all.data.filter(function(r) {
+          if (!r[expiryField]) return false;
+          var exp = new Date(r[expiryField]);
+          return exp <= cutoff && r.Status !== 'Renewed' && r.Status !== 'Cancelled';
+        });
+      }
+    });
+    return { success: true, data: result };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
+function testGetWP() {
+  var result = gsrGetComplianceAll('WorkPermit');
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+function pingServer() {
+  return 'ok-' + new Date().getTime();
+}
+
+function testWC() {
+  var r = gsrGetWorkerCompliance('21');
+  Logger.log(JSON.stringify(r));
+  return r;
+}
+function migrateIkamaToComplianceSheet_PREVIEW() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var wSheet = ss.getSheetByName('Workers');
+    var iSheet = ss.getSheetByName('Ikama');
+    if (!wSheet || !iSheet) return 'Sheets not found';
+    
+    var wData = wSheet.getDataRange().getValues();
+    var wHeaders = wData[0];
+    var ikaExpIdx = wHeaders.indexOf('IkamaExpiry');
+    var widIdx = wHeaders.indexOf('WorkerID');
+    var wcodeIdx = wHeaders.indexOf('WorkerCode');
+    var firstIdx = wHeaders.indexOf('WorkerFirstName');
+    var lastIdx = wHeaders.indexOf('WorkerLastName');
+    var empIdIdx = wHeaders.indexOf('EmployerID');
+    var empCodeIdx = wHeaders.indexOf('EmployerCode');
+    
+    var iData = iSheet.getDataRange().getValues();
+    var existingWorkerIDs = {};
+    for (var i = 1; i < iData.length; i++) {
+      existingWorkerIDs[String(iData[i][1])] = true; // column B = WorkerID
+    }
+    
+    var toMigrate = [];
+    for (var r = 1; r < wData.length; r++) {
+      var exp = wData[r][ikaExpIdx];
+      var wid = String(wData[r][widIdx]);
+      if (!exp || !wid) continue;
+      if (existingWorkerIDs[wid]) continue; // already has Ikama compliance record
+      toMigrate.push({
+        WorkerID: wid,
+        WorkerCode: wData[r][wcodeIdx] || '',
+        WorkerName: ((wData[r][firstIdx]||'')+' '+(wData[r][lastIdx]||'')).trim(),
+        EmployerID: wData[r][empIdIdx] || '',
+        EmployerCode: wData[r][empCodeIdx] || '',
+        IkamaExpiry: exp
+      });
+    }
+    
+    Logger.log('TOTAL WORKERS: ' + (wData.length - 1));
+    Logger.log('WORKERS WITH IkamaExpiry: ' + toMigrate.length);
+    Logger.log('WORKERS ALREADY IN Ikama SHEET: ' + Object.keys(existingWorkerIDs).length);
+    Logger.log('TO MIGRATE:');
+    toMigrate.forEach(function(w){Logger.log(JSON.stringify(w));});
+    return {
+      totalWorkers: wData.length - 1,
+      toMigrate: toMigrate.length,
+      alreadyInIkama: Object.keys(existingWorkerIDs).length,
+      preview: toMigrate
+    };
+  } catch(e) {
+    return 'Error: ' + e.message;
+  }
+}
+function migrateIkamaToComplianceSheet_EXECUTE() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var wSheet = ss.getSheetByName('Workers');
+    var iSheet = ss.getSheetByName('Ikama');
+    if (!wSheet || !iSheet) return 'Sheets not found';
+    
+    var wData = wSheet.getDataRange().getValues();
+    var wHeaders = wData[0];
+    var ikaExpIdx = wHeaders.indexOf('IkamaExpiry');
+    var widIdx = wHeaders.indexOf('WorkerID');
+    var wcodeIdx = wHeaders.indexOf('WorkerCode');
+    var firstIdx = wHeaders.indexOf('WorkerFirstName');
+    var lastIdx = wHeaders.indexOf('WorkerLastName');
+    var empIdIdx = wHeaders.indexOf('EmployerID');
+    var empCodeIdx = wHeaders.indexOf('EmployerCode');
+    
+    var iData = iSheet.getDataRange().getValues();
+    var existingWorkerIDs = {};
+    for (var i = 1; i < iData.length; i++) existingWorkerIDs[String(iData[i][1])] = true;
+    
+    var ikaHeaders = COMPLIANCE_SHEETS['Ikama'];
+    var now = new Date().toISOString();
+    var migrated = 0;
+    
+    for (var r = 1; r < wData.length; r++) {
+      var exp = wData[r][ikaExpIdx];
+      var wid = String(wData[r][widIdx]);
+      if (!exp || !wid) continue;
+      if (existingWorkerIDs[wid]) continue;
+      
+      var record = {
+        RecordID: 'IKA-' + Date.now() + '-' + r,
+        WorkerID: wid,
+        WorkerCode: wData[r][wcodeIdx] || '',
+        WorkerName: ((wData[r][firstIdx]||'')+' '+(wData[r][lastIdx]||'')).trim(),
+        EmployerID: wData[r][empIdIdx] || '',
+        EmployerCode: wData[r][empCodeIdx] || '',
+        EmployerName: '',
+        IkamaNumber: '',
+        IssueDate: '',
+        ExpiryDate: exp instanceof Date ? exp.toISOString() : exp,
+        RenewalDate: '',
+        Status: 'Initial',
+        Cost: 0,
+        PaidBy: '',
+        Notes: 'Migrated from Workers sheet — Free initial 89-day Ikama',
+        DocumentURL: '',
+        CreatedDate: now,
+        ModifiedDate: now
+      };
+      var newRow = ikaHeaders.map(function(h){ return record[h] !== undefined ? record[h] : ''; });
+      iSheet.appendRow(newRow);
+      Utilities.sleep(50);
+      migrated++;
+    }
+    
+    Logger.log('MIGRATED: ' + migrated + ' records');
+    return 'Migrated ' + migrated + ' Ikama records';
+  } catch(e) {
+    return 'Error: ' + e.message;
+  }
+}
+function fixMigratedIkamaRecords() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var iSheet = ss.getSheetByName('Ikama');
+    var wSheet = ss.getSheetByName('Workers');
+    var eSheet = ss.getSheetByName('Employers');
+    if (!iSheet || !wSheet || !eSheet) return 'Sheets not found';
+    
+    var iData = iSheet.getDataRange().getValues();
+    var wData = wSheet.getDataRange().getValues();
+    var eData = eSheet.getDataRange().getValues();
+    var iHeaders = iData[0];
+    var wHeaders = wData[0];
+    var eHeaders = eData[0];
+    
+    // Workers lookup by WorkerID
+    var widIdx = wHeaders.indexOf('WorkerID');
+    var wcodeIdx = wHeaders.indexOf('WorkerCode');
+    var supIdx = wHeaders.indexOf('SupplierCode');
+    var workers = {};
+    for (var i = 1; i < wData.length; i++) {
+      workers[String(wData[i][widIdx])] = {
+        code: wData[i][wcodeIdx],
+        supplier: wData[i][supIdx]
+      };
+    }
+    
+    // Employers lookup by EmployerID
+    var eidIdx = eHeaders.indexOf('EmployerID');
+    var efnIdx = eHeaders.indexOf('EFN');
+    var enameIdx = eHeaders.indexOf('EmployerName');
+    var employers = {};
+    for (var i = 1; i < eData.length; i++) {
+      employers[String(eData[i][eidIdx])] = eData[i][efnIdx] || eData[i][enameIdx] || '';
+    }
+    
+    var iWidIdx = iHeaders.indexOf('WorkerID');
+    var iCodeIdx = iHeaders.indexOf('WorkerCode');
+    var iEmpIdIdx = iHeaders.indexOf('EmployerID');
+    var iEmpNameIdx = iHeaders.indexOf('EmployerName');
+    
+    var fixed = 0;
+    for (var r = 1; r < iData.length; r++) {
+      var wid = String(iData[r][iWidIdx]);
+      var w = workers[wid];
+      var empId = String(iData[r][iEmpIdIdx]);
+      var empName = employers[empId] || '';
+      
+      var row = r + 1; // sheet row (1-indexed)
+      var changed = false;
+      
+      // Fix WorkerCode if missing
+      if (!iData[r][iCodeIdx] && w) {
+        var code = w.code || (w.supplier ? w.supplier + '-' + String(wid).padStart(4,'0') : 'ID-' + wid);
+        iSheet.getRange(row, iCodeIdx + 1).setValue(code);
+        changed = true;
+      }
+      
+      // Fix EmployerName if missing
+      if (!iData[r][iEmpNameIdx] && empName) {
+        iSheet.getRange(row, iEmpNameIdx + 1).setValue(empName);
+        changed = true;
+      }
+      
+      if (changed) fixed++;
+    }
+    
+    Logger.log('FIXED: ' + fixed + ' records');
+    return 'Fixed ' + fixed + ' records';
+  } catch(e) {
+    return 'Error: ' + e.message;
+  }
 }
