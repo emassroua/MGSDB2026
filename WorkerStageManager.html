@@ -30,12 +30,13 @@ var WorkerStageManager = (function() {
        Mirrors SC config in Workers_Manager for consistency
     ─────────────────────────────────────────────────────────── */
     var STAGES = {
-        pending:       { label: 'Pending',        icon: '⏳', processingStage: 'pending'       },
+        pending:       { label: 'Pending',         icon: '⏳', processingStage: 'pending'       },
         accepted:      { label: 'Accepted',        icon: '✅', processingStage: 'accepted'      },
         refused:       { label: 'Refused',         icon: '✖️', processingStage: 'refused'       },
         selected:      { label: 'Selected',        icon: '☑️', processingStage: 'selected'      },
         preapproval:   { label: 'Pre-Approval',    icon: '📋', processingStage: 'preapproval'   },
         waitingvisa:   { label: 'Waiting Visa',    icon: '🛂', processingStage: 'waitingvisa'   },
+        readyvisa:     { label: 'Ready Visa',      icon: '🟢', processingStage: 'readyvisa'     },
         waitingticket: { label: 'Waiting Ticket',  icon: '🎫', processingStage: 'waitingticket' },
         arrived:       { label: 'Arrived',         icon: '✈️', processingStage: 'arrived'       },
         local:         { label: 'Local',           icon: '🏠', processingStage: 'local'         },
@@ -45,6 +46,24 @@ var WorkerStageManager = (function() {
         runaway:       { label: 'Run Away',        icon: '🏃', processingStage: 'runaway'       },
         senthome:      { label: 'Sent Home',       icon: '🛫', processingStage: 'senthome'      },
         archived:      { label: 'Archived',        icon: '🗄️', processingStage: 'archived'      }
+    };
+    var TRANSITIONS = {
+        pending:       ['accepted', 'refused', 'archived'],
+        accepted:      ['selected', 'refused', 'archived'],
+        refused:       ['pending', 'archived'],
+        selected:      ['preapproval', 'unlink'],
+        preapproval:   ['waitingvisa', 'cancelled'],
+        waitingvisa:   ['readyvisa', 'cancelled'],
+        readyvisa:     ['waitingticket', 'cancelled'],
+        waitingticket: ['arrived', 'cancelled'],
+        arrived:       ['local', 'moved', 'unfit', 'runaway', 'senthome'],
+        local:         ['moved'],
+        moved:         [],
+        cancelled:     ['pending'],
+        unfit:         [],
+        runaway:       [],
+        senthome:      [],
+        archived:      ['pending']
     };
 
     /* ── Private Helpers ───────────────────────────────────── */
@@ -146,12 +165,21 @@ var WorkerStageManager = (function() {
             return _save(worker);
         },
 
-        /* ── 4. WAITING VISA ────────────────────────────────── */
+       /* ── 4. WAITING VISA ────────────────────────────────── */
         waitingVisa: function(worker) {
             _log(worker, 'waitingvisa');
             worker.Processing      = true;
             worker.ProcessingStage = 'waitingvisa';
             _addOutcome(worker, 'waitingvisa');
+            return _save(worker);
+        },
+
+        /* ── 4b. READY VISA ─────────────────────────────────── */
+        readyVisa: function(worker) {
+            _log(worker, 'readyvisa');
+            worker.Processing      = true;
+            worker.ProcessingStage = 'readyvisa';
+            _addOutcome(worker, 'readyvisa');
             return _save(worker);
         },
 
@@ -238,7 +266,7 @@ var WorkerStageManager = (function() {
         archive: function(worker) {
             _log(worker, 'archived');
             worker.Processing      = false;
-            worker.Archived        = true;
+            worker.WorkerArchived  = true;
             worker.ProcessingStage = 'archived';
             _addOutcome(worker, 'archived');
             return _save(worker);
@@ -268,14 +296,21 @@ var WorkerStageManager = (function() {
         getOutcomes: function(worker) {
             try { return JSON.parse(worker.WorkerOutcomes || '[]'); } catch(e) { return []; }
         },
-
         /* ── UTILITY: Has outcome ────────────────────────────── */
         hasOutcome: function(worker, stage) {
             return this.getOutcomes(worker).indexOf(stage) !== -1;
+        },
+
+        getAllowedTransitions: function(worker) {
+            var stage = this.getStage(worker);
+            return TRANSITIONS[stage] || [];
+        },
+
+        canMoveTo: function(worker, targetStage) {
+            return this.getAllowedTransitions(worker).indexOf(targetStage) !== -1;
         }
     };
 
 })();
 
-console.log('✅ WorkerStageManager v1.0 loaded');
 </script>
