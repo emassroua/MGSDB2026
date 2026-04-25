@@ -908,7 +908,7 @@ function renderDetail(w){
   } else { docsHtml='<div style="color:#aaa;font-size:11px;padding:4px 0;">No required documents assigned.</div>'; }
 
   // Worker code header
-  var html = '<div style="padding:6px 8px;font-weight:800;font-size:13px;color:#667eea;text-align:center;background:#f8f9fa;border-radius:6px;">'+esc(wCode)+'</div>';
+  var html = '<div style="padding:6px 8px;font-weight:800;font-size:13px;color:#667eea;text-align:center;background:#f8f9fa;border-radius:6px;cursor:pointer;user-select:all;" title="Click to copy" onclick="navigator.clipboard.writeText(\''+wCode+'\').then(function(){showToast(\'📋 Copied: '+wCode+'\',\'info\');})">'+esc(wCode)+'</div>';
 
   // Locked (read-only, auto-generated) field
   function lk(label, key, val, cls){
