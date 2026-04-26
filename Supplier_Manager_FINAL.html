@@ -1950,6 +1950,26 @@
             saveToStorage();
             markAsSaved();
             loadSuppliers();
+
+          // Create supplier folder in Drive on new supplier
+            if (index < 0) {
+                var _now = new Date();
+                var _ds = _now.getFullYear() + '-' + String(_now.getMonth()+1).padStart(2,'0') + '-' + String(_now.getDate()).padStart(2,'0') + ' ' + String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0');
+                var suppFolderName = (supplier.SupplierCODE || '') + ' ' + (supplier.SupplierBusinessName || '') + ' ' + _ds;
+                google.script.run
+                    .withSuccessHandler(function(res) {
+                        if (res && res.success) {
+                            console.log('📁 Supplier folder created:', res.folderId);
+                            currentSupplier.SupplierFolderID = res.folderId;
+                            currentSupplier.SupplierFolderName = suppFolderName;
+                            CloudDB.saveRow('Suppliers', currentSupplier);
+                        } else {
+                            console.warn('📁 Folder not created:', res);
+                        }
+                    })
+                    .withFailureHandler(function(e) { console.warn('📁 Supplier folder failed:', e); })
+                    .gsrCreateSupplierFolder(suppFolderName);
+            }
         }
         
         function generatePassword() {
@@ -2646,6 +2666,15 @@ window.selectSupplier=function(supplier){
 // ═══════════════════════════════════════════
 var _origSave=window.saveSupplier;
 window.saveSupplier=function(){
+    // Stamp values onto currentSupplier BEFORE original save runs
+    if(typeof currentSupplier!=='undefined'&&currentSupplier){
+        var natVal=document.getElementById('AllowedNationalities').value||'';
+        var idVal=document.getElementById('AllowNationalID').checked;
+        var localVal=document.getElementById('AllowLocal').checked;
+        currentSupplier.AllowedNationalities=natVal;
+        currentSupplier.AllowNationalID=idVal;
+        currentSupplier.AllowLocal=localVal;
+    }
     _origSave.apply(this,arguments);
     setTimeout(function(){
         if(typeof currentSupplier==='undefined'||!currentSupplier) return;
