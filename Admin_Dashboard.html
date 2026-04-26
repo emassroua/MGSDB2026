@@ -140,6 +140,82 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 .legend-item{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--text2)}
 .legend-dot{width:10px;height:10px;border-radius:50%}
 </style>
+<!-- ========================================================================
+     PHASE 1 PATCH — Firebase SDK loader + Firestore test
+     Date: April 26, 2026
+     Goal: Connect Admin_Dashboard.html to Firestore directly
+     Test: After install, open F12 Console, type: mgsTestFirestore()
+     ======================================================================== -->
+
+<!-- Firebase SDK from Google CDN (compat version - simpler API) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script>
+(function(){
+  'use strict';
+
+  // Connect to YOUR mgsd2026 Firestore project
+  var firebaseConfig = {
+    apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+    authDomain: "mgsd2026.firebaseapp.com",
+    projectId: "mgsd2026",
+    storageBucket: "mgsd2026.firebasestorage.app",
+    messagingSenderId: "918582360831",
+    appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+  };
+
+  // Initialize once (avoid duplicate-app error if patch runs twice)
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    window._db = firebase.firestore();
+    console.log('✅ Firebase SDK connected to Firestore (project: mgsd2026)');
+  } catch(e) {
+    console.error('❌ Firebase initialization failed:', e);
+    window._db = null;
+  }
+
+  // Test function — run from F12 console
+  window.mgsTestFirestore = async function() {
+    console.log('🧪 Testing Firestore connection...');
+    if (!window._db) {
+      console.error('❌ Firestore not initialized.');
+      return { success: false, error: 'No DB' };
+    }
+
+    try {
+      // Try reading mgs_admin_settings/module_passwords
+      var doc = await window._db
+        .collection('mgs_admin_settings')
+        .doc('module_passwords')
+        .get();
+
+      if (doc.exists) {
+        var data = doc.data();
+        console.log('✅ READ SUCCESS — module_passwords document:');
+        console.log(data);
+        console.log('   value (passwords map):', data.value);
+        console.log('   updatedAt:', data.updatedAt);
+        return { success: true, data: data };
+      } else {
+        console.warn('⚠️ Document does not exist');
+        return { success: false, error: 'No document' };
+      }
+    } catch(e) {
+      console.error('❌ READ FAILED:', e.message);
+      console.error('   This usually means Firestore rules are blocking the read.');
+      console.error('   Or the SDK hasn\'t fully loaded yet — try again in 2 seconds.');
+      return { success: false, error: e.message };
+    }
+  };
+
+  console.log('💡 Test ready. Type: mgsTestFirestore()');
+})();
+</script>
+<!-- ======================================================================== -->
+
 </head>
 <body>
 
@@ -504,15 +580,17 @@ async function renderModules() {
   document.getElementById('countVisible').textContent = countVisible;
   document.getElementById('countHidden').textContent = countHidden;
 }
-
-function openPage(page){
-  window.location.href = page + '.html';
-}
+function openPage(page){ openInNewTab(APP_URL+'?page='+page); }
 
 function openInAdmin(page, title){
   document.getElementById('adminFrameTitle').textContent = title;
   document.getElementById('adminFrame').src = page + '.html?adminEmbed=1&t=' + Date.now();
   document.getElementById('adminFrameModal').classList.add('show');
+}
+
+function closeAdminFrame(){
+  document.getElementById('adminFrameModal').classList.remove('show');
+  document.getElementById('adminFrame').src = 'about:blank';
 }
 function closeAdminFrame(){
   document.getElementById('adminFrameModal').classList.remove('show');
@@ -640,8 +718,7 @@ async function renderScripts(){
       +'</td></tr>';
   }).join('');
 }
-function openScr(i){var arr=window._scriptsCache||[];var url=arr[i].url;if(url.indexOf('http')===0)window.open(url,'_blank');else window.location.href=url;}
-function editScr(i){document.getElementById('si-'+i).style.display='none';document.getElementById('su-'+i).style.display='none';document.getElementById('ii-'+i).style.display='';document.getElementById('ui-'+i).style.display='';document.getElementById('eb-'+i).style.display='none';document.getElementById('sb-'+i).style.display='';}
+function openScr(i){var arr=window._scriptsCache||[];var url=arr[i].url;if(url.indexOf('http')===0)openInNewTab(url);else window.location.href=url;}function editScr(i){document.getElementById('si-'+i).style.display='none';document.getElementById('su-'+i).style.display='none';document.getElementById('ii-'+i).style.display='';document.getElementById('ui-'+i).style.display='';document.getElementById('eb-'+i).style.display='none';document.getElementById('sb-'+i).style.display='';}
 async function saveScr(i){var arr=window._scriptsCache||[];arr[i].info=document.getElementById('ii-'+i).value;arr[i].url=document.getElementById('ui-'+i).value;await saveScripts(arr);await renderScripts();}
 async function delScr(i){var arr=window._scriptsCache||[];var ok=await showConfirm('Delete script:\n'+arr[i].info+'\n\nContinue?');if(!ok)return;arr.splice(i,1);await saveScripts(arr);await renderScripts();}
 async function addScript(){var info=prompt('Description:');if(!info)return;var url=prompt('URL (e.g. my_page.html):','');if(!url)return;var arr=window._scriptsCache||[];arr.push({id:arr.length+1,info:info,url:url});await saveScripts(arr);await renderScripts();showToast('Script added','success');}
