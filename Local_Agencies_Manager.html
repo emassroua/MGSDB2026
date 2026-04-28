@@ -581,7 +581,43 @@
         </div>
     </div>
 </div>
+<!-- Firebase SDK loader for CloudDB -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+const firebaseConfig = {
+    apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+    authDomain: "mgsd2026.firebaseapp.com",
+    projectId: "mgsd2026",
+    storageBucket: "mgsd2026.firebasestorage.app",
+    messagingSenderId: "918582360831",
+    appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Wrap modular Firestore in a v8-style API for CloudDB
+window._cdbDB = {
+    collection(name) {
+        return {
+            get: () => getDocs(collection(db, name)).then(snap => {
+                const docs = [];
+                snap.forEach(d => docs.push({ data: () => d.data(), id: d.id }));
+                return { forEach: (fn) => docs.forEach(fn), size: docs.length };
+            }),
+            doc: (id) => ({
+                get:    () => getDoc(doc(db, name, String(id))),
+                set:    (data) => setDoc(doc(db, name, String(id)), data),
+                delete: () => deleteDoc(doc(db, name, String(id)))
+            })
+        };
+    }
+};
+
+console.log('✅ Firebase Firestore ready (Local Agencies)');
+</script>
 <script>
 // ==========================================
 // COPIABLE ALERT / CONFIRM SYSTEM
@@ -640,85 +676,89 @@ window.confirmWithCopy = function(msg) {
 };
 
 // ==========================================
-// CLOUD DATABASE MODULE
+// CLOUD DATABASE MODULE — Firestore Bridge
 // ==========================================
 const CloudDB = {
-    ready: true,
+    ready: false,
+    _db: null,
+
+    _waitReady() {
+        return new Promise((resolve) => {
+            const check = () => {
+                if (window._cdbDB) { this._db = window._cdbDB; this.ready = true; resolve(); }
+                else setTimeout(check, 50);
+            };
+            check();
+        });
+    },
+
+    _coll(sheetName) {
+        const map = {
+            'Local_Agencies': 'Local_Agencies',
+            'Employers':      'employers',
+            'Workers':        'Workers'
+        };
+        return map[sheetName] || sheetName;
+    },
+
+    _key(sheetName) {
+        const map = {
+            'Local_Agencies': 'AgencyID',
+            'Employers':      'EmployerID',
+            'Workers':        'WorkerID'
+        };
+        return map[sheetName] || 'id';
+    },
+
+    async loadSheet(sheetName) {
+        await this._waitReady();
+        try {
+            const snap = await this._db.collection(this._coll(sheetName)).get();
+            const rows = [];
+            snap.forEach(d => rows.push(d.data()));
+            return rows;
+        } catch(e) { console.error('loadSheet error:', sheetName, e); return []; }
+    },
+
+    async saveRow(sheetName, rowData) {
+        await this._waitReady();
+        try {
+            const id = String(rowData[this._key(sheetName)] || rowData.id || '');
+            if (!id) { console.warn('saveRow missing key:', sheetName); return null; }
+            await this._db.collection(this._coll(sheetName)).doc(id).set(rowData);
+            return { success: true, action: 'saved' };
+        } catch(e) { console.error('saveRow error:', sheetName, e); return null; }
+    },
+
+    async deleteRow(sheetName, id) {
+        await this._waitReady();
+        try {
+            await this._db.collection(this._coll(sheetName)).doc(String(id)).delete();
+            return { success: true };
+        } catch(e) { console.error('deleteRow error:', e); return null; }
+    },
 
     post(data) {
-        return new Promise(function(resolve) {
-            if (data.action === 'getAll' || !data.action) {
-                google.script.run
-                    .withSuccessHandler(function(result) {
-                        var arr = (result && result.data) ? result.data : (Array.isArray(result) ? result : []);
-                        resolve({ success: true, data: arr });
-                    })
-                    .withFailureHandler(function(e) { resolve({ success: false, data: [] }); })
-                    .gsrGetAll(data.sheet);
-            } else if (data.action === 'saveRow') {
-                google.script.run
-                    .withSuccessHandler(function(r) { resolve(r); })
-                    .withFailureHandler(function(e) { resolve(null); })
-                    .gsrSaveRow(data.sheet, data.data || data.row);
-            } else if (data.action === 'deleteRow') {
-                google.script.run
-                    .withSuccessHandler(function(r) { resolve(r); })
-                    .withFailureHandler(function(e) { resolve(null); })
-                    .gsrDeleteRow(data.sheet, data.id);
-            } else {
-                resolve(null);
-            }
-        });
+        if (data.action === 'getAll' || !data.action) {
+            return this.loadSheet(data.sheet).then(arr => ({ success: true, data: arr }));
+        } else if (data.action === 'saveRow') {
+            return this.saveRow(data.sheet, data.data || data.row);
+        } else if (data.action === 'deleteRow') {
+            return this.deleteRow(data.sheet, data.id);
+        }
+        return Promise.resolve(null);
     },
 
     get(params) { return this.post(params); },
 
-    loadSheet(sheetName) {
-        return new Promise(function(resolve) {
-            google.script.run
-                .withSuccessHandler(function(data) {
-                    var arr = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-                    resolve(arr);
-                })
-                .withFailureHandler(function() { resolve(null); })
-                .gsrGetAll(sheetName);
-        });
-    },
-
-    saveRow(sheetName, rowData) {
-        return new Promise(function(resolve) {
-            google.script.run
-                .withSuccessHandler(function(r) { resolve(r); })
-                .withFailureHandler(function(e) { resolve(null); })
-                .gsrSaveRow(sheetName, rowData);
-        });
-    },
-
-    deleteRow(sheetName, id) {
-        return new Promise(function(resolve) {
-            google.script.run
-                .withSuccessHandler(function(r) { resolve(r); })
-                .withFailureHandler(function(e) { resolve(null); })
-                .gsrDeleteRow(sheetName, id);
-        });
-    },
-
     async loadAll() {
-        console.log('☁️ Loading from Google Sheets...');
-        const results = { agencies: null, employers: null, workers: null };
-        return new Promise(function(resolve) {
-            var done = 0;
-            function check() { if (++done === 3) resolve(results); }
-            google.script.run
-                .withSuccessHandler(function(data) { results.agencies  = (data && data.data) ? data.data : (Array.isArray(data) ? data : []); check(); })
-                .withFailureHandler(function() { check(); }).gsrGetAll('Local_Agencies');
-            google.script.run
-                .withSuccessHandler(function(data) { results.employers = (data && data.data) ? data.data : (Array.isArray(data) ? data : []); check(); })
-                .withFailureHandler(function() { check(); }).gsrGetAll('Employers');
-            google.script.run
-                .withSuccessHandler(function(data) { results.workers   = (data && data.data) ? data.data : (Array.isArray(data) ? data : []); check(); })
-                .withFailureHandler(function() { check(); }).gsrGetAll('Workers');
-        });
+        console.log('☁️ Loading from Firestore...');
+        const [agencies, employers, workers] = await Promise.all([
+            this.loadSheet('Local_Agencies'),
+            this.loadSheet('Employers'),
+            this.loadSheet('Workers')
+        ]);
+        return { agencies, employers, workers };
     }
 };
 
@@ -1156,26 +1196,11 @@ function togglePassVis() {
 // ==========================================
 // EMPLOYER MANAGEMENT
 // ==========================================
+// Folder creation disabled in Firebase mode — folders are managed elsewhere.
+// Stub kept so existing calls don't break; always resolves "skipped".
 async function createEmployerFolder(employer) {
-    return new Promise(function(resolve) {
-        const agencyCode = employer.AgencyCode || 'UNKNOWN';
-        const folderName = agencyCode + ' (' + employer.EmployerID + ') ' +
-                           (employer.EmployerName || 'NoName') + ' ' +
-                           new Date().toISOString().split('T')[0];
-        console.log('📁 Creating employer folder:', folderName);
-        google.script.run
-            .withSuccessHandler(function(result) {
-                console.log('📁 Folder creation result:', result);
-                resolve(result && result.success
-                    ? { success: true, folderName: folderName, folderId: result.folderId, folderUrl: result.folderUrl }
-                    : { success: false, folderName: folderName, error: result ? result.error : 'Failed' });
-            })
-            .withFailureHandler(function(e) {
-                console.error('❌ Error creating employer folder:', e);
-                resolve({ success: false, folderName: '', error: e.message });
-            })
-            .actionCreateFolder({ parentPath: 'employers_documents', folderName: folderName });
-    });
+    console.log('📁 Folder creation skipped (Firebase mode):', employer && employer.EmployerCode);
+    return Promise.resolve({ success: false, skipped: true, folderName: '', error: 'disabled' });
 }
 
 function loadEmployers() {
@@ -1369,28 +1394,10 @@ function saveEmployer() {
     closeEmployerForm();
 
     if (existingIndex < 0) {
-        createEmployerFolder(employer).then(result => {
-            if (result.success) {
-                employer.EmployerFolderName = result.folderName;
-                employer.EmployerFolderID   = result.folderId;
-                employer.EmployerFolderUrl  = result.folderUrl;
-                const idx = employers.findIndex(e => e.EmployerID === employer.EmployerID);
-                if (idx >= 0) {
-                    employers[idx].EmployerFolderName = result.folderName;
-                    employers[idx].EmployerFolderID   = result.folderId;
-                    employers[idx].EmployerFolderUrl  = result.folderUrl;
-                }
-                saveEmployersToStorage();
-                alert('✅ Employer saved successfully!\n\n📁 Folder created in Google Drive:\n' + result.folderName);
-            } else {
-                alert('✅ Employer saved successfully!\n\n⚠️ Folder creation failed: ' +
-                      (result.error || 'Unknown error') + '\n\nYou can create it manually.');
-            }
-        });
+        alert('✅ Employer saved successfully!');
     } else {
         alert('✅ Employer updated successfully!');
     }
-}
 
 async function deleteEmployer(employerId) {
     const employer = employers.find(e => String(e.EmployerID) === String(employerId));
@@ -1423,18 +1430,15 @@ function clearEmployerForm() {
 }
 
 // ==========================================
-// OPEN EMPLOYER DOCS — unified via getWebAppUrl()
+// OPEN EMPLOYER DOCS — Firebase mode
 // ==========================================
 function openEmployerDocs(employerId) {
     const employer = employers.find(e => String(e.EmployerID) === String(employerId));
     if (!employer) { alert('❌ Employer not found!'); return; }
     localStorage.setItem('selected_employer_id', String(employer.EmployerID));
     localStorage.setItem('open_documents_tab', 'true');
-    google.script.run
-        .withSuccessHandler(function(url) { window.open(url + '?page=Employers_Manager', '_blank'); })
-        .withFailureHandler(function(e) { console.error('❌ getWebAppUrl failed:', e); alert('❌ Could not open Employers Manager.\n\n' + (e.message || e)); })
-        .getWebAppUrl();
-    console.log('📄 Opening Employers_Manager for:', employer.EmployerCode);
+    window.open('employers_manager.html', '_blank');
+    console.log('📄 Opening employers_manager.html for:', employer.EmployerCode);
 }
 
 // ==========================================
@@ -1980,8 +1984,7 @@ window.selectAgency=function(a){_oSA(a);updateDDS(a.AgencyStatus==='disabled'?'d
 
 window.newAgency=async function(){
 var nid=1;
-try{var r=await new Promise(function(res){google.script.run.withSuccessHandler(function(r){res(r);}).withFailureHandler(function(){res(null);}).gsrPost(JSON.stringify({action:'getNextID',sheet:'Local_Agencies'}));});if(r&&r.success&&r.nextID){nid=r.nextID;}else{throw new Error('x');}}catch(e){var mx=0;for(var i=0;i<agencies.length;i++){var a=parseInt(agencies[i].AgencyID)||0;if(a>mx)mx=a;}nid=mx+1;}
-currentAgency={AgencyID:nid,AgencyCode:'',AgencyName:'',LicenseNumber:'',OwnerName:'',AgencyPassword:'',ContactNumber:'',EmailAddress:'',Address:'',City:'',Country:'',Notes:'',AgencyStatus:'enabled'};
+{var mx=0;for(var i=0;i<agencies.length;i++){var a=parseInt(agencies[i].AgencyID)||0;if(a>mx)mx=a;}nid=mx+1;}
 clearForm();document.getElementById('AgencyID').value=nid;document.getElementById('AgencyCode').focus();updateDDS('enabled');renderAgencyList();setStatus('New agency — ID: '+nid);
 };
 
@@ -2032,7 +2035,7 @@ if(!currentAgency){alert('⚠️ Please select an agency first!');return;}
 var ac=document.getElementById('AgencyCode').value.trim().toUpperCase();if(!ac){alert('⚠️ Agency Code missing!');return;}
 if(!currentAgency.AgencyCode)currentAgency.AgencyCode=ac;
 var nid=1;
-try{var r=await new Promise(function(res){google.script.run.withSuccessHandler(function(r){res(r);}).withFailureHandler(function(){res(null);}).gsrPost(JSON.stringify({action:'getNextID',sheet:'Employers'}));});if(r&&r.success&&r.nextID){nid=r.nextID;}else{throw new Error('x');}}catch(e){var mx=0;for(var i=0;i<employers.length;i++){var ei=parseInt(employers[i].EmployerID)||0;if(ei>mx)mx=ei;}nid=mx+1;}
+{var mx=0;for(var i=0;i<employers.length;i++){var ei=parseInt(employers[i].EmployerID)||0;if(ei>mx)mx=ei;}nid=mx+1;}
 var gc=ac+'-'+nid;
 currentEmployer={EmployerID:nid,AgencyID:currentAgency.AgencyID,AgencyCode:currentAgency.AgencyCode,EmployerCode:gc,EmployerName:'',ContactPerson:'',EmployerContact:'',EmployerEmail:'',EmployerCity:'',EmployerAddress:'',EmployerNotes:'',RequiredDocuments:[]};
 clearEmployerForm();
@@ -2241,35 +2244,8 @@ window.renderEmployersTable = function() {
 window.openEmployerAllFiles = function(employerId) {
     var emp = employers.find(function(e) { return e.EmployerID === employerId; });
     if (!emp) { alert('❌ Employer not found!'); return; }
-    var folderName = emp.EmployerFolderName || emp.EmployerFolder || '';
-    var folderId = emp.EmployerFolderID || '';
-    if (!folderName && !folderId) {
-        var ac = emp.AgencyCode || (emp.EmployerCode ? emp.EmployerCode.split('-')[0] : '');
-        var ei = emp.EmployerID || '';
-        var en = emp.EFN || emp.EmployerName || '';
-        if (ac && ei && en) folderName = ac + ' (' + ei + ') ' + en;
-    }
-    if (!folderName && !folderId) { alert('⚠️ No folder found.\nUpload documents first.'); return; }
-    google.script.run.withSuccessHandler(function(result) {
-        if (!result || !result.success || !result.files || result.files.length === 0) { alert('📂 No files found:\n' + folderName); return; }
-        var files = result.files, ec = emp.EmployerCode || '', en2 = emp.EFN || emp.EmployerName || '';
-        var h = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>📂 ' + ec + '</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,sans-serif;background:linear-gradient(135deg,#f5576c,#f093fb);padding:15px;min-height:100vh}.header{background:#fff;padding:20px;border-radius:12px;margin-bottom:15px;text-align:center;box-shadow:0 4px 15px rgba(0,0,0,.15)}.header h1{color:#f5576c;font-size:20px}.header h2{font-size:15px;color:#333}.header p{color:#666;font-size:13px}.btns{margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.btn{padding:8px 16px;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;color:#fff}.btn:hover{filter:brightness(1.1)}.gallery{max-width:950px;margin:0 auto}.fc{background:#fff;border-radius:10px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);overflow:hidden}.fh{background:linear-gradient(135deg,#f5576c,#f093fb);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}.fh .t{font-weight:700;font-size:13px}.fh .d{font-size:10px;opacity:.8}.fh a{color:#fff;text-decoration:none;font-size:11px;background:rgba(255,255,255,.25);padding:4px 10px;border-radius:4px;font-weight:600}.fb{padding:10px;text-align:center}.fb iframe{width:100%;height:450px;border:none;border-radius:6px}@media print{.header{display:none!important}}</style></head><body>';
-        h += '<div class="header"><h1>📂 All Files</h1><h2>' + ec + ' - ' + en2 + '</h2><p>📁 ' + result.folderName + ' — <strong>' + files.length + ' file(s)</strong></p><div class="btns"><button class="btn" style="background:#28a745" onclick="window.print()">🖨️ Print</button><button class="btn" style="background:#dc3545" onclick="window.print()">📄 Save PDF</button><button class="btn" style="background:#6c757d" onclick="window.close()">✕ Close</button></div></div><div class="gallery">';
-        files.forEach(function(f, i) {
-            var icon = (f.mimeType && f.mimeType.includes('pdf')) ? '📄' : (f.mimeType && f.mimeType.includes('image')) ? '🖼️' : '📎';
-            var date = f.date ? new Date(f.date).toLocaleDateString() : '';
-            var fid = ''; var m = f.url.match(/\/d\/([a-zA-Z0-9_-]+)/); if (m) fid = m[1]; if (!fid) { m = f.url.match(/[?&]id=([a-zA-Z0-9_-]+)/); if (m) fid = m[1]; }
-            h += '<div class="fc"><div class="fh"><div><span class="t">' + icon + ' ' + (i+1) + '. ' + f.name + '</span>';
-            if (f.subfolder) h += '<br><span class="d">📁 ' + f.subfolder + '</span>';
-            if (date) h += '<br><span class="d">' + date + '</span>';
-            h += '</div><a href="' + f.url + '" target="_blank">📂 Open</a></div>';
-            if (fid) h += '<div class="fb"><iframe src="https://drive.google.com/file/d/' + fid + '/preview"></iframe></div>';
-            h += '</div>';
-        });
-        h += '</div></body></html>';
-        var w = window.open('', '_blank'); if (!w) { alert('⚠️ Pop-up blocked!'); return; } w.document.write(h); w.document.close();
-    }).withFailureHandler(function(err) { alert('❌ Failed: ' + (err.message || err)); })
-    .gsrPost(JSON.stringify({ action: 'listFiles', folderId: folderId, folderName: folderName, parentType: 'employers' }));
+    alert('📂 File browsing not available yet in Firebase mode.\n\nThis feature will be added in a future update.');
+    console.log('openEmployerAllFiles stub — employer:', emp.EmployerCode);
 };
 
 setTimeout(function() { if (typeof currentAgency !== 'undefined' && currentAgency) renderEmployersTable(); }, 800);
@@ -2876,23 +2852,7 @@ window.addNewEmployer = async function(){
     updateFolderRow(null); // new employer has no folder yet
 };
 
-/* ════════════════════════════════════════════════════
-   5. HOOK INTO saveEmployer — update row after folder created
-════════════════════════════════════════════════════ */
-var _origSave = window.saveEmployer;
-window.saveEmployer = function(){
-    if(typeof _origSave === 'function') _origSave.apply(this, arguments);
-    // After save, createEmployerFolder runs async and updates currentEmployer.
-    // Poll briefly then refresh the row.
-    var polls = 0;
-    var interval = setInterval(function(){
-        polls++;
-        if((currentEmployer && (currentEmployer.EmployerFolderID || currentEmployer.EmployerFolderName)) || polls > 20){
-            clearInterval(interval);
-            updateFolderRow(currentEmployer || null);
-        }
-    }, 500);
-};
+/* HOOK INTO saveEmployer — disabled in Firebase mode (folder creation removed) */
 
 /* ════════════════════════════════════════════════════
    6. ADD 📁 FOLDER BUTTON TO TABLE ROWS
@@ -3240,8 +3200,8 @@ window.cancelOneWorker = async function(workerCode, workerId){
             // Update in-memory worker so sync doesn't overwrite
             var idx = allWorkers.findIndex(function(wk){ return wk.WorkerID === workerId; });
             if(idx >= 0) allWorkers[idx] = w;
-            google.script.run.clearWorkerField(workerId, 'WorkerOutcomes');
-            console.log('☁️ Worker unlinked:', workerCode);
+            // Firebase mode: WorkerOutcomes cleared via WorkerStageManager.unlink (no server-side call needed)
+            try { w.WorkerOutcomes = '[]'; if (window.CloudDB && CloudDB.ready) CloudDB.saveRow('Workers', w); } catch(e) {}            console.log('☁️ Worker unlinked:', workerCode);
             alert('✅ Selection cancelled for '+name+'.');
             renderSelectedTemp();
             renderEmployersTable();
