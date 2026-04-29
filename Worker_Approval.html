@@ -1876,6 +1876,1086 @@ document.addEventListener('DOMContentLoaded', init);
         <div class="afm-resize-handle" id="afmResizeHandle"></div>
     </div>
 </div>
+<!-- ============================================================
+     STEP 3 PATCH — WORKER APPROVAL (admin side)
+     v1.0 — Refusal reason capture/edit + Re-Review loop
+     Paste this entire block before </body> in Worker_Approval.html
+     (place it AFTER the v3.0 fix patch if that exists)
+============================================================ -->
+
+<style>
+/* ── Refusal reason modal ─────────────────────────── */
+.rr-overlay {
+  display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.65); z-index:100000;
+  align-items:center; justify-content:center;
+}
+.rr-overlay.show { display:flex; }
+.rr-box {
+  background:white; border-radius:12px; width:520px; max-width:94vw;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3); overflow:hidden;
+  animation:rrSlide 0.2s ease-out;
+}
+@keyframes rrSlide { from{transform:scale(0.94);opacity:0} to{transform:scale(1);opacity:1} }
+.rr-hdr {
+  background:linear-gradient(135deg,#dc3545,#c82333); color:white;
+  padding:14px 18px; font-weight:700; font-size:14px;
+  display:flex; align-items:center; gap:8px;
+}
+.rr-body { padding:18px; }
+.rr-body label {
+  display:block; font-size:11px; font-weight:700;
+  color:#475057; margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px;
+}
+.rr-body textarea {
+  width:100%; padding:10px 12px; border:2px solid #e9ecef; border-radius:7px;
+  font-size:13px; font-family:inherit; min-height:90px; resize:vertical;
+  box-sizing:border-box;
+}
+.rr-body textarea:focus { outline:none; border-color:#dc3545; }
+.rr-buttons { padding:10px 18px; background:#f8f9fa; border-top:1px solid #e9ecef;
+  display:flex; justify-content:flex-end; gap:8px; }
+.rr-btn { padding:8px 18px; border:none; border-radius:6px; font-weight:700;
+  font-size:12px; cursor:pointer; font-family:inherit; }
+.rr-btn-primary { background:#dc3545; color:white; }
+.rr-btn-primary:hover { background:#c82333; }
+.rr-btn-secondary { background:white; color:#495057; border:1.5px solid #ced4da; }
+.rr-btn-secondary:hover { background:#f8f9fa; }
+
+/* ── Re-Review badge in topbar ────────────────────── */
+.tbadge.rereview {
+  background:rgba(156,39,176,0.35);
+  border-color:rgba(156,39,176,0.7);
+  animation:pulse 2s infinite;
+}
+@keyframes pulse {
+  0%,100% { box-shadow:0 0 0 0 rgba(156,39,176,0.5); }
+  50%     { box-shadow:0 0 0 6px rgba(156,39,176,0); }
+}
+
+/* ── 🔁 marker on worker list items ───────────────── */
+.wl-item .rereview-mark {
+  display:inline-block; margin-left:4px; font-size:11px;
+  background:#9c27b0; color:white; padding:1px 5px; border-radius:8px;
+  font-weight:700;
+}
+
+/* ── Refusal info card (in approval panel) ────────── */
+.refusal-info-card {
+  margin-top:10px; background:#fff5f5; border:1.5px solid #f5c6cb;
+  border-radius:7px; overflow:hidden;
+}
+.refusal-info-hdr {
+  background:#dc3545; color:white; padding:5px 12px;
+  font-size:11px; font-weight:700;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.refusal-info-body { padding:8px 12px; }
+.refusal-info-body .rr-text {
+  background:white; padding:7px 9px; border:1px solid #f5c6cb;
+  border-radius:5px; font-size:11px; color:#495057;
+  font-style:italic; line-height:1.5; white-space:pre-wrap;
+  user-select:text;
+}
+.refusal-info-body .rr-meta {
+  font-size:10px; color:#888; margin-top:5px;
+}
+.update-reason-btn {
+  background:white; color:#dc3545; border:1px solid #dc3545;
+  padding:3px 9px; border-radius:5px; font-size:10px; font-weight:700;
+  cursor:pointer; font-family:inherit;
+}
+.update-reason-btn:hover { background:#dc3545; color:white; }
+
+/* ── Re-review request notice (admin sees this) ──── */
+.rereview-notice {
+  margin-top:8px; background:#f3e5f5; border:1.5px solid #9c27b0;
+  border-radius:7px; overflow:hidden;
+}
+.rereview-notice-hdr {
+  background:#9c27b0; color:white; padding:5px 12px;
+  font-size:11px; font-weight:700;
+}
+.rereview-notice-body { padding:8px 12px; font-size:11px; color:#4a148c; }
+.rereview-notice-body .rrn-note {
+  background:white; padding:7px 9px; border:1px solid #ce93d8;
+  border-radius:5px; margin-top:5px; font-style:italic;
+  color:#4a148c; white-space:pre-wrap; user-select:text;
+}
+.rereview-notice-body .rrn-meta { font-size:10px; color:#7b1fa2; margin-top:5px; }
+</style>
+
+<!-- Refusal Reason Modal (used for both initial Refuse and Update) -->
+<div class="rr-overlay" id="rrModal">
+  <div class="rr-box">
+    <div class="rr-hdr">
+      <span style="font-size:18px;">✖️</span>
+      <span id="rrModalTitle">Refuse Worker</span>
+    </div>
+    <div class="rr-body">
+      <div id="rrWorkerLabel" style="font-size:12px;color:#666;margin-bottom:10px;font-weight:600;"></div>
+      <label>Refusal Reason <span style="color:#dc3545;">*</span></label>
+      <textarea id="rrReasonInput" placeholder="Explain why this worker is refused (e.g. missing fingerprint, expired passport, image quality, name mismatch...)"></textarea>
+      <div style="font-size:10px;color:#888;margin-top:5px;" id="rrPrevReasonInfo"></div>
+    </div>
+    <div class="rr-buttons">
+      <button class="rr-btn rr-btn-secondary" onclick="rrCloseModal()">Cancel</button>
+      <button class="rr-btn rr-btn-primary" id="rrSaveBtn" onclick="rrSaveReason()">✖️ Refuse Worker</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+console.log('🔧 Step 3 Patch (Worker Approval) loading...');
+
+// ============================================================
+// HELPERS
+// ============================================================
+function isT(v){ return v===true||v==='true'||v==='TRUE'||v===1||v==='1'; }
+function nowISO(){ return new Date().toISOString(); }
+function escapeHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmtDate(iso){
+  if(!iso) return '';
+  try{ var d=new Date(iso); return d.toLocaleDateString()+' '+d.toLocaleTimeString().substring(0,5); }
+  catch(e){ return iso; }
+}
+
+// ============================================================
+// ADD RE-REVIEW BADGE TO TOPBAR
+// ============================================================
+function injectRereviewBadge(){
+  if(document.getElementById('badgeRereview')) return;
+  var refused = document.getElementById('badgeRefused');
+  if(!refused) return;
+  var badge = document.createElement('span');
+  badge.className = 'tbadge rereview';
+  badge.id = 'badgeRereview';
+  badge.title = 'Workers awaiting re-review';
+  badge.onclick = function(){ setStatusFilter('rereview'); };
+  badge.innerHTML = '🔁 <span id="cntRereview">0</span> Re-Review';
+  refused.parentNode.insertBefore(badge, refused.nextSibling);
+}
+injectRereviewBadge();
+
+// ============================================================
+// EXTEND STATUS FILTER to handle 'rereview'
+// ============================================================
+var _origApplyFilters = window.applyFilters;
+window.applyFilters = function(){
+  var statusEl = document.getElementById('fltStatus');
+  var status = statusEl ? statusEl.value : '';
+
+  // Handle special 'rereview' filter
+  if(status === 'rereview'){
+    // Clear other badge active states
+    ['badgeAll','badgePending','badgeAccepted','badgeRefused'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.classList.remove('active-filter');
+    });
+    var rrBadge = document.getElementById('badgeRereview');
+    if(rrBadge) rrBadge.classList.add('active-filter');
+
+    var suppId = document.getElementById('fltSupplier').value;
+    var natVal = document.getElementById('fltNationality').value;
+    var search = document.getElementById('fltSearch').value.toLowerCase().trim();
+
+    filteredList = allWorkers.filter(function(w){
+      if(!isT(w.RefusedByAdmin)) return false;
+      if(!isT(w.ReviewRequested)) return false;
+      if(suppId && String(w.SupplierID||'').trim()!==String(suppId).trim()) return false;
+      if(natVal && (w.Nationality||'').toLowerCase().trim()!==natVal.toLowerCase().trim()) return false;
+      if(search){
+        var blob=[w.WFullName,w.WorkerFirstName,w.WorkerMiddleName,w.WorkerLastName,
+                  w.ArabicName,w.FatherName,w.FamilyName,w.ArabicFullName,
+                  w.PassportNumber,w.IDNumber,w.Nationality,w.ContactNumber,
+                  w.SupplierCode,String(w.WorkerID||'')].join(' ').toLowerCase();
+        if(blob.indexOf(search)===-1) return false;
+      }
+      return true;
+    });
+
+    currentIndex = 0;
+    var rc = document.getElementById('resultCount'); if(rc) rc.textContent = filteredList.length+' results';
+    var lc = document.getElementById('listCount'); if(lc) lc.textContent = filteredList.length;
+    renderWorkerList();
+    updateNav();
+    if(filteredList.length>0){ selectWorker(0); }
+    else {
+      currentWorker = null;
+      var ips = document.getElementById('infoPanelScroll');
+      if(ips) ips.innerHTML = '<div class="doc-empty" style="margin-top:60px;"><div class="eicon">🔁</div><div style="font-weight:700;color:#666;">No workers awaiting re-review</div></div>';
+      var sb = document.getElementById('saveBar'); if(sb) sb.style.display='none';
+      var apl = document.getElementById('apWorkerLabel'); if(apl) apl.textContent='No worker selected';
+      var apb = document.getElementById('apBody'); if(apb) apb.innerHTML='<div style="color:#bbb;font-size:12px;text-align:center;padding:20px 0;">No worker selected</div>';
+      var ssb = document.getElementById('scanStatusBadge'); if(ssb) ssb.innerHTML='';
+      if(typeof clearDocViewer==='function') clearDocViewer();
+      var wpb = document.getElementById('workerPhotoBox'); if(wpb) wpb.innerHTML='<div style="color:#ccc;font-size:11px;">No worker selected</div>';
+    }
+    return;
+  }
+
+  // Otherwise call the original
+  _origApplyFilters.call(window);
+};
+
+// ============================================================
+// EXTEND setStatusFilter to set the value
+// ============================================================
+var _origSetStatusFilter = window.setStatusFilter;
+window.setStatusFilter = function(val){
+  var sel = document.getElementById('fltStatus');
+  if(sel){
+    // Add 'rereview' option if not present
+    var hasRR = false;
+    for(var i=0;i<sel.options.length;i++) if(sel.options[i].value==='rereview') hasRR=true;
+    if(!hasRR){
+      var o = document.createElement('option');
+      o.value='rereview'; o.textContent='🔁 Re-Review';
+      sel.appendChild(o);
+    }
+    sel.value = val;
+  }
+  applyFilters();
+};
+
+// ============================================================
+// EXTEND updateCounters to include re-review count
+// ============================================================
+var _origUpdateCounters = window.updateCounters;
+window.updateCounters = function(){
+  if(_origUpdateCounters) _origUpdateCounters.call(window);
+  var rrCount = allWorkers.filter(function(w){
+    return isT(w.RefusedByAdmin) && isT(w.ReviewRequested);
+  }).length;
+  var el = document.getElementById('cntRereview');
+  if(el) el.textContent = rrCount;
+};
+
+// ============================================================
+// EXTEND renderWorkerList to add 🔁 marker
+// ============================================================
+var _origRenderWorkerList = window.renderWorkerList;
+window.renderWorkerList = function(){
+  _origRenderWorkerList.call(window);
+  // Add re-review markers
+  var items = document.querySelectorAll('.wl-item');
+  items.forEach(function(item, idx){
+    var w = filteredList[idx];
+    if(!w) return;
+    if(isT(w.RefusedByAdmin) && isT(w.ReviewRequested)){
+      var nameEl = item.querySelector('.wl-name');
+      if(nameEl && !nameEl.querySelector('.rereview-mark')){
+        var mark = document.createElement('span');
+        mark.className = 'rereview-mark';
+        mark.textContent = '🔁';
+        mark.title = 'Awaiting re-review';
+        nameEl.appendChild(mark);
+      }
+    }
+  });
+};
+
+// ============================================================
+// REFUSAL REASON MODAL
+// ============================================================
+var _rrMode = 'refuse'; // 'refuse' or 'update'
+
+window.rrOpenModal = function(mode){
+  if(!currentWorker) return;
+  _rrMode = mode || 'refuse';
+  var w = currentWorker;
+  var wCode = (w.SupplierCode||'W')+'-'+String(w.WorkerID||'').padStart(4,'0');
+  var name = w.WFullName||w.WorkerFirstName||'Worker';
+
+  document.getElementById('rrWorkerLabel').textContent = wCode+' — '+name;
+  document.getElementById('rrModalTitle').textContent =
+    (_rrMode==='update') ? 'Update Refusal Reason' : 'Refuse Worker';
+  document.getElementById('rrSaveBtn').innerHTML =
+    (_rrMode==='update') ? '💾 Save Updated Reason' : '✖️ Refuse Worker';
+
+  var existing = w.RefusalReason || '';
+  document.getElementById('rrReasonInput').value = existing;
+
+  // Show previous reason info if updating
+  var info = document.getElementById('rrPrevReasonInfo');
+  if(_rrMode==='update' && w.RefusedAt){
+    info.innerHTML = 'Originally refused on: '+escapeHtml(fmtDate(w.RefusedAt));
+  } else { info.innerHTML = ''; }
+
+  document.getElementById('rrModal').classList.add('show');
+  setTimeout(function(){
+    document.getElementById('rrReasonInput').focus();
+  }, 100);
+};
+
+window.rrCloseModal = function(){
+  document.getElementById('rrModal').classList.remove('show');
+};
+
+window.rrSaveReason = async function(){
+  if(!currentWorker) return;
+  var reason = (document.getElementById('rrReasonInput').value||'').trim();
+  if(!reason){
+    alert('⚠️ Please enter a refusal reason.');
+    document.getElementById('rrReasonInput').focus();
+    return;
+  }
+
+  var w = currentWorker;
+
+  if(_rrMode === 'update'){
+    // Just update the reason, keep status
+    w.RefusalReason = reason;
+    w.RefusedAt = w.RefusedAt || nowISO();
+    w.RefusedBy = w.RefusedBy || 'admin';
+    // If supplier had marked it solved, the new reason resets that flag
+    if(isT(w.ReviewRequested)){
+      w.ReviewRequested = false;
+      w.ReviewRequestedAt = '';
+      w.ReviewRequestedBy = '';
+      w.ReviewSolvedNote = '';
+    }
+  } else {
+    // Initial refuse
+    w.AcceptedByAdmin = false;
+    w.RefusedByAdmin = true;
+    w.RefusalReason = reason;
+    w.RefusedAt = nowISO();
+    w.RefusedBy = 'admin';
+    w.ReviewRequested = false;
+    w.ReviewRequestedAt = '';
+    w.ReviewRequestedBy = '';
+    w.ReviewSolvedNote = '';
+  }
+
+  // Update master array + localStorage
+  var idx = allWorkers.findIndex(function(aw){return String(aw.WorkerID)===String(w.WorkerID);});
+  if(idx>=0) allWorkers[idx] = w;
+  try{ localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers)); }catch(e){}
+
+  rrCloseModal();
+  renderApprovalPanel(w);
+  renderWorkerList();
+  updateCounters();
+  showToast(_rrMode==='update' ? '💾 Reason updated' : '✖️ Worker refused', _rrMode==='update'?'info':'error');
+
+  // Save to cloud
+  try{
+    var res = await gsrCall({action:'saveRow', sheet:'Workers', row:w});
+    if(res && res.success) setCloud('☁️ Saved '+new Date().toLocaleTimeString(), '#28a745');
+    else setCloud('⚠️ Local only', '#ffc107');
+  } catch(e){ setCloud('⚠️ Local only', '#ffc107'); }
+};
+
+// ============================================================
+// OVERRIDE saveApproval to route Refuse → modal, and clear review flags on Accept/Reset
+// ============================================================
+window.saveApproval = async function(decision){
+  if(!currentWorker) return;
+  var w = currentWorker;
+
+  // Refuse → open modal first (don't save until reason captured)
+  if(decision === false){
+    rrOpenModal('refuse');
+    return;
+  }
+
+  // Accept or Reset → clear review flags + refusal data
+  if(decision === true){
+    w.AcceptedByAdmin = true;
+    w.RefusedByAdmin = false;
+  } else if(decision === null){
+    w.AcceptedByAdmin = false;
+    w.RefusedByAdmin = false;
+  }
+  // Always clear refusal data on Accept or Reset
+  w.RefusalReason = '';
+  w.RefusedAt = '';
+  w.RefusedBy = '';
+  w.ReviewRequested = false;
+  w.ReviewRequestedAt = '';
+  w.ReviewRequestedBy = '';
+  w.ReviewSolvedNote = '';
+
+  var idx = allWorkers.findIndex(function(aw){return String(aw.WorkerID)===String(w.WorkerID);});
+  if(idx>=0) allWorkers[idx] = w;
+  try{ localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers)); }catch(e){}
+
+  renderApprovalPanel(w);
+  renderWorkerList();
+  updateCounters();
+
+  var msg = decision===true ? '✔️ Worker Accepted!' : '↩️ Reset to Pending';
+  showToast(msg, decision===true?'success':'info');
+
+  try{
+    var res = await gsrCall({action:'saveRow', sheet:'Workers', row:w});
+    if(res && res.success) setCloud('☁️ Saved '+new Date().toLocaleTimeString(), '#28a745');
+    else setCloud('⚠️ Local only', '#ffc107');
+  } catch(e){ setCloud('⚠️ Local only', '#ffc107'); }
+};
+
+// ============================================================
+// EXTEND renderApprovalPanel to show:
+//   - Refusal reason card + "Update Reason" button (if refused)
+//   - Re-review notice (if supplier/admin marked solved)
+// ============================================================
+var _origRenderApprovalPanel = window.renderApprovalPanel;
+window.renderApprovalPanel = function(w){
+  // Call original first
+  _origRenderApprovalPanel.call(window, w);
+
+  if(!w) return;
+
+  var apBody = document.getElementById('apBody');
+  if(!apBody) return;
+
+  // Append refusal info card (if refused)
+  if(isT(w.RefusedByAdmin) && w.RefusalReason){
+    var refusedAt = w.RefusedAt ? fmtDate(w.RefusedAt) : '';
+    var refCard = document.createElement('div');
+    refCard.className = 'refusal-info-card';
+    refCard.innerHTML =
+      '<div class="refusal-info-hdr">'
+      +'<span>📋 Refusal Reason</span>'
+      +'<button class="update-reason-btn" onclick="rrOpenModal(\'update\')">✏️ Update</button>'
+      +'</div>'
+      +'<div class="refusal-info-body">'
+      +'<div class="rr-text">'+escapeHtml(w.RefusalReason)+'</div>'
+      +(refusedAt ? '<div class="rr-meta">Refused: '+escapeHtml(refusedAt)+'</div>' : '')
+      +'</div>';
+    apBody.appendChild(refCard);
+  }
+
+  // Re-review notice (if marked solved by supplier/admin)
+  if(isT(w.ReviewRequested)){
+    var requestedAt = w.ReviewRequestedAt ? fmtDate(w.ReviewRequestedAt) : '';
+    var by = w.ReviewRequestedBy || '';
+    var bySource = '';
+    if(by.indexOf('supplier:')===0) bySource = 'Supplier (via Portal)';
+    else if(by.indexOf('admin:')===0) bySource = 'Admin (Supplier Manager)';
+    else bySource = by || 'Unknown';
+
+    var notice = document.createElement('div');
+    notice.className = 'rereview-notice';
+    notice.innerHTML =
+      '<div class="rereview-notice-hdr">🔁 RE-REVIEW REQUESTED</div>'
+      +'<div class="rereview-notice-body">'
+      +'<strong>Marked as solved by:</strong> '+escapeHtml(bySource)
+      +(w.ReviewSolvedNote ? '<div class="rrn-note">'+escapeHtml(w.ReviewSolvedNote)+'</div>' : '<div class="rrn-note" style="color:#999;font-style:normal;">(no note provided)</div>')
+      +(requestedAt ? '<div class="rrn-meta">Submitted: '+escapeHtml(requestedAt)+'</div>' : '')
+      +'<div style="margin-top:8px;font-size:11px;font-weight:700;color:#7b1fa2;">Re-review the documents and decide: Accept, keep Refused, or Update the reason.</div>'
+      +'</div>';
+    apBody.appendChild(notice);
+  }
+};
+
+// Bind ESC to close modal
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape' && document.getElementById('rrModal').classList.contains('show')){
+    rrCloseModal();
+  }
+});
+
+// Initial counter update
+setTimeout(function(){ if(typeof updateCounters==='function') updateCounters(); }, 1500);
+
+console.log('✅ Step 3 Patch (Worker Approval) loaded');
+})();
+</script>
+<!-- ============================================================
+     END STEP 3 PATCH — WORKER APPROVAL
+============================================================ -->
+<!-- ============================================================
+     STEP 3 PATCH — SUPPLIER PORTAL (supplier side)
+     v1.0 — Display refusal reason + "Mark as Solved" flow
+     Paste this entire block before </body> in Supplier_Portal.html
+============================================================ -->
+
+<style>
+/* ── Mark Solved modal ────────────────────────────── */
+.ms-overlay {
+  display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.65); z-index:100000;
+  align-items:center; justify-content:center;
+}
+.ms-overlay.show { display:flex; }
+.ms-box {
+  background:white; border-radius:12px; width:520px; max-width:94vw;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3); overflow:hidden;
+  animation:msSlide 0.2s ease-out;
+}
+@keyframes msSlide { from{transform:scale(0.94);opacity:0} to{transform:scale(1);opacity:1} }
+.ms-hdr {
+  background:linear-gradient(135deg,#28a745,#218838); color:white;
+  padding:14px 18px; font-weight:700; font-size:14px;
+  display:flex; align-items:center; gap:8px;
+}
+.ms-body { padding:18px; }
+.ms-body .ms-prev-reason {
+  background:#fff5f5; border:1px solid #f5c6cb; border-radius:7px;
+  padding:9px 12px; margin-bottom:14px;
+  font-size:11px; color:#721c24; font-style:italic; white-space:pre-wrap;
+}
+.ms-body .ms-prev-reason-label {
+  font-weight:700; font-style:normal; color:#dc3545; margin-bottom:4px; display:block;
+}
+.ms-body label {
+  display:block; font-size:11px; font-weight:700;
+  color:#475057; margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px;
+}
+.ms-body textarea {
+  width:100%; padding:10px 12px; border:2px solid #e9ecef; border-radius:7px;
+  font-size:13px; font-family:inherit; min-height:90px; resize:vertical;
+  box-sizing:border-box;
+}
+.ms-body textarea:focus { outline:none; border-color:#28a745; }
+.ms-buttons { padding:10px 18px; background:#f8f9fa; border-top:1px solid #e9ecef;
+  display:flex; justify-content:flex-end; gap:8px; }
+.ms-btn { padding:8px 18px; border:none; border-radius:6px; font-weight:700;
+  font-size:12px; cursor:pointer; font-family:inherit; }
+.ms-btn-primary { background:#28a745; color:white; }
+.ms-btn-primary:hover { background:#218838; }
+.ms-btn-secondary { background:white; color:#495057; border:1.5px solid #ced4da; }
+.ms-btn-secondary:hover { background:#f8f9fa; }
+</style>
+
+<!-- Mark Solved Modal -->
+<div class="ms-overlay" id="msModal">
+  <div class="ms-box">
+    <div class="ms-hdr">
+      <span style="font-size:18px;">✅</span>
+      <span>Mark as Solved — Request Re-Review</span>
+    </div>
+    <div class="ms-body">
+      <div id="msWorkerLabel" style="font-size:12px;color:#666;margin-bottom:10px;font-weight:600;"></div>
+      <div class="ms-prev-reason" id="msPrevReason"></div>
+      <label>What did you do to fix it? <span style="color:#dc3545;">*</span></label>
+      <textarea id="msNoteInput" placeholder="e.g. Re-uploaded clearer passport scan, corrected name spelling, replaced expired document..."></textarea>
+      <div style="font-size:10px;color:#888;margin-top:6px;">
+        ℹ️ Once submitted, the worker will be locked until MGS admin reviews again.
+      </div>
+    </div>
+    <div class="ms-buttons">
+      <button class="ms-btn ms-btn-secondary" onclick="msCloseModal()">Cancel</button>
+      <button class="ms-btn ms-btn-primary" id="msSaveBtn" onclick="msSaveSolved()">✅ Submit for Re-Review</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+console.log('🔧 Step 3 Patch (Supplier Portal) loading...');
+
+// ============================================================
+// HELPERS
+// ============================================================
+function isT(v){ return v===true||v==='true'||v==='TRUE'||v===1||v==='1'; }
+function nowISO(){ return new Date().toISOString(); }
+function escHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmtDate(iso){
+  if(!iso) return '';
+  try{ var d=new Date(iso); return d.toLocaleDateString()+' '+d.toLocaleTimeString().substring(0,5); }
+  catch(e){ return iso; }
+}
+
+// ============================================================
+// REPLACE / DEFINE showWorkerStatusBanner
+// Renders the banner above the form when a worker is selected:
+//  - Refusal reason (if refused)
+//  - Locked notice (if marked solved)
+//  - Mark as Solved action box (if refused but not yet solved)
+// ============================================================
+window.showWorkerStatusBanner = function(){
+  // Remove any existing banner
+  var oldBanner = document.getElementById('workerStatusBanner');
+  if(oldBanner) oldBanner.remove();
+
+  if(!currentWorker) return;
+  var w = currentWorker;
+
+  var refused = isT(w.RefusedByAdmin);
+  var reviewRequested = isT(w.ReviewRequested);
+
+  if(!refused) return; // Only show banner for refused workers
+
+  var banner = document.createElement('div');
+  banner.id = 'workerStatusBanner';
+  banner.style.cssText = 'padding:12px 20px;background:#fff;border-bottom:1px solid #e9ecef;';
+
+  var html = '';
+
+  // 1) Refusal reason display (always shown when refused)
+  if(w.RefusalReason){
+    var refusedAt = w.RefusedAt ? fmtDate(w.RefusedAt) : '';
+    html += '<div class="refusal-reason-display">'
+      +'<div class="rf-title">❌ Refused by MGS Admin'+(refusedAt?' — '+escHtml(refusedAt):'')+'</div>'
+      +'<div class="rf-text">'+escHtml(w.RefusalReason)+'</div>'
+      +'</div>';
+  } else {
+    html += '<div class="refusal-reason-display">'
+      +'<div class="rf-title">❌ Refused by MGS Admin</div>'
+      +'<div class="rf-text" style="color:#999;font-style:italic;">No reason was provided. Please contact MGS for details.</div>'
+      +'</div>';
+  }
+
+  // 2) Either show "marked solved" notice OR "Mark as Solved" action
+  if(reviewRequested){
+    var requestedAt = w.ReviewRequestedAt ? fmtDate(w.ReviewRequestedAt) : '';
+    html += '<div class="worker-locked-notice" style="margin-top:8px;">'
+      +'🔁 You marked this worker as solved on '+escHtml(requestedAt)+'. Awaiting MGS re-review.'
+      +'</div>';
+    if(w.ReviewSolvedNote){
+      html += '<div style="margin-top:6px;padding:8px 12px;background:#e8f5e9;border:1px solid #a7f3d0;border-radius:7px;font-size:11px;color:#1b5e20;">'
+        +'<strong style="color:#2e7d32;">Your note:</strong> <span style="font-style:italic;">'+escHtml(w.ReviewSolvedNote)+'</span>'
+        +'</div>';
+    }
+  } else {
+    html += '<div class="refusal-actions">'
+      +'<div class="refusal-actions-hdr">⚙️ Action Required</div>'
+      +'<div class="refusal-actions-body">'
+      +'<p>If you have fixed the issue (e.g. re-uploaded clearer documents, corrected information), click <strong>Mark as Solved</strong> to send this worker back to MGS for re-review.</p>'
+      +'<div class="solved-btn-row">'
+      +'<button class="btn-portal-solved" onclick="msOpenModal()">✅ Mark as Solved</button>'
+      +'</div>'
+      +'</div>'
+      +'</div>';
+  }
+
+  banner.innerHTML = html;
+
+  // Insert banner inside form-content, at the top
+  var formContent = document.querySelector('.form-content');
+  if(formContent){
+    formContent.insertBefore(banner, formContent.firstChild);
+  }
+};
+
+// ============================================================
+// MARK AS SOLVED MODAL
+// ============================================================
+window.msOpenModal = function(){
+  if(!currentWorker) return;
+  if(!isT(currentWorker.RefusedByAdmin)){
+    alert('⚠️ This worker is not in refused status.');
+    return;
+  }
+  var w = currentWorker;
+  var sc = currentSupplier ? String(currentSupplier.SupplierCODE||'').toUpperCase() : '';
+  var wCode = sc+'-'+String(w.WorkerID||'').padStart(4,'0');
+  var name = w.WFullName||w.WorkerFirstName||'Worker';
+
+  document.getElementById('msWorkerLabel').textContent = wCode+' — '+name;
+
+  var prev = document.getElementById('msPrevReason');
+  if(w.RefusalReason){
+    prev.innerHTML = '<span class="ms-prev-reason-label">MGS refusal reason:</span>'+escHtml(w.RefusalReason);
+    prev.style.display = 'block';
+  } else {
+    prev.style.display = 'none';
+  }
+
+  document.getElementById('msNoteInput').value = '';
+  document.getElementById('msModal').classList.add('show');
+  setTimeout(function(){ document.getElementById('msNoteInput').focus(); }, 100);
+};
+
+window.msCloseModal = function(){
+  document.getElementById('msModal').classList.remove('show');
+};
+
+window.msSaveSolved = async function(){
+  if(!currentWorker) return;
+  var note = (document.getElementById('msNoteInput').value||'').trim();
+  if(!note){
+    alert('⚠️ Please describe what you did to fix the issue.');
+    document.getElementById('msNoteInput').focus();
+    return;
+  }
+  if(note.length < 5){
+    alert('⚠️ Please provide a more detailed description (at least 5 characters).');
+    return;
+  }
+
+  var w = currentWorker;
+  w.ReviewRequested = true;
+  w.ReviewRequestedAt = nowISO();
+  w.ReviewRequestedBy = 'supplier:'+(currentSupplier ? currentSupplier.SupplierID : '');
+  w.ReviewSolvedNote = note;
+
+  var btn = document.getElementById('msSaveBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  try{
+    var res = await cloudSave('Workers', w);
+    if(res && res.success){
+      // Update local copy
+      var idx = workers.findIndex(function(aw){return String(aw.WorkerID)===String(w.WorkerID);});
+      if(idx>=0) workers[idx] = w;
+
+      msCloseModal();
+      showWorkerStatusBanner();
+      renderWorkerList();
+      if(typeof updateStats==='function') updateStats();
+      if(typeof setStatus==='function') setStatus('✅ Sent for re-review', true);
+      alert('✅ Worker has been sent for re-review.\n\nMGS admin will review the documents again. You will see the result here once they decide.');
+    } else {
+      alert('❌ Save failed. Please try again.');
+    }
+  } catch(e){
+    alert('❌ Save error: '+e.message);
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '✅ Submit for Re-Review'; }
+  }
+};
+
+// ============================================================
+// EXTEND selectWorker to refresh the banner after each select
+// (the original selectWorker already calls showWorkerStatusBanner)
+// — but we also disable form fields when ReviewRequested=true
+// ============================================================
+var _origSelectWorker = window.selectWorker;
+window.selectWorker = function(worker){
+  _origSelectWorker.call(window, worker);
+  // Disable form editing if locked (review pending)
+  setTimeout(function(){
+    if(!currentWorker) return;
+    var locked = isT(currentWorker.ReviewRequested);
+    // Find all editable fields in the form (excluding the modal/banner inputs)
+    var form = document.getElementById('workerForm');
+    if(!form) return;
+    var fields = form.querySelectorAll('input:not([readonly]):not([type=hidden]), select:not([disabled]), textarea');
+    fields.forEach(function(el){
+      // Skip the modal & banner inputs
+      if(el.closest('.ms-overlay')) return;
+      if(el.closest('#workerStatusBanner')) return;
+      if(locked){
+        el.dataset._wasReadonly = el.readOnly ? '1' : '0';
+        el.dataset._wasDisabled = el.disabled ? '1' : '0';
+        el.readOnly = true;
+        if(el.tagName==='SELECT') el.disabled = true;
+        el.style.opacity = '0.7';
+        el.style.cursor = 'not-allowed';
+      } else {
+        if(el.dataset._wasReadonly === '0') el.readOnly = false;
+        if(el.dataset._wasDisabled === '0' && el.tagName==='SELECT') el.disabled = false;
+        el.style.opacity = '';
+        el.style.cursor = '';
+      }
+    });
+    // Disable Save Worker button if locked
+    var saveBtns = document.querySelectorAll('.form-toolbar button.btn-success, .nav-buttons button.btn-success');
+    saveBtns.forEach(function(b){
+      if(b.textContent.indexOf('Save')>=0 || b.textContent.indexOf('💾')>=0){
+        b.disabled = locked;
+        b.style.opacity = locked ? '0.5' : '';
+        b.style.cursor = locked ? 'not-allowed' : '';
+        b.title = locked ? 'Locked — awaiting MGS re-review' : '';
+      }
+    });
+  }, 100);
+};
+
+// Bind ESC to close modal
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape' && document.getElementById('msModal').classList.contains('show')){
+    msCloseModal();
+  }
+});
+
+console.log('✅ Step 3 Patch (Supplier Portal) loaded');
+})();
+</script>
+<!-- ============================================================
+     END STEP 3 PATCH — SUPPLIER PORTAL
+============================================================ -->
+<!-- ============================================================
+     STEP 3 PATCH — SUPPLIER MANAGER (admin acting for supplier)
+     v1.0 — "Mark as Solved" action on refused worker rows
+     Paste this entire block before </body> in Supplier_Manager_FINAL.html
+============================================================ -->
+
+<style>
+/* ── Mark Solved modal (admin side, purple theme) ─── */
+.smms-overlay {
+  display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.65); z-index:100000;
+  align-items:center; justify-content:center;
+}
+.smms-overlay.show { display:flex; }
+.smms-box {
+  background:white; border-radius:12px; width:540px; max-width:94vw;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3); overflow:hidden;
+  animation:smmsSlide 0.2s ease-out;
+}
+@keyframes smmsSlide { from{transform:scale(0.94);opacity:0} to{transform:scale(1);opacity:1} }
+.smms-hdr {
+  background:linear-gradient(135deg,#9c27b0,#7b1fa2); color:white;
+  padding:14px 18px; font-weight:700; font-size:14px;
+  display:flex; align-items:center; gap:8px;
+}
+.smms-body { padding:18px; }
+.smms-body .smms-prev-reason {
+  background:#fff5f5; border:1px solid #f5c6cb; border-radius:7px;
+  padding:9px 12px; margin-bottom:14px;
+  font-size:11px; color:#721c24; font-style:italic; white-space:pre-wrap;
+}
+.smms-body .smms-prev-reason-label {
+  font-weight:700; font-style:normal; color:#dc3545; margin-bottom:4px; display:block;
+}
+.smms-body label {
+  display:block; font-size:11px; font-weight:700;
+  color:#475057; margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px;
+}
+.smms-body textarea {
+  width:100%; padding:10px 12px; border:2px solid #e9ecef; border-radius:7px;
+  font-size:13px; font-family:inherit; min-height:90px; resize:vertical;
+  box-sizing:border-box;
+}
+.smms-body textarea:focus { outline:none; border-color:#9c27b0; }
+.smms-buttons { padding:10px 18px; background:#f8f9fa; border-top:1px solid #e9ecef;
+  display:flex; justify-content:flex-end; gap:8px; }
+.smms-btn { padding:8px 18px; border:none; border-radius:6px; font-weight:700;
+  font-size:12px; cursor:pointer; font-family:inherit; }
+.smms-btn-primary { background:#9c27b0; color:white; }
+.smms-btn-primary:hover { background:#7b1fa2; }
+.smms-btn-secondary { background:white; color:#495057; border:1.5px solid #ced4da; }
+.smms-btn-secondary:hover { background:#f8f9fa; }
+
+/* ── 🔁 marker on refused rows that are awaiting re-review ── */
+.row-rereview-mark {
+  display:inline-block; background:#9c27b0; color:white;
+  padding:2px 7px; border-radius:10px; font-size:10px; font-weight:700;
+  margin-left:5px; animation:smmsPulse 2.5s infinite;
+}
+@keyframes smmsPulse {
+  0%,100% { box-shadow:0 0 0 0 rgba(156,39,176,0.5); }
+  50%     { box-shadow:0 0 0 5px rgba(156,39,176,0); }
+}
+</style>
+
+<!-- Mark Solved Modal (admin) -->
+<div class="smms-overlay" id="smmsModal">
+  <div class="smms-box">
+    <div class="smms-hdr">
+      <span style="font-size:18px;">🔁</span>
+      <span>Mark as Solved — Send for Re-Review</span>
+    </div>
+    <div class="smms-body">
+      <div id="smmsWorkerLabel" style="font-size:12px;color:#666;margin-bottom:10px;font-weight:600;"></div>
+      <div class="smms-prev-reason" id="smmsPrevReason"></div>
+      <label>What was done to fix it? <span style="color:#dc3545;">*</span></label>
+      <textarea id="smmsNoteInput" placeholder="e.g. Re-uploaded clearer passport scan, corrected name spelling, replaced expired document..."></textarea>
+      <div style="font-size:10px;color:#888;margin-top:6px;">
+        ℹ️ This action will lock the worker until MGS admin reviews again.
+        It will be tagged as: <strong>admin:supplier_manager</strong>
+      </div>
+    </div>
+    <div class="smms-buttons">
+      <button class="smms-btn smms-btn-secondary" onclick="smmsCloseModal()">Cancel</button>
+      <button class="smms-btn smms-btn-primary" id="smmsSaveBtn" onclick="smmsSaveSolved()">🔁 Submit for Re-Review</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+console.log('🔧 Step 3 Patch (Supplier Manager) loading...');
+
+// ============================================================
+// HELPERS
+// ============================================================
+function isT(v){ return v===true||v==='true'||v==='TRUE'||v===1||v==='1'; }
+function nowISO(){ return new Date().toISOString(); }
+function escHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmtDate(iso){
+  if(!iso) return '';
+  try{ var d=new Date(iso); return d.toLocaleDateString()+' '+d.toLocaleTimeString().substring(0,5); }
+  catch(e){ return iso; }
+}
+
+// ============================================================
+// MARK SOLVED MODAL
+// ============================================================
+var _smmsCurrentWorkerId = null;
+
+window.smmsOpenModal = function(workerId){
+  var w = allWorkers.find(function(aw){return String(aw.WorkerID)===String(workerId);});
+  if(!w){ alert('Worker not found.'); return; }
+  if(!isT(w.RefusedByAdmin)){ alert('Worker is not in refused status.'); return; }
+  if(isT(w.ReviewRequested)){
+    if(!confirm('This worker is already marked as solved (awaiting re-review).\n\nDo you want to update the note and re-submit?')) return;
+  }
+
+  _smmsCurrentWorkerId = workerId;
+  var sc = currentSupplier ? String(currentSupplier.SupplierCODE||'').toUpperCase() : (w.SupplierCode||'');
+  var wCode = sc+'-'+String(w.WorkerID||'').padStart(4,'0');
+  var name = w.WFullName||w.WorkerFirstName||'Worker';
+
+  document.getElementById('smmsWorkerLabel').textContent = wCode+' — '+name;
+
+  var prev = document.getElementById('smmsPrevReason');
+  if(w.RefusalReason){
+    var refusedAt = w.RefusedAt ? fmtDate(w.RefusedAt) : '';
+    prev.innerHTML = '<span class="smms-prev-reason-label">MGS refusal reason'+(refusedAt?' ('+escHtml(refusedAt)+')':'')+':</span>'+escHtml(w.RefusalReason);
+    prev.style.display = 'block';
+  } else {
+    prev.innerHTML = '<span class="smms-prev-reason-label">MGS refusal reason:</span><span style="font-style:normal;color:#999;">No reason recorded.</span>';
+    prev.style.display = 'block';
+  }
+
+  document.getElementById('smmsNoteInput').value = w.ReviewSolvedNote || '';
+  document.getElementById('smmsModal').classList.add('show');
+  setTimeout(function(){ document.getElementById('smmsNoteInput').focus(); }, 100);
+};
+
+window.smmsCloseModal = function(){
+  document.getElementById('smmsModal').classList.remove('show');
+  _smmsCurrentWorkerId = null;
+};
+
+window.smmsSaveSolved = async function(){
+  if(!_smmsCurrentWorkerId) return;
+  var note = (document.getElementById('smmsNoteInput').value||'').trim();
+  if(!note){
+    alert('⚠️ Please describe what was done to fix the issue.');
+    document.getElementById('smmsNoteInput').focus();
+    return;
+  }
+  if(note.length < 5){
+    alert('⚠️ Please provide a more detailed description (at least 5 characters).');
+    return;
+  }
+
+  var w = allWorkers.find(function(aw){return String(aw.WorkerID)===String(_smmsCurrentWorkerId);});
+  if(!w){ alert('Worker not found.'); return; }
+
+  w.ReviewRequested = true;
+  w.ReviewRequestedAt = nowISO();
+  w.ReviewRequestedBy = 'admin:supplier_manager';
+  w.ReviewSolvedNote = note;
+
+  var btn = document.getElementById('smmsSaveBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  try{
+    // Save via CloudDB (Supplier_Manager uses this pattern)
+    var res = await CloudDB.saveRow('Workers', w);
+    if(res && res.success){
+      // Update local arrays
+      var idx = allWorkers.findIndex(function(aw){return String(aw.WorkerID)===String(w.WorkerID);});
+      if(idx>=0) allWorkers[idx] = w;
+      try{ localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers)); }catch(e){}
+
+      smmsCloseModal();
+      alert('🔁 Worker sent for re-review.\n\nMGS admin will see it in their Re-Review queue and decide.');
+      // Refresh the workers list
+      if(typeof loadWorkersForSupplier==='function') loadWorkersForSupplier('all');
+    } else {
+      alert('❌ Save failed. Please try again.');
+    }
+  } catch(e){
+    alert('❌ Save error: '+e.message);
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '🔁 Submit for Re-Review'; }
+  }
+};
+
+// ============================================================
+// EXTEND loadWorkersForSupplier to add:
+//   - 🔁 marker on refused rows awaiting re-review
+//   - "Mark as Solved" button on refused rows (not yet solved)
+// ============================================================
+var _origLoadWorkers = window.loadWorkersForSupplier;
+window.loadWorkersForSupplier = function(status){
+  _origLoadWorkers.call(window, status);
+
+  // After original render, walk each row and inject the action / marker
+  setTimeout(function(){
+    var listId = 'workersList-' + (status || 'all');
+    var listEl = document.getElementById(listId);
+    if(!listEl) return;
+
+    var rows = listEl.querySelectorAll('table tbody tr');
+    rows.forEach(function(row){
+      var viewBtn = row.querySelector('button[onclick*="viewWorker"]');
+      if(!viewBtn) return;
+      var match = viewBtn.getAttribute('onclick').match(/viewWorker\((\d+)\)/);
+      if(!match) return;
+      var workerId = parseInt(match[1]);
+      var w = allWorkers.find(function(aw){return parseInt(aw.WorkerID)===workerId;});
+      if(!w) return;
+
+      // Skip if already augmented
+      if(row.dataset._smmsAugmented === '1') return;
+
+      var refused = isT(w.RefusedByAdmin);
+      if(!refused) return; // Only augment refused rows
+
+      var actionsCell = viewBtn.parentElement;
+      var reviewRequested = isT(w.ReviewRequested);
+
+      if(reviewRequested){
+        // Add 🔁 marker next to approval badge (4th column)
+        var approvalCell = row.cells[3];
+        if(approvalCell && !approvalCell.querySelector('.row-rereview-mark')){
+          var mark = document.createElement('span');
+          mark.className = 'row-rereview-mark';
+          mark.textContent = '🔁 Re-Review';
+          mark.title = 'Awaiting MGS re-review' + (w.ReviewRequestedAt ? ' (since '+fmtDate(w.ReviewRequestedAt)+')' : '');
+          approvalCell.appendChild(mark);
+        }
+        // Add "Update note" button
+        if(!actionsCell.querySelector('.smms-update-btn')){
+          var updateBtn = document.createElement('button');
+          updateBtn.className = 'smms-update-btn';
+          updateBtn.textContent = '🔁 Update Note';
+          updateBtn.style.cssText = 'padding:4px 10px;background:#9c27b0;color:white;border:none;border-radius:5px;cursor:pointer;font-size:11px;margin-left:3px;font-weight:700;';
+          updateBtn.onclick = function(ev){ ev.stopPropagation(); smmsOpenModal(workerId); };
+          updateBtn.title = 'Update solved note';
+          actionsCell.appendChild(updateBtn);
+        }
+      } else {
+        // Add "Mark Solved" button
+        if(!actionsCell.querySelector('.smms-solved-btn')){
+          var solvedBtn = document.createElement('button');
+          solvedBtn.className = 'smms-solved-btn';
+          solvedBtn.textContent = '✅ Mark Solved';
+          solvedBtn.style.cssText = 'padding:4px 10px;background:#28a745;color:white;border:none;border-radius:5px;cursor:pointer;font-size:11px;margin-left:3px;font-weight:700;';
+          solvedBtn.onclick = function(ev){ ev.stopPropagation(); smmsOpenModal(workerId); };
+          solvedBtn.title = 'Mark as solved & send for re-review';
+          actionsCell.appendChild(solvedBtn);
+        }
+      }
+
+      row.dataset._smmsAugmented = '1';
+    });
+  }, 50);
+};
+
+// Bind ESC to close modal
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape' && document.getElementById('smmsModal').classList.contains('show')){
+    smmsCloseModal();
+  }
+});
+
+console.log('✅ Step 3 Patch (Supplier Manager) loaded');
+})();
+</script>
+<!-- ============================================================
+     END STEP 3 PATCH — SUPPLIER MANAGER
+============================================================ -->
 
 </body>
 </html>
