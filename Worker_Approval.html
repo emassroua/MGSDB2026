@@ -958,61 +958,114 @@ function classifyFile(name) {
     return 'other';
 }
 
-// Load the list of all files in the current worker's folder
+// Load files for the current worker — uses URL fields first, falls back to folder listing
 async function loadWorkerFiles(w) {
     currentWorkerFiles = [];
     currentFileIndex = 0;
     updateFileNav();
 
-    var folder = w.WorkerFolder || '';
-    if (!folder) {
-        clearDocViewer();
-        return;
-    }
-
-    var folderPath = 'workers/' + folder;
     var frame = document.getElementById('scanFrame');
     frame.innerHTML = '<div class="doc-empty" style="color:#888;"><div class="spinner" style="width:30px;height:30px;border:3px solid rgba(255,255,255,0.15);border-top:3px solid #667eea;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 10px;"></div><div style="font-size:12px;">Loading files...</div></div>';
 
-    try {
-        var fb = await _fbReady();
-        var folderRef = fb.ref(fb.storage, folderPath);
-        var listing = await fb.listAll(folderRef);
+    var files = [];
 
-        var files = [];
-        for (var i = 0; i < listing.items.length; i++) {
-            var item = listing.items[i];
-            if (item.name === '.placeholder') continue;
-            files.push({ ref: item, name: item.name, kind: classifyFile(item.name) });
-        }
-        // Sort: passport first, then id, then photo, then others, alphabetical within
-        var order = { passport: 1, id: 2, photo: 3, other: 4 };
-        files.sort(function(a, b) {
-            var ko = order[a.kind] - order[b.kind];
-            if (ko !== 0) return ko;
-            return a.name.localeCompare(b.name);
+    // METHOD 1: Read URL fields directly (works for new workers from Supplier Portal)
+    if (w.PassportFileURL && String(w.PassportFileURL).indexOf('http') === 0) {
+        files.push({
+            url: w.PassportFileURL,
+            name: 'passport.jpg',
+            kind: 'passport',
+            mimeType: guessMimeFromUrl(w.PassportFileURL)
         });
-
-        currentWorkerFiles = files;
-
-        if (files.length === 0) {
-            clearDocViewer();
-            updateFileNav();
-            return;
-        }
-
-        // Pick first file matching the current tab if possible, else first file
-        var startIdx = 0;
-        for (var j = 0; j < files.length; j++) {
-            if (files[j].kind === currentDocTab) { startIdx = j; break; }
-        }
-        currentFileIndex = startIdx;
-        await displayFileAtIndex(startIdx);
-    } catch (e) {
-        console.warn('Load files failed:', e.message);
-        frame.innerHTML = '<div class="doc-empty" style="color:#888;"><div style="font-size:48px;">❌</div><div style="font-size:12px;margin-top:8px;">' + esc(e.message) + '</div></div>';
-        updateFileNav();
     }
+    if (w.IDFileURL && String(w.IDFileURL).indexOf('http') === 0) {
+        files.push({
+            url: w.IDFileURL,
+            name: 'id.jpg',
+            kind: 'id',
+            mimeType: guessMimeFromUrl(w.IDFileURL)
+        });
+    }
+    if (w.WorkerImage && String(w.WorkerImage).indexOf('http') === 0) {
+        files.push({
+            url: w.WorkerImage,
+            name: 'photo.jpg',
+            kind: 'photo',
+            mimeType: guessMimeFromUrl(w.WorkerImage)
+        });
+    }
+
+    // METHOD 2: Build URL from PassportScanPath / IDScanPath if it's a relative path (legacy)
+    if (files.filter(function(f){return f.kind === 'passport';}).length === 0 && w.PassportScanPath) {
+        var pPath = String(w.PassportScanPath);
+        if (pPath.indexOf('http') === 0) {
+            files.push({ url: pPath, name: pPath.split('/').pop(), kind: 'passport', mimeType: guessMimeFromUrl(pPath) });
+        } else {
+            // Relative path — build public URL
+            var pUrl = 'https://firebasestorage.googleapis.com/v0/b/mgsd2026.firebasestorage.app/o/' + encodeURIComponent(pPath) + '?alt=media';
+            files.push({ url: pUrl, name: pPath.split('/').pop(), kind: 'passport', mimeType: guessMimeFromUrl(pPath) });
+        }
+    }
+    if (files.filter(function(f){return f.kind === 'id';}).length === 0 && w.IDScanPath) {
+        var iPath = String(w.IDScanPath);
+        if (iPath.indexOf('http') === 0) {
+            files.push({ url: iPath, name: iPath.split('/').pop(), kind: 'id', mimeType: guessMimeFromUrl(iPath) });
+        } else {
+            var iUrl = 'https://firebasestorage.googleapis.com/v0/b/mgsd2026.firebasestorage.app/o/' + encodeURIComponent(iPath) + '?alt=media';
+            files.push({ url: iUrl, name: iPath.split('/').pop(), kind: 'id', mimeType: guessMimeFromUrl(iPath) });
+        }
+    }
+
+    // METHOD 3: If still no files AND WorkerFolder is set, fall back to folder listing (for very old workers)
+    if (files.length === 0 && w.WorkerFolder) {
+        var folderPath = 'workers/' + w.WorkerFolder;
+        try {
+            var fb = await _fbReady();
+            var folderRef = fb.ref(fb.storage, folderPath);
+            var listing = await fb.listAll(folderRef);
+            for (var i = 0; i < listing.items.length; i++) {
+                var item = listing.items[i];
+                if (item.name === '.placeholder') continue;
+                files.push({ ref: item, name: item.name, kind: classifyFile(item.name) });
+            }
+        } catch (e) {
+            console.warn('Folder listing failed (fallback):', e.message);
+        }
+    }
+
+    // Sort: passport first, then id, then photo, then others
+    var order = { passport: 1, id: 2, photo: 3, other: 4 };
+    files.sort(function(a, b) {
+        var ko = (order[a.kind] || 5) - (order[b.kind] || 5);
+        if (ko !== 0) return ko;
+        return (a.name || '').localeCompare(b.name || '');
+    });
+
+    currentWorkerFiles = files;
+
+    if (files.length === 0) {
+        clearDocViewer();
+        updateFileNav();
+        return;
+    }
+
+    // Pick first file matching the current tab if possible, else first file
+    var startIdx = 0;
+    for (var j = 0; j < files.length; j++) {
+        if (files[j].kind === currentDocTab) { startIdx = j; break; }
+    }
+    currentFileIndex = startIdx;
+    await displayFileAtIndex(startIdx);
+}
+
+// Helper: guess mime type from URL/filename
+function guessMimeFromUrl(url) {
+    var u = String(url || '').toLowerCase();
+    if (u.indexOf('.pdf') >= 0) return 'application/pdf';
+    if (u.indexOf('.png') >= 0) return 'image/png';
+    if (u.indexOf('.gif') >= 0) return 'image/gif';
+    if (u.indexOf('.webp') >= 0) return 'image/webp';
+    return 'image/jpeg'; // default
 }
 
 // Display the file at a given index from currentWorkerFiles
@@ -1550,6 +1603,14 @@ function _checkAdminPassword(actionLabel) {
 
 async function loadWorkerPhotoInto(box, w) {
     box.innerHTML = '<div class="worker-photo-empty"><div class="ico">📸</div></div>';
+
+    // METHOD 1: Use WorkerImage URL directly (works for all workers from Supplier Portal)
+    if (w.WorkerImage && String(w.WorkerImage).indexOf('http') === 0) {
+        box.innerHTML = '<img src="' + w.WorkerImage + '" alt="Worker photo" title="Hover to enlarge" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<div class=&quot;worker-photo-empty&quot;><div class=&quot;ico&quot;>📸</div></div>\';">';
+        return;
+    }
+
+    // METHOD 2: Fallback for old workers — list folder and find photo by name pattern
     var folder = w.WorkerFolder || '';
     if (!folder) return;
     var wCode = (w.SupplierCode || 'W') + '-' + String(w.WorkerID || '').padStart(4, '0');
@@ -1560,7 +1621,9 @@ async function loadWorkerPhotoInto(box, w) {
         var match = null;
         for (var i = 0; i < listing.items.length; i++) {
             var n = listing.items[i].name.toLowerCase();
-            if (n.indexOf(wCode.toLowerCase() + '-photo') === 0 || n.indexOf('photo-' + wCode.toLowerCase()) === 0) {
+            if (n.indexOf(wCode.toLowerCase() + '-photo') === 0 ||
+                n.indexOf('photo-' + wCode.toLowerCase()) === 0 ||
+                n.indexOf('photo_' + wCode.toLowerCase()) === 0) {
                 match = listing.items[i]; break;
             }
         }
@@ -2254,49 +2317,93 @@ window.rrSaveReason = async function(){
 // ============================================================
 // OVERRIDE saveApproval to route Refuse → modal, and clear review flags on Accept/Reset
 // ============================================================
-window.saveApproval = async function(decision){
+window.saveApproval = async function(action){
   if(!currentWorker) return;
   var w = currentWorker;
 
-  // Refuse → open modal first (don't save until reason captured)
-  if(decision === false){
+  // 'refuse' → open modal first (don't save until reason captured)
+  if(action === 'refuse' || action === false){
     rrOpenModal('refuse');
     return;
   }
 
-  // Accept or Reset → clear review flags + refusal data
-  if(decision === true){
+  var msg = '';
+  var msgType = 'info';
+
+  if(action === 'accept' || action === true){
     w.AcceptedByAdmin = true;
-    w.RefusedByAdmin = false;
-  } else if(decision === null){
-    w.AcceptedByAdmin = false;
-    w.RefusedByAdmin = false;
+    w.RefusedByAdmin  = false;
+    w.WorkerArchived  = false;
+    w.WorkerLocked    = true;
+    w.LockedDate      = new Date().toISOString();
+    w.RefusalReason   = '';
+    w.RefusedAt       = '';
+    w.RefusedBy       = '';
+    w.ReviewRequested = false;
+    w.ReviewRequestedAt = '';
+    w.ReviewRequestedBy = '';
+    w.ReviewSolvedNote = '';
+    msg = '🔒 Worker Accepted & Locked!';
+    msgType = 'success';
   }
-  // Always clear refusal data on Accept or Reset
-  w.RefusalReason = '';
-  w.RefusedAt = '';
-  w.RefusedBy = '';
-  w.ReviewRequested = false;
-  w.ReviewRequestedAt = '';
-  w.ReviewRequestedBy = '';
-  w.ReviewSolvedNote = '';
+  else if(action === 'archive'){
+    if(!_checkAdminPassword('archive this worker')) return;
+    if(!confirm('🗄️ Archive ' + (w.WFullName || w.WorkerFirstName || 'this worker') + '?\n\nArchived workers will be hidden from all views.\nYou can restore later via Reset.')) return;
+    w.WorkerArchived  = true;
+    w.AcceptedByAdmin = false;
+    w.RefusedByAdmin  = false;
+    w.WorkerLocked    = false;
+    w.RefusalReason   = '';
+    w.ArchivedDate    = new Date().toISOString();
+    w.ReviewRequested = false;
+    w.ReviewRequestedAt = '';
+    w.ReviewRequestedBy = '';
+    w.ReviewSolvedNote = '';
+    msg = '🗄️ Worker Archived';
+    msgType = 'info';
+  }
+  else if(action === 'reset' || action === null){
+    if(!_checkAdminPassword('reset to Pending')) return;
+    w.AcceptedByAdmin = false;
+    w.RefusedByAdmin  = false;
+    w.WorkerArchived  = false;
+    w.WorkerLocked    = false;
+    w.RefusalReason   = '';
+    w.RefusedAt       = '';
+    w.RefusedBy       = '';
+    w.ReviewRequested = false;
+    w.ReviewRequestedAt = '';
+    w.ReviewRequestedBy = '';
+    w.ReviewSolvedNote = '';
+    msg = '↩️ Reset to Pending';
+    msgType = 'info';
+  }
+  else {
+    console.warn('Unknown saveApproval action:', action);
+    return;
+  }
 
   var idx = allWorkers.findIndex(function(aw){return String(aw.WorkerID)===String(w.WorkerID);});
   if(idx>=0) allWorkers[idx] = w;
-  try{ localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers)); }catch(e){}
 
   renderApprovalPanel(w);
   renderWorkerList();
   updateCounters();
-
-  var msg = decision===true ? '✔️ Worker Accepted!' : '↩️ Reset to Pending';
-  showToast(msg, decision===true?'success':'info');
+  showToast(msg, msgType);
 
   try{
-    var res = await gsrCall({action:'saveRow', sheet:'Workers', row:w});
-    if(res && res.success) setCloud('☁️ Saved '+new Date().toLocaleTimeString(), '#28a745');
-    else setCloud('⚠️ Local only', '#ffc107');
-  } catch(e){ setCloud('⚠️ Local only', '#ffc107'); }
+    var res = await CloudDB.saveRow('Workers', w, 'WorkerID');
+    if(res && res.success){
+      setCloud('🔥 Saved '+new Date().toLocaleTimeString(), '#28a745');
+      if(action === 'archive') applyFilters();
+    } else {
+      setCloud('⚠️ Save failed', '#ffc107');
+      showToast('⚠️ Save failed: '+(res ? res.error : 'Unknown'), 'error');
+    }
+  } catch(e){
+    setCloud('⚠️ Save error', '#ffc107');
+    showToast('⚠️ '+e.message, 'error');
+  }
 };
 
 // ============================================================
