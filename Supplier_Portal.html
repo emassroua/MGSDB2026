@@ -546,12 +546,26 @@ let _msgResolve = null;
 function sanitizePathSegment(s) {
     return String(s||'').replace(/[\/\\\x00-\x1f]/g, '').trim() || 'unknown';
 }
-// Returns the worker-folder key: e.g. "TTHO-0001-FENET TESFAYE ABDETA"
-function workerFolderKey(supplierCode, workerId, fullName) {
+// Returns the worker-folder key: e.g. "TTHO-0001-FENET_TESFAYE_ABDETA-2026-04-30-PASS"
+function workerFolderKey(supplierCode, workerId, fullName, docType) {
     const code = sanitizePathSegment(supplierCode || 'WRK').toUpperCase();
     const wid = String(workerId).padStart(4, '0');
-    const name = sanitizePathSegment(fullName || 'UNNAMED').toUpperCase();
-    return `${code}-${wid}-${name}`;
+    const name = sanitizePathSegment(fullName || 'UNNAMED').toUpperCase().replace(/\s+/g, '_');
+    const today = new Date().toISOString().split('T')[0];
+    // Auto-detect doc type if not passed: try wizard state, then DOM field, then current worker
+    let dt = String(docType || '').toLowerCase();
+    if (!dt && typeof wz !== 'undefined' && wz && wz.docType) dt = String(wz.docType).toLowerCase();
+    if (!dt) {
+        const dtField = document.getElementById('DocumentType');
+        if (dtField && dtField.value) dt = String(dtField.value).toLowerCase();
+    }
+    if (!dt && typeof currentWorker !== 'undefined' && currentWorker && currentWorker.DocumentType) {
+        dt = String(currentWorker.DocumentType).toLowerCase();
+    }
+    const suffix = dt === 'passport' ? 'PASS' : (dt === 'id' ? 'ID' : '');
+    return suffix
+        ? `${code}-${wid}-${name}-${today}-${suffix}`
+        : `${code}-${wid}-${name}-${today}`;
 }
 // Returns the filename prefix: short format "TTHO-0001"
 function workerFilePrefix(supplierCode, workerId, fullName) {
@@ -2312,8 +2326,7 @@ init();
 
             const wCode = wz.supplierCode + '-' + String(nextId).padStart(4,'0');
             const widPad = String(nextId).padStart(4,'0');
-            const folder = workerFolderKey(wz.supplierCode, nextId, wz.fullEN);
-            const prefix = workerFilePrefix(wz.supplierCode, nextId, wz.fullEN);
+            const folder = workerFolderKey(wz.supplierCode, nextId, wz.fullEN, wz.docType);            const prefix = workerFilePrefix(wz.supplierCode, nextId, wz.fullEN);
 
             // Upload scan
             wzTaskSet('scan', 'running');
