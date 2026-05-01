@@ -2131,11 +2131,11 @@
             var suffix = docType === 'passport' ? ' PASS' : (docType === 'id' ? ' ID' : '');
             
             if (supplierCode && workerName) {
-                return supplierCode + ' (' + wId + ') ' + workerName + ' ' + today + suffix;
+                return supplierCode + '-' + wId + '-' + workerName.replace(/\s+/g, '_').toUpperCase() + '-' + today + suffix.replace(' ', '-');
             } else if (supplierCode) {
-                return supplierCode + ' (' + wId + ') ' + today + suffix;
+                return supplierCode + '-' + wId + '-' + today + suffix.replace(' ', '-');
             }
-            return workerCode + ' ' + today + suffix;
+            return workerCode + '-' + today + suffix.replace(' ', '-');
         }
         
         // Save folder name to worker record and pending variable
@@ -9156,7 +9156,7 @@ console.log('✅ Stage transition buttons patch loaded');
 
             var wCode  = wz.supplierCode ? wz.supplierCode+'-'+String(nextId).padStart(4,'0') : String(nextId).padStart(4,'0');
             var safeName = wz.fullEN.replace(/[\/\\:*?"<>|]/g,'').trim();
-            var folder = wz.supplierCode+' ('+String(nextId).padStart(4,'0')+') '+safeName+' '+new Date().toISOString().split('T')[0]+(wz.docType==='passport'?' PASS':' ID');
+            var folder = wz.supplierCode+'-'+String(nextId).padStart(4,'0')+'-'+safeName.replace(/\s+/g,'_').toUpperCase()+'-'+new Date().toISOString().split('T')[0]+'-'+(wz.docType==='passport'?'PASS':'ID');
             wzTaskSet('folder','done',folder);
 
             wzTaskSet('scan','running');
