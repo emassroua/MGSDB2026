@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>MGS Admin Dashboard</title>
+<link rel="icon" href="data:,">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
 :root {
@@ -44,6 +45,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .content{max-width:1100px;margin:0 auto;padding:28px 24px}
 .section{margin-bottom:36px}
 .section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:14px}
+.section-title.collapsible{cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;transition:color 0.2s}
+.section-title.collapsible:hover{color:var(--accent)}
+.section-title.collapsible .toggle-arrow{display:inline-block;font-size:10px;transition:transform 0.2s}
+.section-title.collapsible.expanded .toggle-arrow{transform:rotate(0deg)}
+.section-content.collapsed{display:none}
 
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
@@ -51,8 +57,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .stat-num.green{color:var(--green)}
 .stat-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px}
 
-.modules-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.mod-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;cursor:pointer;transition:all 0.2s;position:relative}
+.modules-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.mod-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;cursor:pointer;transition:all 0.2s;position:relative}
 .mod-card:hover{border-color:var(--border2);transform:translateY(-2px)}
 .mod-card.active{border-color:rgba(220,53,69,0.4)}
 .mod-card.soon{opacity:0.4;cursor:not-allowed}
@@ -227,6 +232,10 @@ tr:hover td{background:rgba(255,255,255,0.02)}
       <label>Password</label>
       <input type="password" id="loginPw" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
+    <div class="login-field" style="display:flex;align-items:center;gap:8px;margin-top:-6px">
+      <input type="checkbox" id="rememberMe" checked style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
+      <label for="rememberMe" style="font-size:12px;color:var(--text2);text-transform:none;letter-spacing:normal;font-weight:400;cursor:pointer;margin:0">Remember me on this device (30 days)</label>
+    </div>
     <button class="login-btn" onclick="doLogin()">🔐 Enter Dashboard</button>
     <div class="login-error" id="loginError">❌ Incorrect password. Try again.</div>
   </div>
@@ -272,67 +281,100 @@ tr:hover td{background:rgba(255,255,255,0.02)}
       <div class="legend-item"><div class="legend-dot" style="background:var(--border2)"></div> Default</div>
     </div>
 
+    <div onclick="toggleMainPreview()" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--green);margin:18px 0 10px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;" title="Click to expand/collapse — preview of cards visible on Main Dashboard">
+      <span id="mainPreviewArrow">▶</span>
+      🏠 Visible on Main Dashboard (preview)
+      <span style="flex:1;height:1px;background:linear-gradient(90deg,var(--green),transparent);"></span>
+      <span id="countMainPreview" style="font-family:var(--mono);font-size:11px;color:var(--green);">0</span>
+    </div>
+    <div class="modules-grid" id="modulesGridMainPreview" style="display:none;"></div>
+
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--blue);margin:18px 0 10px;display:flex;align-items:center;gap:8px;">
-      🏠 Visible on Main Dashboard
+      📋 Active Modules
       <span style="flex:1;height:1px;background:linear-gradient(90deg,var(--blue),transparent);"></span>
       <span id="countVisible" style="font-family:var(--mono);font-size:11px;color:var(--blue);">0</span>
     </div>
     <div class="modules-grid" id="modulesGridVisible"></div>
 
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);margin:28px 0 10px;display:flex;align-items:center;gap:8px;">
-      🔒 Hidden from Main Dashboard (Admin-Only)
+    <div onclick="toggleHiddenModules()" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);margin:28px 0 10px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;" title="Click to expand/collapse">
+      <span id="hiddenToggleArrow">▶</span>
+      🙈 Hidden Modules (click to expand)
       <span style="flex:1;height:1px;background:linear-gradient(90deg,var(--text3),transparent);"></span>
       <span id="countHidden" style="font-family:var(--mono);font-size:11px;color:var(--text3);">0</span>
     </div>
-    <div class="modules-grid" id="modulesGridHidden"></div>
+    <div class="modules-grid" id="modulesGridHidden" style="display:none;"></div>
   </div>
 
   <div class="section">
-    <div class="section-title">🔒 Module Security Control</div>
-    <div class="security-grid" id="securityGrid"></div>
-    <div class="pw-panel" style="margin-top:14px">
-      <div class="section-title" style="margin-bottom:12px">🔑 Global Admin Password</div>
-      <div class="pw-row">
-        <div class="pw-field">
-          <label>Global Admin Password</label>
-          <input type="text" id="globalPw" value="masr3434" onchange="saveGlobalPw()">
-        </div>
-        <button class="btn btn-red btn-sm" onclick="saveGlobalPw()">💾 Save</button>
-      </div>
+    <div class="section-title collapsible" id="hdrModuleSecurity" onclick="toggleSection('hdrModuleSecurity')">
+      <span class="toggle-arrow">▶</span>
+      🔒 Module Security Control
+    </div>
+    <div class="section-content collapsed">
+      <div class="security-grid" id="securityGrid"></div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">🧹 Data Maintenance</div>
-    <div class="maint-card">
-      <div class="maint-header">
-        <div><div class="maint-title">🗑️ Database Reset Manager</div><div class="maint-desc">Clear specific tables or reset entire database (protected tables skipped)</div></div>
-        <button class="btn btn-red btn-sm" onclick="openPage('database_reset_manager')">Open →</button>
-      </div>
-      <div class="warn-box">⚠️ This tool permanently deletes data. Protected tables (Nationalities, Processing Costs, Documents, Invoice Header, Message Templates, Rules) are skipped.</div>
+    <div class="section-title collapsible" id="hdrGlobalPw" onclick="toggleSection('hdrGlobalPw')">
+      <span class="toggle-arrow">▶</span>
+      🔑 Global Admin Password
     </div>
-    <div class="maint-card">
-      <div class="maint-header">
-        <div><div class="maint-title">🧹 Cleanup Unlinked Employers</div><div class="maint-desc">Find and remove employers not linked to any agency</div></div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-grey btn-sm" onclick="scanUnlinked()">🔍 Scan</button>
-          <button class="btn btn-red btn-sm" onclick="cleanUnlinked()">🗑️ Cleanup</button>
+    <div class="section-content collapsed">
+      <div class="pw-panel">
+        <div class="pw-row">
+          <div class="pw-field">
+            <label>Global Admin Password</label>
+            <input type="text" id="globalPw" value="masr3434" onchange="saveGlobalPw()">
+          </div>
+          <button class="btn btn-red btn-sm" onclick="saveGlobalPw()">💾 Save</button>
         </div>
       </div>
-      <div class="status-box" id="cleanStatus"></div>
     </div>
   </div>
 
   <div class="section">
-    <div class="table-wrap">
-      <div class="table-head">
-        <h3>🔗 Scripts &amp; Links</h3>
-        <button class="btn btn-sm" style="background:white;color:var(--accent);border:none" onclick="addScript()">+ Add</button>
+    <div class="section-title collapsible" id="hdrDataMaint" onclick="toggleSection('hdrDataMaint')">
+      <span class="toggle-arrow">▶</span>
+      🧹 Data Maintenance
+    </div>
+    <div class="section-content collapsed">
+      <div class="maint-card">
+        <div class="maint-header">
+          <div><div class="maint-title">🗑️ Database Reset Manager</div><div class="maint-desc">Clear specific tables or reset entire database (protected tables skipped)</div></div>
+          <button class="btn btn-red btn-sm" onclick="openPage('database_reset_manager')">Open →</button>
+        </div>
+        <div class="warn-box">⚠️ This tool permanently deletes data. Protected tables (Nationalities, Processing Costs, Documents, Invoice Header, Message Templates, Rules) are skipped.</div>
       </div>
-      <table>
-        <thead><tr><th>#</th><th>Description</th><th>URL</th><th style="text-align:center">Actions</th></tr></thead>
-        <tbody id="scriptsBody"></tbody>
-      </table>
+      <div class="maint-card">
+        <div class="maint-header">
+          <div><div class="maint-title">🧹 Cleanup Unlinked Employers</div><div class="maint-desc">Find and remove employers not linked to any agency</div></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-grey btn-sm" onclick="scanUnlinked()">🔍 Scan</button>
+            <button class="btn btn-red btn-sm" onclick="cleanUnlinked()">🗑️ Cleanup</button>
+          </div>
+        </div>
+        <div class="status-box" id="cleanStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title collapsible" id="hdrScripts" onclick="toggleSection('hdrScripts')">
+      <span class="toggle-arrow">▶</span>
+      🔗 Scripts &amp; Links
+    </div>
+    <div class="section-content collapsed">
+      <div class="table-wrap">
+        <div class="table-head">
+          <h3>🔗 Scripts &amp; Links</h3>
+          <button class="btn btn-sm" style="background:white;color:var(--accent);border:none" onclick="addScript()">+ Add</button>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Description</th><th>URL</th><th style="text-align:center">Actions</th></tr></thead>
+          <tbody id="scriptsBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -401,10 +443,10 @@ window.CloudSettings = {
 
 window.loadSystemStats = async function() {
     const collections = [
-        { name: 'workers', target: 'statWorkers' },
+        { name: 'Workers', target: 'statWorkers' },
         { name: 'employers', target: 'statEmployers' },
-        { name: 'suppliers', target: 'statSuppliers' },
-        { name: 'local_agencies', target: 'statAgencies' },
+        { name: 'supplier_manager', target: 'statSuppliers' },
+        { name: 'Local_Agencies', target: 'statAgencies' },
         { name: 'nationalities', target: 'statNationalities' }
     ];
     for (const c of collections) {
@@ -429,13 +471,38 @@ window.loadSystemStats = async function() {
 <script>
 var DEFAULT_GLOBAL_PW = 'masr3434';
 var _loggedIn = false;
+var REMEMBER_TOKEN_KEY = 'mgs_admin_token';
+var REMEMBER_DAYS = 30;
+
+function _saveRememberToken() {
+  var token = 'tok_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  var expiresAt = Date.now() + (REMEMBER_DAYS * 24 * 60 * 60 * 1000);
+  localStorage.setItem(REMEMBER_TOKEN_KEY, JSON.stringify({ token: token, expiresAt: expiresAt }));
+}
+
+function _checkRememberToken() {
+  try {
+    var raw = localStorage.getItem(REMEMBER_TOKEN_KEY);
+    if (!raw) return false;
+    var data = JSON.parse(raw);
+    if (!data.expiresAt || Date.now() > data.expiresAt) {
+      localStorage.removeItem(REMEMBER_TOKEN_KEY);
+      return false;
+    }
+    return true;
+  } catch(e) { return false; }
+}
 
 async function doLogin() {
   var pw = document.getElementById('loginPw').value;
+  var rememberEl = document.getElementById('rememberMe');
+  var remember = rememberEl ? rememberEl.checked : false;
   var saved = await CloudSettings.load('security_password');
   var expected = saved || DEFAULT_GLOBAL_PW;
   if (pw === expected) {
     _loggedIn = true;
+    if (remember) _saveRememberToken();
+    else localStorage.removeItem(REMEMBER_TOKEN_KEY);
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('mainDash').style.display='block';
     initDashboard();
@@ -447,10 +514,29 @@ async function doLogin() {
 }
 function doLogout() {
   _loggedIn = false;
+  localStorage.removeItem(REMEMBER_TOKEN_KEY);
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('mainDash').style.display='none';
   document.getElementById('loginPw').value='';
 }
+
+// Auto-login on page load if Remember Me token is valid
+(function(){
+  function tryAutoLogin() {
+    if (!window.CloudSettings) { setTimeout(tryAutoLogin, 300); return; }
+    if (_checkRememberToken()) {
+      console.log('🔓 Auto-login via Remember Me token');
+      _loggedIn = true;
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('mainDash').style.display = 'block';
+      initDashboard();
+    } else {
+      var pwField = document.getElementById('loginPw');
+      if (pwField) setTimeout(function(){ pwField.focus(); }, 100);
+    }
+  }
+  tryAutoLogin();
+})();
 (function(){ setTimeout(function(){ var el=document.getElementById('loginPw'); if(el)el.focus(); },100); })();
 
 function initDashboard() {
@@ -469,7 +555,7 @@ async function saveModuleStatuses(s) { await CloudSettings.save('module_status',
 
 async function setModuleStatus(key, field, val) {
   var s = await getModuleStatuses();
-  if(!s[key]) s[key]={done:false,crucial:false,showOnMain:false};
+  if(!s[key]) s[key]={done:false,crucial:false,showOnMain:false,hideFromAdmin:false};
   s[key][field] = val;
   if(field==='done'&&val) s[key].crucial=false;
   if(field==='crucial'&&val) s[key].done=false;
@@ -523,14 +609,58 @@ var MODULES = [
   {key:'Database_Reset_Manager',     page:'database_reset_manager',     icon:'🗑️',title:'Database Reset',           desc:'Clear specific tables or reset entire database'},
   {key:'Cleanup_Unlinked_Employers', page:'cleanup_unlinked_employers', icon:'🧹',title:'Cleanup Unlinked',         desc:'Find and remove employers not linked to any agency'}
 ];
-
+function toggleMainPreview() {
+  var grid = document.getElementById('modulesGridMainPreview');
+  var arrow = document.getElementById('mainPreviewArrow');
+  if (!grid || !arrow) return;
+  var isHidden = grid.style.display === 'none';
+  if (isHidden) {
+    grid.style.display = 'grid';
+    arrow.textContent = '▼';
+  } else {
+    grid.style.display = 'none';
+    arrow.textContent = '▶';
+  }
+}
+function toggleHiddenModules() {
+  var grid = document.getElementById('modulesGridHidden');
+  var arrow = document.getElementById('hiddenToggleArrow');
+  if (!grid || !arrow) return;
+  var isHidden = grid.style.display === 'none';
+  if (isHidden) {
+    grid.style.display = 'grid';
+    arrow.textContent = '▼';
+  } else {
+    grid.style.display = 'none';
+    arrow.textContent = '▶';
+  }
+}
+function toggleSection(headerId) {
+  var header = document.getElementById(headerId);
+  if (!header) return;
+  var content = header.nextElementSibling;
+  if (!content) return;
+  var arrow = header.querySelector('.toggle-arrow');
+  var isCollapsed = content.classList.contains('collapsed');
+  if (isCollapsed) {
+    content.classList.remove('collapsed');
+    if (arrow) arrow.textContent = '▼';
+    header.classList.add('expanded');
+  } else {
+    content.classList.add('collapsed');
+    if (arrow) arrow.textContent = '▶';
+    header.classList.remove('expanded');
+  }
+}
 async function renderModules() {
   var statuses = await getModuleStatuses();
   var gridVisible = document.getElementById('modulesGridVisible');
   var gridHidden  = document.getElementById('modulesGridHidden');
+  var gridMainPreview = document.getElementById('modulesGridMainPreview');
   gridVisible.innerHTML = '';
   gridHidden.innerHTML = '';
-  var countVisible = 0, countHidden = 0;
+  if (gridMainPreview) gridMainPreview.innerHTML = '';
+  var countVisible = 0, countHidden = 0, countMainPreview = 0;
 
   MODULES.forEach(function(m) {
     var st = statuses[m.key]||{done:false,crucial:false,showOnMain:false};
@@ -543,7 +673,7 @@ async function renderModules() {
     div.id = 'modcard-'+m.key;
     div.onclick = function(e){
   if(e.target.type==='checkbox'||e.target.closest('.mod-checks')) return;
-  openInAdmin(m.page, m.title);
+  openPage(m.page);
 };
     var shieldHTML = isProtected ? '<span class="mod-shield" title="Protected from Database Reset">🛡️</span>' : '';
     var checksHTML =
@@ -560,6 +690,10 @@ async function renderModules() {
       +'<input type="checkbox" class="show-chk" id="chk-show-'+m.key+'" '+(st.showOnMain?'checked':'')+' onchange="setModuleStatus(\''+m.key+'\',\'showOnMain\',this.checked)">'
       +'🏠 Show on Main Dashboard'
       +'</label>'
+      +'<label class="mod-check-row check-hide">'
+      +'<input type="checkbox" class="hide-chk" id="chk-hide-'+m.key+'" '+(st.hideFromAdmin?'checked':'')+' onchange="setModuleStatus(\''+m.key+'\',\'hideFromAdmin\',this.checked)">'
+      +'🙈 Hide from Admin Dashboard'
+      +'</label>'
       +'</div>';
     div.innerHTML =
       '<div class="'+badgeCls+'">'+badgeTxt+'</div>'
@@ -568,19 +702,44 @@ async function renderModules() {
       +'<div class="mod-desc">'+m.desc+'</div>'
       +checksHTML;
 
-    if (st.showOnMain) {
-      gridVisible.appendChild(div);
-      countVisible++;
-    } else {
+    if (st.hideFromAdmin) {
       gridHidden.appendChild(div);
       countHidden++;
+    } else if (st.showOnMain) {
+      // Card is marked for Main Dashboard — goes to preview only, not Active Modules
+    } else {
+      gridVisible.appendChild(div);
+      countVisible++;
+    }
+
+    // Also clone into the Main Dashboard Preview if showOnMain is checked
+    if (st.showOnMain && gridMainPreview) {
+      var clone = div.cloneNode(true);
+      clone.id = 'modcard-preview-'+m.key;
+      clone.onclick = function(e){
+        if(e.target.type==='checkbox'||e.target.closest('.mod-checks')) return;
+        openPage(m.page);
+      };
+      gridMainPreview.appendChild(clone);
+      countMainPreview++;
     }
   });
 
   document.getElementById('countVisible').textContent = countVisible;
   document.getElementById('countHidden').textContent = countHidden;
+  var countPreviewEl = document.getElementById('countMainPreview');
+  if (countPreviewEl) countPreviewEl.textContent = countMainPreview;
 }
-function openPage(page){ openInNewTab(APP_URL+'?page='+page); }
+function openInNewTab(url){
+  var a=document.createElement('a');
+  a.href=url; a.target='_blank'; a.rel='noopener noreferrer';
+  a.style.display='none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){ try{document.body.removeChild(a);}catch(e){} }, 100);
+}
+
+function openPage(page){ openInNewTab('https://mgsd2026.web.app/' + page + '.html'); }
 
 function openInAdmin(page, title){
   document.getElementById('adminFrameTitle').textContent = title;
@@ -650,10 +809,13 @@ async function saveModulePw(key){
   showToast(key+' password saved','success');
 }
 async function saveGlobalPw(){
-  var pw=document.getElementById('globalPw').value.trim();
-  if(!pw){showToast('Password cannot be empty','error');return;}
+  var pw = document.getElementById('globalPw').value.trim();
+  if (!pw) { showToast('Password cannot be empty','error'); return; }
+  var ok = await showConfirm('Change master password to:\n\n  '+pw+'\n\nYou will need this password on your next login.\nYour "Remember Me" session will be cleared.\n\nContinue?');
+  if (!ok) { showToast('Password change cancelled','error'); return; }
   await CloudSettings.save('security_password', pw);
-  showToast('Global password updated','success');
+  localStorage.removeItem(REMEMBER_TOKEN_KEY);
+  showToast('Master password updated. Re-login required next visit.','success');
 }
 
 function scanUnlinked(){
@@ -723,8 +885,26 @@ async function saveScr(i){var arr=window._scriptsCache||[];arr[i].info=document.
 async function delScr(i){var arr=window._scriptsCache||[];var ok=await showConfirm('Delete script:\n'+arr[i].info+'\n\nContinue?');if(!ok)return;arr.splice(i,1);await saveScripts(arr);await renderScripts();}
 async function addScript(){var info=prompt('Description:');if(!info)return;var url=prompt('URL (e.g. my_page.html):','');if(!url)return;var arr=window._scriptsCache||[];arr.push({id:arr.length+1,info:info,url:url});await saveScripts(arr);await renderScripts();showToast('Script added','success');}
 
-function switchTheme(t){if(t==='crimson')document.documentElement.setAttribute('data-theme','crimson');else document.documentElement.removeAttribute('data-theme');localStorage.setItem('mgsdb_admin_theme',t);}
-(function(){var t=localStorage.getItem('mgsdb_admin_theme')||'default';switchTheme(t);setTimeout(function(){var s=document.getElementById('themeSelector');if(s)s.value=t;},50);})();
+async function switchTheme(t){
+  if(t==='crimson') document.documentElement.setAttribute('data-theme','crimson');
+  else document.documentElement.removeAttribute('data-theme');
+  if (window.CloudSettings) {
+    await CloudSettings.save('admin_theme', t);
+  }
+}
+(function(){
+  function applyTheme() {
+    if (!window.CloudSettings) { setTimeout(applyTheme, 300); return; }
+    CloudSettings.load('admin_theme').then(function(t){
+      var theme = t || 'default';
+      if (theme==='crimson') document.documentElement.setAttribute('data-theme','crimson');
+      else document.documentElement.removeAttribute('data-theme');
+      var s = document.getElementById('themeSelector');
+      if (s) s.value = theme;
+    });
+  }
+  applyTheme();
+})();
 
 function showToast(msg,type){var t=document.getElementById('toast');document.getElementById('toastIcon').textContent=type==='error'?'❌':'✅';document.getElementById('toastMsg').textContent=msg;t.className='toast '+(type||'')+' show';setTimeout(function(){t.classList.remove('show');},3000);}
 
