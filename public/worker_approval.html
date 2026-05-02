@@ -1,0 +1,3437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MGS - Worker Approval Control (Firebase)</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; margin:0; padding:0; overflow:hidden; }
+body { font-family:'Segoe UI',Tahoma,sans-serif; background:#eef2f7; font-size:13px; }
+
+.topbar {
+  height:48px; box-sizing:border-box;
+  background:linear-gradient(135deg,#667eea,#764ba2);
+  padding:0 20px;
+  display:flex; align-items:center; justify-content:space-between;
+  z-index:200;
+  box-shadow:0 2px 10px rgba(0,0,0,0.2);
+}
+.topbar-title { color:white; font-size:16px; font-weight:800; }
+.topbar-sub   { color:rgba(255,255,255,0.75); font-size:11px; }
+.topbar-badges { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.tbadge { padding:4px 12px; border-radius:14px; font-size:11px; font-weight:700; border:1px solid rgba(255,255,255,0.3); color:white; background:rgba(255,255,255,0.15); cursor:pointer; transition:all 0.15s; }
+.tbadge:hover { background:rgba(255,255,255,0.28); }
+.tbadge.active-filter { background:rgba(255,255,255,0.35); border-color:white; }
+.tbadge.yellow { background:rgba(255,193,7,0.3);  border-color:rgba(255,193,7,0.6); }
+.tbadge.green  { background:rgba(40,167,69,0.3);  border-color:rgba(40,167,69,0.6); }
+.tbadge.red    { background:rgba(220,53,69,0.3);  border-color:rgba(220,53,69,0.6); }
+.dbtn { background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.4); color:white; padding:6px 14px; border-radius:6px; font-weight:700; cursor:pointer; font-size:12px; }
+.dbtn:hover { background:rgba(255,255,255,0.28); }
+
+.topbar-filters {
+  height:34px; box-sizing:border-box;
+  background:linear-gradient(135deg,#5a6fd6,#6b42a0); padding:0 20px; display:flex; align-items:center; gap:8px;
+}
+.topbar-filters select, .topbar-filters input {
+  padding:4px 10px; border:1px solid rgba(255,255,255,0.3); border-radius:5px;
+  font-size:11px; color:#fff; background:rgba(255,255,255,0.15);
+}
+.topbar-filters select option { color:#333; background:#fff; }
+.topbar-filters select:focus, .topbar-filters input:focus { outline:none; border-color:rgba(255,255,255,0.7); background:rgba(255,255,255,0.25); }
+.topbar-filters input { min-width:160px; color:#fff; }
+.topbar-filters input::placeholder { color:rgba(255,255,255,0.6); }
+.nav-btn {
+  padding:4px 12px; border:1.5px solid #667eea; background:white; color:#667eea;
+  border-radius:5px; font-weight:700; font-size:11px; cursor:pointer; transition:all 0.15s;
+}
+.nav-btn:hover:not(:disabled) { background:#667eea; color:white; }
+.nav-btn:disabled { opacity:0.3; cursor:not-allowed; }
+.nav-ctr { font-weight:700; font-size:11px; color:#495057; min-width:50px; text-align:center; }
+
+/* MAIN 4-COLUMN LAYOUT */
+.main-layout {
+  display:grid;
+  grid-template-columns:190px 260px 1fr 260px;
+  gap:0;
+  position:fixed;
+  top:82px; bottom:0; left:0; right:0;
+  overflow:hidden;
+}
+
+/* COL 1: WORKER LIST */
+.worker-list-panel {
+  background:#fff; border-right:1px solid #e9ecef;
+  overflow:hidden; display:flex; flex-direction:column; min-height:0;
+}
+.wl-header {
+  padding:8px 12px; background:#f8f9fa; border-bottom:1px solid #e9ecef;
+  font-weight:700; font-size:11px; color:#667eea; text-transform:uppercase; letter-spacing:0.5px;
+  flex-shrink:0;
+}
+#workerListBody { flex:1; overflow-y:auto; overflow-x:hidden; height:0; }
+.wl-item {
+  padding:7px 10px; border-bottom:1px solid #f0f0f0; cursor:pointer;
+  transition:background 0.12s; display:flex; align-items:center; gap:7px;
+}
+.wl-item:hover { background:#f0f4ff; }
+.wl-item.active { background:#667eea; color:white; }
+.wl-item.active .wl-code, .wl-item.active .wl-nat { color:rgba(255,255,255,0.75); }
+.wl-item.accepted .wl-dot { background:#28a745; }
+.wl-item.refused  .wl-dot { background:#dc3545; }
+.wl-item.pending  .wl-dot { background:#ffc107; }
+.wl-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.wl-info { flex:1; min-width:0; }
+.wl-name { font-weight:600; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wl-code { font-size:10px; color:#888; }
+.wl-nat  { font-size:10px; color:#aaa; }
+
+/* COL 2: INFO PANEL */
+.info-panel {
+  background:#eef2f7; border-right:1px solid #e9ecef;
+  overflow:hidden; display:flex; flex-direction:column; min-height:0;
+}
+.info-panel-scroll {
+  flex:1; overflow-y:auto; overflow-x:hidden; padding:8px;
+  display:flex; flex-direction:column; gap:6px; height:0;
+}
+.edt { width:100%; padding:2px 5px; border:1px solid #ddd; border-radius:3px; font-size:11px; font-family:inherit; background:#fff; box-sizing:border-box; }
+select.edt { padding:1px 3px; }
+input[type="date"].edt { padding:1px 4px; }
+.edt:focus { border-color:#667eea; outline:none; background:#f8f9ff; }
+.edt-ar { direction:rtl; text-align:right; background:#fef3c7; border-color:#f59e0b; border-width:1.5px; }
+.edt-ar:focus { background:#fef9c3; border-color:#d97706; }
+.edt-ar-label { color:#b45309 !important; font-weight:700 !important; }
+.edt-locked { background:#f0f0f0; color:#666; cursor:default; }
+.edt-locked.edt-ar { background:#fef3c7; color:#92400e; }
+.acc-hdr { cursor:pointer; user-select:none; display:flex; align-items:center; justify-content:space-between; }
+.acc-hdr:hover { filter:brightness(0.96); }
+.acc-arrow { font-size:10px; color:#999; transition:transform 0.2s; }
+.acc-hdr.open .acc-arrow { transform:rotate(90deg); }
+.acc-body { display:none; }
+.acc-body.open { display:block; }
+.save-bar { padding:8px; background:#f8f9fa; border-top:1px solid #e9ecef; flex-shrink:0; }
+.save-bar button { width:100%; padding:8px; background:#667eea; color:white; border:none; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer; }
+.save-bar button:hover { background:#5a6fd6; }
+.save-bar button:disabled { opacity:0.5; cursor:not-allowed; }
+
+/* COL 3: SCAN PREVIEW */
+.scan-panel {
+  background:#1a1a2e; display:flex; flex-direction:column;
+  border-right:1px solid #333; min-height:0; overflow:hidden;
+}
+.doc-viewer-hdr {
+  padding:8px 12px; background:#16213e; border-bottom:1px solid #0f3460;
+  display:flex; align-items:center; justify-content:space-between;
+  font-weight:700; font-size:11px; color:#a78bfa; text-transform:uppercase;
+  flex-shrink:0;
+}
+.doc-tabs { display:flex; gap:5px; }
+.doc-tab {
+  padding:3px 11px; border-radius:12px; font-size:11px; font-weight:700;
+  cursor:pointer; border:1.5px solid #444; background:#1a1a2e; color:#aaa;
+  transition:all 0.15s;
+}
+.doc-tab.active { background:#667eea; color:white; border-color:#667eea; }
+.scan-frame {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  padding:8px; overflow:auto; min-height:0; position:relative;
+}
+.scan-frame img {
+  max-width:100%; max-height:100%; object-fit:contain;
+  border-radius:4px; box-shadow:0 4px 20px rgba(0,0,0,0.5);
+  transition:transform 0.15s ease;
+  cursor:zoom-in;
+}
+.zoom-hint {
+  position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.6);
+  color:#aaa; font-size:10px; padding:3px 8px; border-radius:10px;
+  pointer-events:none; opacity:0.7; z-index:5;
+}
+.scan-frame iframe {
+  width:100%; height:100%; border:0; background:white; border-radius:4px;
+}
+.scan-frame .doc-empty { color:#888; }
+.scan-frame .doc-empty .eicon { color:#444; }
+#scanOpenLink { flex-shrink:0; }
+#scanOpenLink a {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  margin:0 12px 6px; padding:6px; border-radius:6px;
+  color:white; text-decoration:none; font-size:11px; font-weight:700;
+}
+.scan-nav { display:flex; align-items:center; justify-content:center; gap:12px; padding:6px; background:#111; flex-shrink:0; border-top:1px solid #333; }
+.scan-nav .nav-btn { border-color:#667eea; background:transparent; color:#99aaff; }
+.scan-nav .nav-btn:hover:not(:disabled) { background:#667eea; color:white; }
+
+/* COL 4: APPROVAL PANEL */
+.right-panel {
+  background:#fff; border-left:1px solid #e9ecef;
+  overflow-y:auto; display:flex; flex-direction:column; min-height:0;
+}
+.ap-header {
+  background:linear-gradient(135deg,#667eea,#764ba2); color:white;
+  padding:12px 14px;
+}
+.ap-header h3 { font-size:13px; font-weight:800; margin-bottom:2px; }
+.ap-header p  { font-size:11px; opacity:0.8; }
+.ap-body { padding:12px 14px; }
+
+/* CARD */
+.card { background:white; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.07); overflow:hidden; }
+.card-hdr {
+  padding:4px 9px; display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid #f0f0f0;
+}
+.card-hdr-title { font-weight:800; font-size:10px; text-transform:uppercase; letter-spacing:0.4px; }
+.card-body { padding:5px 9px; }
+
+.it { width:100%; border-collapse:collapse; }
+.it td { padding:1.5px 0; font-size:11px; vertical-align:top; }
+.it td:first-child { color:#999; font-weight:600; width:42%; padding-right:6px; white-space:nowrap; }
+.it td:last-child  { color:#222; font-weight:500; }
+
+/* STATUS BADGES */
+.sbadge { display:inline-block; padding:2px 7px; border-radius:10px; font-size:10px; font-weight:700; margin:1px; }
+.sb-accepted { background:#d4edda; color:#155724; border:1px solid #28a745; }
+.sb-refused  { background:#f8d7da; color:#721c24; border:1px solid #dc3545; }
+.sb-pending  { background:#fff3cd; color:#856404; border:1px solid #ffc107; }
+
+.doc-empty { text-align:center; color:#bbb; padding:30px 10px; }
+.doc-empty .eicon { font-size:36px; margin-bottom:6px; }
+
+.loading-overlay {
+  display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(102,126,234,0.88); z-index:9999;
+  align-items:center; justify-content:center; flex-direction:column;
+  color:white; font-size:15px; font-weight:700; gap:14px;
+}
+.spinner { width:42px; height:42px; border:4px solid rgba(255,255,255,0.3); border-top:4px solid white; border-radius:50%; animation:spin 0.7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.toast {
+  position:fixed; bottom:20px; right:20px; padding:11px 20px;
+  border-radius:8px; font-size:13px; font-weight:700; color:white;
+  box-shadow:0 4px 16px rgba(0,0,0,0.2); z-index:99999;
+  transform:translateY(80px); opacity:0; transition:all 0.25s;
+}
+.toast.show { transform:translateY(0); opacity:1; }
+.toast.success { background:#28a745; }
+.toast.error   { background:#dc3545; }
+.toast.info    { background:#667eea; }
+
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:#f0f0f0; }
+::-webkit-scrollbar-thumb { background:#a0aec0; border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:#718096; }
+
+@media(max-width:960px) {
+  .main-layout { position:relative; top:auto; bottom:auto; grid-template-columns:1fr; height:auto; overflow:visible; }
+  .worker-list-panel { height:180px; }
+  .right-panel { border-left:none; border-top:2px solid #e9ecef; }
+}
+
+
+/* All Files Modal — Workers-style: drag, resize, zoom, grid/single */
+#allFilesModal { display:none; position:fixed; inset:0; z-index:99998; }
+#allFilesModal .afm-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.75); }
+#allFilesModal .afm-box { position:absolute; top:5%; left:5%; width:90%; height:88%; background:white; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,0.4); display:flex; flex-direction:column; overflow:hidden; }
+#allFilesModal .afm-hdr { padding:12px 18px; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; cursor:move; user-select:none; }
+#allFilesModal .afm-title { font-size:17px; font-weight:700; }
+#allFilesModal .afm-sub { font-size:12px; opacity:0.9; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#allFilesModal .afm-hdr-btns { display:flex; gap:6px; flex-shrink:0; }
+#allFilesModal .afm-icon-btn { background:rgba(255,255,255,0.2); border:none; color:white; width:32px; height:32px; border-radius:6px; font-size:14px; cursor:pointer; font-weight:700; display:flex; align-items:center; justify-content:center; }
+#allFilesModal .afm-icon-btn:hover { background:rgba(255,255,255,0.35); }
+#allFilesModal .afm-nav .afm-icon-btn { background:#eef2ff; color:#4338ca; border:1px solid #c7d2fe; }
+#allFilesModal .afm-nav .afm-icon-btn:hover { background:#e0e7ff; }
+#allFilesModal .afm-close { background:rgba(255,255,255,0.2); border:none; color:white; width:32px; height:32px; border-radius:50%; font-size:15px; cursor:pointer; font-weight:700; }
+#allFilesModal .afm-close:hover { background:rgba(255,80,80,0.7); }
+#allFilesModal .afm-toolbar { padding:10px 18px; background:#f8f9fa; border-bottom:1px solid #e9ecef; display:flex; align-items:center; gap:10px; flex-shrink:0; flex-wrap:wrap; }
+#allFilesModal .afm-tabgroup { display:flex; background:white; border:1px solid #dee2e6; border-radius:7px; overflow:hidden; }
+#allFilesModal .afm-tabbtn { padding:6px 12px; background:white; border:none; color:#64748b; cursor:pointer; font-size:12px; font-weight:600; }
+#allFilesModal .afm-tabbtn:hover { background:#f1f5f9; }
+#allFilesModal .afm-tabbtn-active { background:#667eea !important; color:white !important; }
+#allFilesModal .afm-checklabel { font-size:13px; color:#334155; display:flex; align-items:center; gap:6px; cursor:pointer; }
+#allFilesModal .afm-btn { padding:7px 12px; background:white; border:1px solid #c7d2fe; color:#4338ca; border-radius:7px; cursor:pointer; font-size:12px; font-weight:600; }
+#allFilesModal .afm-btn:hover { background:#eef2ff; }
+#allFilesModal .afm-btn:disabled { opacity:0.5; cursor:not-allowed; }
+#allFilesModal .afm-btn-primary { background:#667eea; border-color:#667eea; color:white; }
+#allFilesModal .afm-btn-primary:hover { background:#5568d3; }
+#allFilesModal .afm-btn-accent { background:#28a745; border-color:#28a745; color:white; }
+#allFilesModal .afm-btn-accent:hover { background:#218838; }
+#allFilesModal .afm-body { flex:1; overflow:hidden; background:#2a2a2a; display:flex; padding:10px; }
+#allFilesModal .afm-viewer { width:100%; height:100%; background:#1e1e1e; border-radius:8px; overflow:auto; position:relative; }
+#allFilesModal .afm-viewer-single { display:flex; align-items:center; justify-content:center; }
+#allFilesModal .afm-zoomwrap { transform-origin:center center; transition:transform 0.15s; display:inline-block; }
+#allFilesModal .afm-viewer-single img { max-width:100%; max-height:calc(100vh - 260px); object-fit:contain; background:white; display:block; }
+#allFilesModal .afm-viewer-single iframe { width:100%; height:calc(100vh - 260px); border:0; background:white; }
+#allFilesModal .afm-placeholder { color:#aaa; text-align:center; padding:60px 20px; width:100%; }
+#allFilesModal .afm-placeholder .ico { font-size:64px; margin-bottom:10px; }
+#allFilesModal .afm-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px; padding:16px; background:#1e1e1e; width:100%; align-content:start; }
+#allFilesModal .afm-thumb { background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.3); cursor:pointer; transition:transform 0.15s; position:relative; }
+#allFilesModal .afm-thumb:hover { transform:translateY(-3px); box-shadow:0 5px 16px rgba(0,0,0,0.5); }
+#allFilesModal .afm-thumb-chk { position:absolute; top:6px; left:6px; z-index:2; }
+#allFilesModal .afm-thumb-preview { height:140px; background:#f8f9fa; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+#allFilesModal .afm-thumb-preview img { max-width:100%; max-height:100%; object-fit:contain; }
+#allFilesModal .afm-thumb-preview .ph { font-size:44px; color:#999; }
+#allFilesModal .afm-thumb-label { padding:8px 10px; font-size:11px; color:#334155; font-weight:600; border-top:1px solid #eee; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:white; }
+#allFilesModal .afm-thumb-num { position:absolute; top:6px; right:6px; background:rgba(102,126,234,0.95); color:white; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; z-index:2; }
+#allFilesModal .afm-nav { padding:10px 18px; background:#f8f9fa; border-top:1px solid #e9ecef; display:flex; align-items:center; gap:14px; flex-shrink:0; flex-wrap:wrap; }
+#allFilesModal .afm-zoom { display:flex; align-items:center; gap:4px; }
+#allFilesModal .afm-pageinfo { font-size:13px; color:#334155; display:flex; align-items:center; gap:8px; }
+#allFilesModal .afm-resize-handle { position:absolute; right:0; bottom:0; width:18px; height:18px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 50%, #999 50%, #999 60%, transparent 60%, transparent 70%, #999 70%, #999 80%, transparent 80%); border-bottom-right-radius:14px; }
+#allFilesModal.afm-max .afm-box { top:0 !important; left:0 !important; width:100% !important; height:100% !important; border-radius:0 !important; }
+#allFilesModal.afm-max .afm-resize-handle { display:none; }
+
+.btn-archive { background:#6f42c1; color:white; }
+.btn-archive:hover:not(:disabled) { background:#5a32a3; }
+.btn-archive.is-active { background:#3f1f6e; cursor:default; }
+.worker-photo-box { background:#f8f9fa; border:2px solid #e9ecef; border-radius:8px; padding:6px; margin-bottom:10px; text-align:center; min-height:80px; display:flex; align-items:center; justify-content:center; }
+.worker-photo-box img { max-width:100%; max-height:140px; object-fit:contain; border-radius:6px; transition:transform 0.25s ease, max-height 0.25s ease; cursor:zoom-in; }
+.worker-photo-box img:hover { max-height:280px; transform:scale(1.02); }
+.worker-photo-empty { color:#999; font-size:11px; }
+.worker-photo-empty .ico { font-size:32px; opacity:0.5; }
+.refusal-shown { margin-top:10px; background:#fff5f5; border:1.5px solid #f5c6cb; border-radius:6px; padding:8px 10px; }
+.refusal-shown .lbl { font-size:10px; color:#dc3545; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
+.refusal-shown .reason { font-size:11px; color:#721c24; white-space:pre-wrap; }
+.archived-badge { background:#6f42c1; color:white; padding:5px 10px; border-radius:6px; font-size:11px; font-weight:700; text-align:center; margin-top:8px; }
+
+/* ── Worker list stage badge (next to nationality) ── */
+.wl-meta { display:flex; align-items:center; gap:6px; margin-top:1px; }
+.wl-stage-badge { display:inline-block; padding:1px 6px; border-radius:8px; font-size:9px; font-weight:700; line-height:1.4; white-space:nowrap; }
+.wl-stage-pending  { background:#fff3cd; color:#856404; border:1px solid #ffc107; }
+.wl-stage-accepted { background:#d4edda; color:#155724; border:1px solid #28a745; }
+.wl-stage-refused  { background:#f8d7da; color:#721c24; border:1px solid #dc3545; }
+.wl-stage-archived { background:#e9d8fd; color:#553c9a; border:1px solid #6f42c1; }
+.wl-item.active .wl-stage-badge { box-shadow:0 0 0 1px white; }
+
+/* ── Approval panel upgrade — bigger, cleaner ── */
+.ap-body { padding:14px 16px !important; }
+.btn-row { display:grid !important; grid-template-columns:1fr 1fr 1fr !important; gap:8px !important; margin-bottom:10px !important; }
+.act-btn {
+    padding:14px 8px !important;
+    font-size:12px !important;
+    font-weight:800 !important;
+    border-radius:9px !important;
+    border:none !important;
+    cursor:pointer;
+    transition:all 0.18s ease;
+    box-shadow:0 2px 6px rgba(0,0,0,0.12);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    line-height:1.1;
+    color:white !important;
+    font-family:inherit;
+}
+.act-btn .icon { font-size:22px; line-height:1; }
+.act-btn:hover:not(.is-active):not(:disabled) { transform:translateY(-2px); box-shadow:0 5px 12px rgba(0,0,0,0.18); filter:brightness(1.05); }
+.act-btn:active { transform:translateY(0); }
+.act-btn.is-active { box-shadow:inset 0 0 0 2px rgba(255,255,255,0.5), 0 0 12px rgba(0,0,0,0.18); cursor:default; }
+.btn-accept { background:linear-gradient(135deg, #28a745, #1f8e3a); }
+.btn-accept.is-active { background:linear-gradient(135deg, #155724, #0d3818); }
+.btn-refuse { background:linear-gradient(135deg, #dc3545, #b02a37); }
+.btn-refuse.is-active { background:linear-gradient(135deg, #721c24, #4a0f15); }
+.btn-archive { background:linear-gradient(135deg, #6f42c1, #553c9a); }
+.btn-archive.is-active { background:linear-gradient(135deg, #3f1f6e, #2a1450); }
+
+.btn-reset {
+    width:100% !important; padding:10px !important; font-size:12px !important;
+    background:linear-gradient(135deg, #6c757d, #495057) !important; color:white !important;
+    border:none !important; border-radius:8px !important; font-weight:700 !important;
+    cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.1);
+    margin-bottom:10px !important; transition:all 0.18s ease; font-family:inherit;
+}
+.btn-reset:hover { filter:brightness(1.06); transform:translateY(-1px); box-shadow:0 4px 9px rgba(0,0,0,0.18); }
+
+.worker-photo-box { background:linear-gradient(135deg, #f8f9fa, #eef2f7) !important; border:2px solid #dde3ec !important; border-radius:10px !important; padding:8px !important; margin-bottom:12px !important; min-height:96px !important; }
+.lock-notice { padding:9px 12px !important; font-size:11px !important; border-radius:8px !important; margin-top:10px !important; }
+.refusal-shown { margin-top:10px !important; border-radius:8px !important; padding:10px 12px !important; box-shadow:0 1px 3px rgba(220,53,69,0.1); }
+.archived-badge { padding:8px 12px !important; border-radius:8px !important; font-size:12px !important; box-shadow:0 2px 5px rgba(111,66,193,0.25); }
+
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay" class="loading-overlay" style="display:flex;">
+  <div class="spinner"></div>
+  <div id="loadingText">Connecting to Firebase...</div>
+</div>
+<div id="toast" class="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     FIREBASE SDK INIT
+═══════════════════════════════════════════════════════════════ -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject, listAll, getMetadata } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+        authDomain: "mgsd2026.firebaseapp.com",
+        projectId: "mgsd2026",
+        storageBucket: "mgsd2026.firebasestorage.app",
+        messagingSenderId: "918582360831",
+        appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    window._fb = {
+        db, storage,
+        collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where,
+        ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject, listAll, getMetadata
+    };
+    window.dispatchEvent(new Event('firebase-ready'));
+    console.log('🔥 Firebase SDK initialized');
+</script>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div>
+    <div class="topbar-title">🛡️ Worker Approval Control</div>
+    <div class="topbar-sub">Massroua General Services — MGSDB2026 (Firebase)</div>
+  </div>
+  <div class="topbar-badges">
+    <span class="tbadge" id="badgeAll" onclick="setStatusFilter('')">👥 <span id="cntAll">0</span> Total</span>
+    <span class="tbadge yellow active-filter" id="badgePending" onclick="setStatusFilter('pending')">⏳ <span id="cntPending">0</span> Pending</span>
+    <span class="tbadge green"  id="badgeAccepted" onclick="setStatusFilter('accepted')">✔️ <span id="cntAccepted">0</span> Accepted</span>
+    <span class="tbadge red"    id="badgeRefused"  onclick="setStatusFilter('refused')">✖️ <span id="cntRefused">0</span> Refused</span>
+    <span class="tbadge" id="badgeArchived" onclick="setStatusFilter('archived')" style="background:#6f42c1;color:white;">🗄️ <span id="cntArchived">0</span> Archived</span>
+    <span id="cloudStatus" style="color:rgba(255,255,255,0.7);font-size:11px;">⏳ Connecting...</span>
+    <span style="color:rgba(255,255,255,0.5);font-size:9px;padding:2px 8px;border:1px solid rgba(255,255,255,0.2);border-radius:10px;">v1.0-fb</span>
+    <button class="dbtn" onclick="goToDashboard()">🏠</button>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="topbar-filters">
+  <select id="fltStatus" onchange="applyFilters()">
+    <option value="pending">⏳ Pending Review</option>
+    <option value="accepted">✔ Accepted</option>
+    <option value="refused">✖ Refused</option>
+    <option value="archived">🗄️ Archived</option>
+    <option value="">All Workers</option>
+  </select>
+  <select id="fltSupplier" onchange="applyFilters()">
+    <option value="">All Suppliers</option>
+  </select>
+  <select id="fltNationality" onchange="applyFilters()">
+    <option value="">All Nationalities</option>
+  </select>
+  <input type="text" id="fltSearch" placeholder="🔍 Name / Passport / ID..." oninput="applyFilters()">
+  <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,0.7);" id="resultCount"></span>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main-layout">
+  <div class="worker-list-panel">
+    <div class="wl-header">Workers — <span id="listCount">0</span></div>
+    <div id="workerListBody"></div>
+  </div>
+
+  <div class="info-panel" id="infoPanel">
+    <div class="info-panel-scroll" id="infoPanelScroll">
+      <div class="doc-empty" style="margin-top:60px;">
+        <div class="eicon">👤</div>
+        <div style="font-weight:700;color:#666;font-size:13px;">Select a Worker</div>
+      </div>
+    </div>
+    <div class="save-bar" id="saveBar" style="display:none;">
+      <button onclick="saveWorkerEdits()" id="btnSaveEdits">💾 Save Changes</button>
+    </div>
+  </div>
+
+  <div class="scan-panel">
+    <div class="doc-viewer-hdr">
+      <span id="scanStatusBadge"></span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <div class="doc-tabs">
+          <span class="doc-tab active" id="tabPassport" onclick="showDocTab('passport')">Passport</span>
+          <span class="doc-tab" id="tabID" onclick="showDocTab('id')">ID Card</span>
+        </div>
+        <button class="nav-btn" id="btnAllFiles" onclick="showAllFiles()" style="border-color:#a78bfa;background:#a78bfa;color:white;font-size:10px;padding:3px 9px;">📁 All Files</button>
+        <button class="nav-btn" id="btnCV" onclick="cvmOpen()" style="border-color:#10b981;background:#10b981;color:white;font-size:10px;padding:3px 9px;">📄 CV</button>
+      </div>
+    </div>
+    <div class="scan-frame" id="scanFrame">
+      <div class="doc-empty">
+        <div class="eicon" style="font-size:56px;">📷</div>
+        <div style="font-size:12px;margin-top:8px;">No scan available</div>
+        <div style="font-size:11px;color:#ccc;margin-top:4px;">Select a worker to preview</div>
+      </div>
+    </div>
+    <div id="scanOpenLink"></div>
+    <div class="scan-nav">
+      <button class="nav-btn" id="btnPrev" onclick="navigateFile(-1)" disabled>◀ Prev File</button>
+      <span class="nav-ctr" id="navCtr" style="color:#ccc;">0 / 0</span>
+      <button class="nav-btn" id="btnNext" onclick="navigateFile(1)" disabled>Next File ▶</button>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="ap-header">
+      <h3>🛡️ Approval Decision</h3>
+      <p id="apWorkerLabel">No worker selected</p>
+    </div>
+    <div class="ap-body" id="apBody">
+      <div style="color:#bbb;font-size:12px;text-align:center;padding:20px 0;">Approval logic — Step 2 (coming next)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function _fbReady() {
+    return new Promise(function(resolve) {
+        if (window._fb) return resolve(window._fb);
+        window.addEventListener('firebase-ready', function() { resolve(window._fb); }, { once: true });
+    });
+}
+
+const SHEET_MAP = {
+    'Workers':          'Workers',
+    'Suppliers':        'supplier_manager',
+    'Nationalities':    'nationalities',
+    'Worker_Documents': 'worker_documents'
+};
+
+const CloudDB = {
+    ready: false,
+    async loadSheet(sheetName) {
+        try {
+            const fb = await _fbReady();
+            const collName = SHEET_MAP[sheetName] || sheetName;
+            const snap = await fb.getDocs(fb.collection(fb.db, collName));
+            const rows = [];
+            snap.forEach(function(d) { rows.push(d.data()); });
+            return rows.length > 0 ? rows : [];
+        } catch (e) { console.warn('☁️ loadSheet(' + sheetName + ') failed:', e.message); return []; }
+    },
+    async saveRow(sheetName, rowData, idField) {
+        try {
+            const fb = await _fbReady();
+            const collName = SHEET_MAP[sheetName] || sheetName;
+            const kf = idField || (sheetName === 'Workers' ? 'WorkerID' : 'id');
+            const id = String(rowData[kf] || '');
+            if (!id) return { success: false, error: 'Missing key field: ' + kf };
+            const clean = JSON.parse(JSON.stringify(rowData, function(k, v){ return v === undefined ? null : v; }));
+            await fb.setDoc(fb.doc(fb.db, collName, id), clean);
+            return { success: true };
+        } catch (e) { console.warn('☁️ saveRow failed:', e.message); return { success: false, error: e.message }; }
+    },
+    async loadAll() {
+        console.log('☁️ Loading workers + suppliers + nationalities + documents...');
+        try {
+            const [workers, suppliers, nationalities, workerDocs] = await Promise.all([
+                this.loadSheet('Workers'),
+                this.loadSheet('Suppliers'),
+                this.loadSheet('Nationalities'),
+                this.loadSheet('Worker_Documents')
+            ]);
+            this.ready = true;
+            console.log('☁️ Loaded:', workers.length, 'workers,', suppliers.length, 'suppliers,', nationalities.length, 'nationalities,', workerDocs.length, 'doc types');
+            return { workers, suppliers, nationalities, workerDocs };
+        } catch (e) { console.warn('☁️ loadAll failed:', e.message); return { workers: [], suppliers: [], nationalities: [], workerDocs: [] }; }
+    }
+};
+window.CloudDB = CloudDB;
+
+var allWorkers    = [];
+var filteredList  = [];
+var currentIndex  = 0;
+var suppliers     = [];
+var nationalities = [];
+var workerDocs    = [];
+var currentWorker = null;
+var currentDocTab = 'passport';
+var _scanCache    = {};
+// File-level navigation state
+var currentWorkerFiles = [];   // array of { ref, name, url, mimeType, kind }
+var currentFileIndex   = 0;
+var _zoomLevel = 1, _panX = 0, _panY = 0;
+var _isPanning = false, _panStartX = 0, _panStartY = 0;
+
+function isTrue(v) { return v === true || v === 'true' || v === 1 || v === '1' || v === 'TRUE'; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function setLoading(show, text) {
+    document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+    if (text) document.getElementById('loadingText').textContent = text;
+}
+function setCloud(msg, color) {
+    var el = document.getElementById('cloudStatus'); el.innerHTML = msg; el.style.color = color;
+}
+function showToast(msg, type) {
+    var t = document.getElementById('toast');
+    t.innerHTML = msg; t.className = 'toast ' + (type || 'info') + ' show';
+    setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+function goToDashboard() { window.location.href = '/dashboard.html'; }
+
+async function init() {
+    setLoading(true, 'Loading from Firebase...');
+    var data = await CloudDB.loadAll();
+    allWorkers    = data.workers    || [];
+    suppliers     = data.suppliers  || [];
+    nationalities = data.nationalities || [];
+    workerDocs    = data.workerDocs || [];
+
+    allWorkers.forEach(function(w) {
+        ['AdditionalPassports', 'RequiredWorkerDocs'].forEach(function(k) {
+            if (typeof w[k] === 'string') { try { w[k] = JSON.parse(w[k]); } catch(e) { w[k] = []; } }
+            if (!Array.isArray(w[k])) w[k] = [];
+        });
+        if (typeof w.UploadedWorkerDocs === 'string') { try { w.UploadedWorkerDocs = JSON.parse(w.UploadedWorkerDocs); } catch(e) { w.UploadedWorkerDocs = {}; } }
+        if (!w.UploadedWorkerDocs || typeof w.UploadedWorkerDocs !== 'object') w.UploadedWorkerDocs = {};
+    });
+
+    populateSupplierFilter();
+    populateNationalityFilter();
+    updateCounters();
+    applyFilters();
+    setLoading(false);
+    setCloud('🔥 Firebase Connected', '#28a745');
+    console.log('✅ Worker Approval (Firebase) ready');
+}
+
+function setStatusFilter(val) { document.getElementById('fltStatus').value = val; applyFilters(); }
+
+function applyFilters() {
+    var status = document.getElementById('fltStatus').value;
+    var suppId = document.getElementById('fltSupplier').value;
+    var natVal = document.getElementById('fltNationality').value;
+    var search = document.getElementById('fltSearch').value.toLowerCase().trim();
+
+    ['badgeAll','badgePending','badgeAccepted','badgeRefused','badgeArchived'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.remove('active-filter');
+    });
+    var map = {'':'badgeAll','pending':'badgePending','accepted':'badgeAccepted','refused':'badgeRefused','archived':'badgeArchived'};
+    if (map[status]) {
+        var mapEl = document.getElementById(map[status]);
+        if (mapEl) mapEl.classList.add('active-filter');
+    }
+
+    filteredList = allWorkers.filter(function(w) {
+        // Archived workers are HIDDEN from all views except 'archived'
+        if (status === 'archived') {
+            if (!isTrue(w.WorkerArchived)) return false;
+        } else {
+            if (isTrue(w.WorkerArchived)) return false;
+        }
+        if (status === 'pending')  { if (isTrue(w.AcceptedByAdmin) || isTrue(w.RefusedByAdmin)) return false; }
+        if (status === 'accepted') { if (!isTrue(w.AcceptedByAdmin)) return false; }
+        if (status === 'refused')  { if (!isTrue(w.RefusedByAdmin))  return false; }
+        if (suppId && String(w.SupplierID || '').trim() !== String(suppId).trim()) return false;
+        if (natVal && (w.Nationality || '').toLowerCase().trim() !== natVal.toLowerCase().trim()) return false;
+        if (search) {
+            var blob = [w.WFullName, w.WorkerFirstName, w.WorkerMiddleName, w.WorkerLastName,
+                w.ArabicName, w.FatherName, w.FamilyName, w.ArabicFullName,
+                w.PassportNumber, w.IDNumber, w.Nationality, w.ContactNumber,
+                w.SupplierCode, String(w.WorkerID || '')].join(' ').toLowerCase();
+            if (blob.indexOf(search) === -1) return false;
+        }
+        return true;
+    });
+
+    currentIndex = 0;
+    document.getElementById('resultCount').textContent = filteredList.length + ' results';
+    document.getElementById('listCount').textContent   = filteredList.length;
+    renderWorkerList();
+    updateFileNav();
+
+    if (filteredList.length > 0) { selectWorker(0); }
+    else {
+        currentWorker = null;
+        document.getElementById('infoPanelScroll').innerHTML =
+            '<div class="doc-empty" style="margin-top:60px;"><div class="eicon">🔍</div><div style="font-weight:700;color:#666;">No workers found</div><div style="font-size:12px;color:#aaa;margin-top:4px;">Try changing the filters</div></div>';
+        document.getElementById('saveBar').style.display = 'none';
+        document.getElementById('apWorkerLabel').textContent = 'No worker selected';
+        clearDocViewer();
+    }
+}
+
+function populateSupplierFilter() {
+    var sel = document.getElementById('fltSupplier'); var cur = sel.value;
+    sel.innerHTML = '<option value="">All Suppliers</option>';
+    suppliers.forEach(function(s) {
+        var o = document.createElement('option');
+        o.value = s.SupplierID;
+        o.textContent = (s.SupplierCODE || s.SupplierID) + ' - ' + (s.SupplierBusinessName || '');
+        sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+}
+
+function populateNationalityFilter() {
+    var sel = document.getElementById('fltNationality'); var cur = sel.value;
+    sel.innerHTML = '<option value="">All Nationalities</option>';
+    var seen = {};
+    allWorkers.forEach(function(w) { var n = (w.Nationality || '').trim(); if (n && !seen[n.toLowerCase()]) seen[n.toLowerCase()] = n; });
+    nationalities.forEach(function(n) { var nm = (n.NationalityName || '').trim(); if (nm && !seen[nm.toLowerCase()]) seen[nm.toLowerCase()] = nm; });
+    Object.values(seen).sort().forEach(function(name) {
+        var o = document.createElement('option'); o.value = name; o.textContent = name; sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+}
+
+// ════════════════════════════════════════════════════════════════
+// FILE NAVIGATION — cycle through files in current worker's folder
+// ════════════════════════════════════════════════════════════════
+function navigateFile(dir) {
+    if (!currentWorkerFiles || currentWorkerFiles.length === 0) return;
+    currentFileIndex = Math.max(0, Math.min(currentWorkerFiles.length - 1, currentFileIndex + dir));
+    displayFileAtIndex(currentFileIndex);
+}
+
+function updateFileNav() {
+    var btnP = document.getElementById('btnPrev');
+    var btnN = document.getElementById('btnNext');
+    var ctr  = document.getElementById('navCtr');
+    var total = currentWorkerFiles ? currentWorkerFiles.length : 0;
+    btnP.disabled = (currentFileIndex <= 0 || total === 0);
+    btnN.disabled = (currentFileIndex >= total - 1 || total === 0);
+    ctr.textContent = total > 0 ? (currentFileIndex + 1) + ' / ' + total : '0 / 0';
+}
+
+function renderWorkerList() {
+    var html = '';
+    filteredList.forEach(function(w, i) {
+        var code = (w.SupplierCode || 'W') + '-' + String(w.WorkerID || '').padStart(4, '0');
+        var name = w.WFullName || ((w.WorkerFirstName || '') + ' ' + (w.WorkerLastName || '')).trim() || 'Worker';
+        var nat  = w.Nationality || '';
+        var acc  = isTrue(w.AcceptedByAdmin);
+        var ref  = isTrue(w.RefusedByAdmin);
+        var arc  = isTrue(w.WorkerArchived);
+        var cls  = arc ? 'archived' : (acc ? 'accepted' : (ref ? 'refused' : 'pending'));
+        var active = (i === currentIndex) ? ' active' : '';
+        var stageBadge = arc
+            ? '<span class="wl-stage-badge wl-stage-archived">🗄️ Archived</span>'
+            : acc
+                ? '<span class="wl-stage-badge wl-stage-accepted">✔️ Accepted</span>'
+                : ref
+                    ? '<span class="wl-stage-badge wl-stage-refused">✖️ Refused</span>'
+                    : '<span class="wl-stage-badge wl-stage-pending">⏳ Pending</span>';
+        html += '<div class="wl-item ' + cls + active + '" onclick="selectWorker(' + i + ')">'
+            + '<div class="wl-dot"></div>'
+            + '<div class="wl-info">'
+            + '<div class="wl-name">' + esc(name) + '</div>'
+            + '<div class="wl-code">' + esc(code) + '</div>'
+            + '<div class="wl-meta"><span class="wl-nat">' + esc(nat) + '</span>' + stageBadge + '</div>'
+            + '</div></div>';
+    });
+    document.getElementById('workerListBody').innerHTML = html ||
+        '<div style="padding:20px;color:#aaa;text-align:center;font-size:12px;">No workers</div>';
+}
+
+// Copy worker code to clipboard with visual feedback
+function copyWorkerCode(code, el) {
+    if (!code) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(function() {
+            showToast('📋 Copied: ' + code, 'success');
+            if (el) {
+                var orig = el.innerHTML;
+                el.innerHTML = '✓ Copied!';
+                el.style.background = '#d4edda';
+                el.style.color = '#155724';
+                setTimeout(function() {
+                    el.innerHTML = orig;
+                    el.style.background = '#f8f9fa';
+                    el.style.color = '#667eea';
+                }, 1000);
+            }
+        }).catch(function(err) {
+            showToast('⚠️ Copy failed: ' + err.message, 'error');
+        });
+    } else {
+        // Fallback for older browsers
+        var ta = document.createElement('textarea');
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); showToast('📋 Copied: ' + code, 'success'); }
+        catch(e) { showToast('⚠️ Copy not supported', 'error'); }
+        document.body.removeChild(ta);
+    }
+}
+
+function selectWorker(idx) {
+    currentIndex = idx;
+    currentWorker = filteredList[idx] || null;
+    renderWorkerList();
+    if (currentWorker) {
+        renderDetail(currentWorker);
+        loadWorkerFiles(currentWorker);  // load all files for the new worker
+        var wCode = (currentWorker.SupplierCode || 'W') + '-' + String(currentWorker.WorkerID || '').padStart(4, '0');
+        var name = currentWorker.WFullName || currentWorker.WorkerFirstName || 'Worker';
+        document.getElementById('apWorkerLabel').textContent = wCode + ' — ' + name;
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+// RENDER DETAIL — accordion sections with editable fields
+// ════════════════════════════════════════════════════════════════
+function renderDetail(w) {
+    ['AdditionalPassports', 'RequiredWorkerDocs'].forEach(function(k) {
+        if (typeof w[k] === 'string') { try { w[k] = JSON.parse(w[k]); } catch(e) { w[k] = []; } }
+        if (!Array.isArray(w[k])) w[k] = [];
+    });
+
+    var wCode = (w.SupplierCode || 'W') + '-' + String(w.WorkerID || '').padStart(4, '0');
+    var sup = suppliers.find(function(s) { return String(s.SupplierID) === String(w.SupplierID); });
+    var supName = sup ? ((sup.SupplierCODE || '') + ' - ' + (sup.SupplierBusinessName || '')) : (w.SupplierCode || '');
+
+    function e(label, key, cls) {
+        var v = w[key] !== undefined && w[key] !== null ? String(w[key]) : '';
+        var extra = cls ? ' ' + cls : '';
+        return '<tr><td>' + label + '</td><td><input class="edt' + extra + '" data-field="' + key + '" value="' + esc(v) + '"></td></tr>';
+    }
+    function d(label, key) {
+        var v = w[key] !== undefined && w[key] !== null ? String(w[key]) : '';
+        if (v) { try { var dt = new Date(v); if (!isNaN(dt)) v = dt.toISOString().split('T')[0]; } catch(ex) {} }
+        return '<tr><td>' + label + '</td><td><input type="date" class="edt" data-field="' + key + '" value="' + esc(v) + '"></td></tr>';
+    }
+    function sel(label, key, options) {
+        var v = w[key] !== undefined && w[key] !== null ? String(w[key]).trim() : '';
+        var h = '<tr><td>' + label + '</td><td><select class="edt" data-field="' + key + '"><option value="">— Select —</option>';
+        options.forEach(function(opt) {
+            var selected = (opt.toLowerCase() === v.toLowerCase()) ? ' selected' : '';
+            h += '<option value="' + esc(opt) + '"' + selected + '>' + esc(opt) + '</option>';
+        });
+        h += '</select></td></tr>';
+        return h;
+    }
+    function ea(label, key) {
+        var v = w[key] !== undefined && w[key] !== null ? String(w[key]) : '';
+        return '<tr><td class="edt-ar-label">' + label + '</td><td><input class="edt edt-ar" data-field="' + key + '" value="' + esc(v) + '"></td></tr>';
+    }
+    function lk(label, key, val) {
+        var v = val !== undefined ? String(val) : (w[key] !== undefined && w[key] !== null ? String(w[key]) : '');
+        return '<tr><td>' + label + '</td><td><input class="edt edt-locked" data-field="' + key + '" value="' + esc(v) + '" readonly></td></tr>';
+    }
+    function r(label, val) {
+        return '<tr><td>' + label + '</td><td>' + (val ? esc(String(val)) : '<span style="color:#ccc;">—</span>') + '</td></tr>';
+    }
+
+    var natSeen = {};
+    nationalities.forEach(function(n) { var nm = (n.NationalityName || '').trim(); if (nm && !natSeen[nm.toLowerCase()]) natSeen[nm.toLowerCase()] = nm; });
+    allWorkers.forEach(function(wk) { var wn = (wk.Nationality || '').trim(); if (wn && !natSeen[wn.toLowerCase()]) natSeen[wn.toLowerCase()] = wn; });
+    var natList = Object.values(natSeen).sort();
+
+    function sec(id, icon, title, color, bgColor, body) {
+        return '<div class="card"><div class="card-hdr acc-hdr" style="background:' + bgColor + ';" onclick="toggleAcc(\'' + id + '\')" id="accH_' + id + '">'
+            + '<span class="card-hdr-title" style="color:' + color + ';">' + icon + ' ' + title + '</span>'
+            + '<span class="acc-arrow">▶</span>'
+            + '</div><div class="card-body acc-body" id="acc_' + id + '">' + body + '</div></div>';
+    }
+
+    var fullEN = ((w.WorkerFirstName || '') + ' ' + (w.WorkerMiddleName || '') + ' ' + (w.WorkerLastName || '')).replace(/\s+/g, ' ').trim();
+    var fullAR = ((w.ArabicName || '') + ' ' + (w.FatherName || '') + ' ' + (w.FamilyName || '')).replace(/\s+/g, ' ').trim();
+
+    var html = '<div onclick="copyWorkerCode(\'' + esc(wCode) + '\', this)" title="Click to copy worker code" style="padding:6px 8px;font-weight:800;font-size:13px;color:#667eea;text-align:center;background:#f8f9fa;border-radius:6px;cursor:pointer;user-select:none;transition:background 0.15s;" onmouseover="this.style.background=\'#e9ecff\'" onmouseout="this.style.background=\'#f8f9fa\'">' + esc(wCode) + ' 📋</div>';
+    html += sec('personal', '👤', 'Personal', '#4a6fa5', '#f0f4ff',
+        '<table class="it">'
+        + lk('Full Name EN', 'WFullName', fullEN || w.WFullName || '')
+        + '<tr><td class="edt-ar-label">Full Name AR</td><td><input class="edt edt-locked edt-ar" data-field="ArabicFullName" value="' + esc(fullAR || w.ArabicFullName || '') + '" readonly></td></tr>'
+        + e('First Name', 'WorkerFirstName')
+        + e('Middle Name', 'WorkerMiddleName')
+        + e('Last Name', 'WorkerLastName')
+        + ea('Arabic Name', 'ArabicName')
+        + ea('Father AR', 'FatherName')
+        + ea('Family AR', 'FamilyName')
+        + e('Mother', 'MotherName', 'edt-ar')
+        + d('DOB', 'DateOfBirth')
+        + sel('Gender', 'Gender', ['Male', 'Female'])
+        + '</table>');
+
+    html += sec('passport', '🛂', 'Passport', '#16a34a', '#f0fff4',
+        '<table class="it">'
+        + e('Passport No.', 'PassportNumber')
+        + d('Issue Date', 'PassportIssueDate')
+        + d('Expiry', 'PassportExpiryDate')
+        + e('Issue Place', 'PassportIssuePlace')
+        + sel('Nationality', 'Nationality', natList)
+        + sel('Marital', 'MaritalStatus', ['Single', 'Married', 'Divorced', 'Widowed'])
+        + e('Contact', 'ContactNumber')
+        + r('Supplier', supName)
+        + '</table>');
+
+    html += sec('natid', '🪪', 'National ID', '#dc3545', '#fff0f0',
+        '<table class="it">'
+        + e('ID Number', 'IDNumber')
+        + d('Issue Date', 'IDIssueDate')
+        + d('Expiry', 'IDExpiryDate')
+        + e('Issue Place', 'IDIssuePlace')
+        + '</table>');
+
+    html += sec('address', '📍', 'Address', '#f59e0b', '#fff8e1',
+        '<table class="it">'
+        + e('Village', 'Village')
+        + e('Caza', 'Caza')
+        + e('Governorate', 'Governorate')
+        + e('Registry No.', 'RegistryNumber')
+        + '</table>');
+
+    document.getElementById('infoPanelScroll').innerHTML = html;
+    document.getElementById('saveBar').style.display = 'block';
+
+    setTimeout(function() {
+        var first = document.getElementById('acc_personal');
+        var firstH = document.getElementById('accH_personal');
+        if (first) first.classList.add('open');
+        if (firstH) firstH.classList.add('open');
+    }, 50);
+}
+
+function toggleAcc(id) {
+    var body = document.getElementById('acc_' + id);
+    var hdr = document.getElementById('accH_' + id);
+    if (!body || !hdr) return;
+    var isOpen = body.classList.contains('open');
+    document.querySelectorAll('.acc-body').forEach(function(b) { b.classList.remove('open'); });
+    document.querySelectorAll('.acc-hdr').forEach(function(h) { h.classList.remove('open'); });
+    if (!isOpen) { body.classList.add('open'); hdr.classList.add('open'); }
+}
+
+function updateFullNames() {
+    var panel = document.getElementById('infoPanelScroll');
+    if (!panel) return;
+    var get = function(f) { var i = panel.querySelector('[data-field="' + f + '"]'); return i ? i.value.trim() : ''; };
+    var set = function(f, v) { var i = panel.querySelector('[data-field="' + f + '"]'); if (i) i.value = v; };
+    var en = (get('WorkerFirstName') + ' ' + get('WorkerMiddleName') + ' ' + get('WorkerLastName')).replace(/\s+/g, ' ').trim();
+    var ar = (get('ArabicName') + ' ' + get('FatherName') + ' ' + get('FamilyName')).replace(/\s+/g, ' ').trim();
+    if (en) set('WFullName', en);
+    if (ar) set('ArabicFullName', ar);
+}
+
+document.addEventListener('input', function(ev) {
+    var t = ev.target;
+    if (!t || !t.getAttribute) return;
+    var f = t.getAttribute('data-field');
+    if (f && 'WorkerFirstName WorkerMiddleName WorkerLastName ArabicName FatherName FamilyName'.indexOf(f) !== -1) {
+        updateFullNames();
+    }
+});
+
+async function saveWorkerEdits() {
+    if (!currentWorker) return;
+    updateFullNames();
+
+    var btn = document.getElementById('btnSaveEdits');
+    btn.disabled = true; btn.textContent = 'Saving...';
+
+    var inputs = document.querySelectorAll('#infoPanelScroll .edt');
+    var changes = {};
+    inputs.forEach(function(inp) {
+        var key = inp.getAttribute('data-field');
+        var newVal = inp.value.trim();
+        var oldVal = currentWorker[key] !== undefined && currentWorker[key] !== null ? String(currentWorker[key]) : '';
+        if (newVal !== oldVal) { changes[key] = newVal; currentWorker[key] = newVal; }
+    });
+
+    if (Object.keys(changes).length === 0) {
+        btn.disabled = false; btn.innerHTML = '💾 Save Changes';
+        showToast('No changes detected', 'info'); return;
+    }
+
+    // Validation: Age >= 19
+    var dobVal = currentWorker.DateOfBirth || '';
+    if (dobVal) {
+        var dob = new Date(dobVal); var today = new Date(); today.setHours(0, 0, 0, 0);
+        var age = today.getFullYear() - dob.getFullYear();
+        var monthDiff = today.getMonth() - dob.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age--;
+        if (age < 19) {
+            btn.disabled = false; btn.innerHTML = '💾 Save Changes';
+            showToast('🚫 AGE: Worker is only ' + age + ' years (min 19)', 'error');
+            alert('🚫 AGE RESTRICTION — CANNOT SAVE\n\nWorker is only ' + age + ' years old.\nMinimum: 19 years.');
+            return;
+        }
+    }
+
+    // Validation: Passport >= 18 months
+    var expVal = currentWorker.PassportExpiryDate || '';
+    if (expVal) {
+        var expiryDate = new Date(expVal); var todayP = new Date(); todayP.setHours(0, 0, 0, 0);
+        var monthsDiff = (expiryDate.getFullYear() - todayP.getFullYear()) * 12 + (expiryDate.getMonth() - todayP.getMonth());
+        var daysDiff = Math.ceil((expiryDate - todayP) / (1000 * 60 * 60 * 24));
+        if (daysDiff < 0) {
+            btn.disabled = false; btn.innerHTML = '💾 Save Changes';
+            alert('❌ PASSPORT EXPIRED — CANNOT SAVE\n\nExpired ' + Math.abs(daysDiff) + ' days ago.');
+            return;
+        }
+        if (monthsDiff < 18) {
+            btn.disabled = false; btn.innerHTML = '💾 Save Changes';
+            alert('🚫 PASSPORT VALIDITY — CANNOT SAVE\n\nOnly ' + monthsDiff + ' months remaining.\nMinimum: 18 months.');
+            return;
+        }
+    }
+
+    try {
+        var idx = allWorkers.findIndex(function(wk) { return String(wk.WorkerID) === String(currentWorker.WorkerID); });
+        if (idx >= 0) Object.assign(allWorkers[idx], changes);
+        var res = await CloudDB.saveRow('Workers', currentWorker, 'WorkerID');
+        if (res && res.success) {
+            showToast('✅ Worker updated!', 'success');
+            setCloud('🔥 Saved ' + new Date().toLocaleTimeString(), '#28a745');
+        } else {
+            showToast('⚠️ Save failed: ' + (res ? res.error : 'Unknown'), 'error');
+        }
+    } catch (err) { showToast('❌ ' + err.message, 'error'); }
+
+    btn.disabled = false; btn.innerHTML = '💾 Save Changes';
+    renderWorkerList();
+}
+
+// ════════════════════════════════════════════════════════════════
+// SCAN PREVIEW — loads all files from Firebase Storage for the worker
+// Files are listed once per worker; tabs/Prev/Next navigate within them
+// ════════════════════════════════════════════════════════════════
+
+// Classify a filename into a kind: passport / id / photo / other
+function classifyFile(name) {
+    var lower = String(name || '').toLowerCase();
+    if (lower.indexOf('passport') !== -1) return 'passport';
+    if (lower.indexOf('id-') === 0 || lower.indexOf('-id-') !== -1 || lower.indexOf('idcard') !== -1 || lower.indexOf('national-id') !== -1) return 'id';
+    if (lower.indexOf('photo') !== -1 || lower.indexOf('picture') !== -1) return 'photo';
+    return 'other';
+}
+
+// Load files for the current worker — uses URL fields first, falls back to folder listing
+async function loadWorkerFiles(w) {
+    currentWorkerFiles = [];
+    currentFileIndex = 0;
+    updateFileNav();
+
+    var frame = document.getElementById('scanFrame');
+    frame.innerHTML = '<div class="doc-empty" style="color:#888;"><div class="spinner" style="width:30px;height:30px;border:3px solid rgba(255,255,255,0.15);border-top:3px solid #667eea;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 10px;"></div><div style="font-size:12px;">Loading files...</div></div>';
+
+    var files = [];
+
+    // METHOD 1: Read URL fields directly (works for new workers from Supplier Portal)
+    if (w.PassportFileURL && String(w.PassportFileURL).indexOf('http') === 0) {
+        files.push({
+            url: w.PassportFileURL,
+            name: 'passport.jpg',
+            kind: 'passport',
+            mimeType: guessMimeFromUrl(w.PassportFileURL)
+        });
+    }
+    if (w.IDFileURL && String(w.IDFileURL).indexOf('http') === 0) {
+        files.push({
+            url: w.IDFileURL,
+            name: 'id.jpg',
+            kind: 'id',
+            mimeType: guessMimeFromUrl(w.IDFileURL)
+        });
+    }
+    if (w.WorkerImage && String(w.WorkerImage).indexOf('http') === 0) {
+        files.push({
+            url: w.WorkerImage,
+            name: 'photo.jpg',
+            kind: 'photo',
+            mimeType: guessMimeFromUrl(w.WorkerImage)
+        });
+    }
+
+    // METHOD 2: Build URL from PassportScanPath / IDScanPath if it's a relative path (legacy)
+    if (files.filter(function(f){return f.kind === 'passport';}).length === 0 && w.PassportScanPath) {
+        var pPath = String(w.PassportScanPath);
+        if (pPath.indexOf('http') === 0) {
+            files.push({ url: pPath, name: pPath.split('/').pop(), kind: 'passport', mimeType: guessMimeFromUrl(pPath) });
+        } else {
+            // Relative path — build public URL
+            var pUrl = 'https://firebasestorage.googleapis.com/v0/b/mgsd2026.firebasestorage.app/o/' + encodeURIComponent(pPath) + '?alt=media';
+            files.push({ url: pUrl, name: pPath.split('/').pop(), kind: 'passport', mimeType: guessMimeFromUrl(pPath) });
+        }
+    }
+    if (files.filter(function(f){return f.kind === 'id';}).length === 0 && w.IDScanPath) {
+        var iPath = String(w.IDScanPath);
+        if (iPath.indexOf('http') === 0) {
+            files.push({ url: iPath, name: iPath.split('/').pop(), kind: 'id', mimeType: guessMimeFromUrl(iPath) });
+        } else {
+            var iUrl = 'https://firebasestorage.googleapis.com/v0/b/mgsd2026.firebasestorage.app/o/' + encodeURIComponent(iPath) + '?alt=media';
+            files.push({ url: iUrl, name: iPath.split('/').pop(), kind: 'id', mimeType: guessMimeFromUrl(iPath) });
+        }
+    }
+
+    // METHOD 3: ALWAYS list folder to capture additional files (medical tests, extra docs, etc.)
+    if (w.WorkerFolder) {
+        var folderPath = 'workers/' + w.WorkerFolder;
+        try {
+            var fb = await _fbReady();
+            var folderRef = fb.ref(fb.storage, folderPath);
+            var listing = await fb.listAll(folderRef);
+            // Build set of existing file names to avoid duplicates
+            var existingNames = {};
+            files.forEach(function(f){ existingNames[(f.name || '').toLowerCase()] = true; });
+            for (var i = 0; i < listing.items.length; i++) {
+                var item = listing.items[i];
+                if (item.name === '.placeholder') continue;
+                // Avoid duplicates: check if URL-based file already covers it
+                var nameLower = item.name.toLowerCase();
+                var isDuplicate = false;
+                // Check if this file's name matches a passport/id/photo we already have via URL
+                if (files.length > 0) {
+                    var kind = classifyFile(item.name);
+                    if (kind === 'passport' && files.some(function(f){return f.kind === 'passport';})) isDuplicate = true;
+                    else if (kind === 'id' && files.some(function(f){return f.kind === 'id';})) isDuplicate = true;
+                    else if (kind === 'photo' && files.some(function(f){return f.kind === 'photo';})) isDuplicate = true;
+                }
+                if (isDuplicate) continue;
+                files.push({ ref: item, name: item.name, kind: classifyFile(item.name) });
+            }
+        } catch (e) {
+            console.warn('Folder listing failed:', e.message);
+        }
+    }
+
+    // Sort: passport first, then id, then photo, then others
+    var order = { passport: 1, id: 2, photo: 3, other: 4 };
+    files.sort(function(a, b) {
+        var ko = (order[a.kind] || 5) - (order[b.kind] || 5);
+        if (ko !== 0) return ko;
+        return (a.name || '').localeCompare(b.name || '');
+    });
+
+    currentWorkerFiles = files;
+
+    if (files.length === 0) {
+        clearDocViewer();
+        updateFileNav();
+        return;
+    }
+
+    // Pick first file matching the current tab if possible, else first file
+    var startIdx = 0;
+    for (var j = 0; j < files.length; j++) {
+        if (files[j].kind === currentDocTab) { startIdx = j; break; }
+    }
+    currentFileIndex = startIdx;
+    await displayFileAtIndex(startIdx);
+}
+
+// Helper: guess mime type from URL/filename
+function guessMimeFromUrl(url) {
+    var u = String(url || '').toLowerCase();
+    if (u.indexOf('.pdf') >= 0) return 'application/pdf';
+    if (u.indexOf('.png') >= 0) return 'image/png';
+    if (u.indexOf('.gif') >= 0) return 'image/gif';
+    if (u.indexOf('.webp') >= 0) return 'image/webp';
+    return 'image/jpeg'; // default
+}
+
+// Display the file at a given index from currentWorkerFiles
+async function displayFileAtIndex(idx) {
+    if (!currentWorkerFiles || !currentWorkerFiles[idx]) return;
+    currentFileIndex = idx;
+    var f = currentWorkerFiles[idx];
+
+    // Update the active tab to match the file's kind
+    if (f.kind === 'passport' || f.kind === 'id') {
+        currentDocTab = f.kind;
+        document.getElementById('tabPassport').className = 'doc-tab' + (currentDocTab === 'passport' ? ' active' : '');
+        document.getElementById('tabID').className = 'doc-tab' + (currentDocTab === 'id' ? ' active' : '');
+    }
+
+    var frame = document.getElementById('scanFrame');
+    var link = document.getElementById('scanOpenLink');
+    frame.innerHTML = '<div class="doc-empty" style="color:#888;"><div class="spinner" style="width:30px;height:30px;border:3px solid rgba(255,255,255,0.15);border-top:3px solid #667eea;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 10px;"></div><div style="font-size:12px;">Loading...</div></div>';
+    link.innerHTML = '';
+
+    try {
+        // Get URL and metadata if not cached
+        if (!f.url) {
+            var fb = await _fbReady();
+            f.url = await fb.getDownloadURL(f.ref);
+            var meta = await fb.getMetadata(f.ref);
+            f.mimeType = meta.contentType;
+            f.size = meta.size;
+        }
+
+        var color = f.kind === 'passport' ? '#28a745' : f.kind === 'id' ? '#dc3545' : '#a78bfa';
+        displayFile(f, color);
+        updateFileNav();
+    } catch (e) {
+        console.warn('Display file failed:', e.message);
+        frame.innerHTML = '<div class="doc-empty" style="color:#888;"><div style="font-size:48px;">❌</div><div style="font-size:12px;margin-top:8px;">' + esc(e.message) + '</div></div>';
+    }
+}
+
+// Render the file (image / PDF / other)
+function displayFile(f, color) {
+    var frame = document.getElementById('scanFrame');
+    var link = document.getElementById('scanOpenLink');
+    var mt = String(f.mimeType || '').toLowerCase();
+
+    // Reset zoom state
+    _zoomLevel = 1; _panX = 0; _panY = 0;
+
+    if (mt.indexOf('image/') === 0) {
+        frame.innerHTML = '<img id="scanImg" src="' + f.url + '" alt="' + esc(f.name) + '">'
+            + '<div class="zoom-hint" id="zoomHint">🔍 Scroll to zoom</div>';
+    } else if (mt === 'application/pdf') {
+        frame.innerHTML = '<iframe src="' + f.url + '"></iframe>';
+    } else {
+        frame.innerHTML = '<div class="doc-empty" style="color:#888;"><div style="font-size:48px;">📎</div><div style="font-size:12px;margin-top:8px;">' + esc(f.name) + '</div></div>';
+    }
+    link.innerHTML = '<a href="' + f.url + '" target="_blank" style="background:' + color + ';">🔗 Open ' + esc(f.name) + ' ↗</a>';
+}
+
+// When user clicks a tab, jump to the FIRST file of that kind
+function showDocTab(tab) {
+    currentDocTab = tab;
+    document.getElementById('tabPassport').className = 'doc-tab' + (tab === 'passport' ? ' active' : '');
+    document.getElementById('tabID').className = 'doc-tab' + (tab === 'id' ? ' active' : '');
+    if (!currentWorkerFiles || currentWorkerFiles.length === 0) return;
+
+    for (var i = 0; i < currentWorkerFiles.length; i++) {
+        if (currentWorkerFiles[i].kind === tab) {
+            displayFileAtIndex(i);
+            return;
+        }
+    }
+    // No file of that kind found
+    var frame = document.getElementById('scanFrame');
+    frame.innerHTML = '<div class="doc-empty" style="color:#888;"><div style="font-size:48px;">📄</div><div style="font-size:12px;margin-top:8px;">No ' + tab + ' file found</div></div>';
+    document.getElementById('scanOpenLink').innerHTML = '';
+}
+
+function clearDocViewer() {
+    var frame = document.getElementById('scanFrame');
+    if (frame) frame.innerHTML = '<div class="doc-empty"><div class="eicon" style="font-size:56px;color:#444;">📷</div><div style="font-size:12px;color:#666;">No scan available</div></div>';
+    var link = document.getElementById('scanOpenLink');
+    if (link) link.innerHTML = '';
+    currentWorkerFiles = [];
+    currentFileIndex = 0;
+    updateFileNav();
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// MOUSE WHEEL ZOOM + PAN on scan image
+// ════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', function() {
+    var frame = document.getElementById('scanFrame');
+    if (!frame) return;
+
+    frame.addEventListener('wheel', function(e) {
+        var img = this.querySelector('#scanImg');
+        if (!img) return;
+        e.preventDefault();
+        var delta = e.deltaY > 0 ? -0.15 : 0.15;
+        _zoomLevel = Math.max(0.5, Math.min(8, _zoomLevel + delta));
+        if (_zoomLevel <= 1) { _panX = 0; _panY = 0; }
+        img.style.transform = 'scale(' + _zoomLevel + ') translate(' + _panX + 'px, ' + _panY + 'px)';
+        img.style.cursor = _zoomLevel > 1 ? 'grab' : 'zoom-in';
+        var hint = document.getElementById('zoomHint');
+        if (hint) {
+            hint.textContent = (_zoomLevel <= 1.05 && _zoomLevel >= 0.95)
+                ? '🔍 Scroll to zoom'
+                : Math.round(_zoomLevel * 100) + '% — double-click to reset';
+        }
+    }, { passive: false });
+
+    frame.addEventListener('mousedown', function(e) {
+        if (_zoomLevel <= 1) return;
+        var img = this.querySelector('#scanImg');
+        if (!img) return;
+        _isPanning = true;
+        _panStartX = e.clientX - _panX;
+        _panStartY = e.clientY - _panY;
+        img.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (!_isPanning) return;
+        var img = document.getElementById('scanImg');
+        if (!img) return;
+        _panX = e.clientX - _panStartX;
+        _panY = e.clientY - _panStartY;
+        img.style.transform = 'scale(' + _zoomLevel + ') translate(' + _panX + 'px, ' + _panY + 'px)';
+    });
+
+    document.addEventListener('mouseup', function() {
+        if (!_isPanning) return;
+        _isPanning = false;
+        var img = document.getElementById('scanImg');
+        if (img) img.style.cursor = _zoomLevel > 1 ? 'grab' : 'zoom-in';
+    });
+
+    frame.addEventListener('dblclick', function() {
+        _zoomLevel = 1; _panX = 0; _panY = 0;
+        var img = this.querySelector('#scanImg');
+        if (img) { img.style.transform = 'scale(1)'; img.style.cursor = 'zoom-in'; }
+        var hint = document.getElementById('zoomHint');
+        if (hint) hint.textContent = '🔍 Scroll to zoom';
+    });
+});
+
+
+function updateCounters() {
+    var total = allWorkers.length;
+    var acc   = allWorkers.filter(function(w) { return isTrue(w.AcceptedByAdmin) && !isTrue(w.WorkerArchived); }).length;
+    var ref   = allWorkers.filter(function(w) { return isTrue(w.RefusedByAdmin) && !isTrue(w.WorkerArchived); }).length;
+    var arc   = allWorkers.filter(function(w) { return isTrue(w.WorkerArchived); }).length;
+    var pending = total - acc - ref - arc;
+    document.getElementById('cntAll').textContent      = total - arc;
+    document.getElementById('cntPending').textContent  = pending;
+    document.getElementById('cntAccepted').textContent = acc;
+    document.getElementById('cntRefused').textContent  = ref;
+    var archEl = document.getElementById('cntArchived');
+    if (archEl) archEl.textContent = arc;
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp')    { e.preventDefault(); navigateFile(-1); }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); navigateFile(1); }
+});
+
+
+
+// ── File type helpers ───────────────────────────────────────────────
+function fileExt(name) {
+    var n = String(name || '');
+    var dot = n.lastIndexOf('.');
+    return dot > -1 ? n.substring(dot + 1).toLowerCase() : '';
+}
+function isImageExt(e) { return ['jpg','jpeg','png','gif','webp','bmp','svg'].indexOf(e) >= 0; }
+function isPdfExt(e)   { return e === 'pdf'; }
+
+// ── Modal state ─────────────────────────────────────────────────────
+var _afmState = { files: [], idx: 0, selected: {}, folderPath: '', wCode: '', wName: '', view: 'single', zoom: 1 };
+
+// ── Main entry: open the modal ──────────────────────────────────────
+async function showAllFiles() {
+    if (!currentWorker) { showToast('⚠️ No worker selected.', 'info'); return; }
+
+    var w = currentWorker;
+    var folder = w.WorkerFolder || '';
+    if (!folder) { showToast('⚠️ Worker has no folder.', 'error'); return; }
+
+    var folderPath = 'workers/' + folder;
+    var wCode = (w.SupplierCode || 'W') + '-' + String(w.WorkerID || '').padStart(4, '0');
+    var wName = w.WFullName || ((w.WorkerFirstName || '') + ' ' + (w.WorkerLastName || '')).trim() || '';
+
+    var modal = document.getElementById('allFilesModal');
+    modal.style.display = 'block';
+    document.getElementById('afmSub').textContent = 'Loading files...';
+    document.getElementById('afmViewer').innerHTML = '<div class="afm-placeholder"><div class="ico">⏳</div><div>Loading from Firebase Storage...</div></div>';
+
+    afmInstallDragResize();
+
+    // Use the already-loaded currentWorkerFiles (has urls/metadata cached)
+    // but re-fetch URLs for any file that doesn't have one yet
+    var files = [];
+    try {
+        var fb = await _fbReady();
+        for (var i = 0; i < currentWorkerFiles.length; i++) {
+            var f = currentWorkerFiles[i];
+            if (!f.url) {
+                f.url = await fb.getDownloadURL(f.ref);
+                var meta = await fb.getMetadata(f.ref);
+                f.mimeType = meta.contentType;
+                f.size = meta.size;
+            }
+            files.push({
+                name: f.name,
+                path: f.ref ? f.ref.fullPath : f.name,
+                url:  f.url,
+                fileUrl: f.url,
+                mimeType: f.mimeType || '',
+                size: f.size || 0
+            });
+        }
+    } catch(e) {
+        document.getElementById('afmViewer').innerHTML = '<div class="afm-placeholder"><div class="ico">❌</div><div>' + (e.message || e) + '</div></div>';
+        return;
+    }
+
+    if (!files.length) {
+        document.getElementById('afmViewer').innerHTML = '<div class="afm-placeholder"><div class="ico">📁</div><div>No files in this folder yet.</div></div>';
+        document.getElementById('afmSub').textContent = folderPath + ' — empty';
+        return;
+    }
+
+    files.sort(function(a, b) {
+        function rank(n) { var e = fileExt(n); if (isImageExt(e)) return 0; if (isPdfExt(e)) return 1; return 2; }
+        var ra = rank(a.name), rb = rank(b.name);
+        if (ra !== rb) return ra - rb;
+        return a.name.localeCompare(b.name);
+    });
+
+    _afmState.files = files; _afmState.idx = 0; _afmState.selected = {};
+    _afmState.folderPath = folderPath; _afmState.wCode = wCode; _afmState.wName = wName;
+    _afmState.view = 'single'; _afmState.zoom = 1;
+
+    document.getElementById('afmSub').textContent = wCode + (wName ? ' — ' + wName : '') + ' — ' + files.length + ' file' + (files.length !== 1 ? 's' : '');
+    document.getElementById('afmSelectAll').checked = false;
+    document.getElementById('afmPageTotal').textContent = files.length;
+    showAfmPage(0);
+}
+
+function closeAllFilesModal() { var m = document.getElementById('allFilesModal'); if (m) m.style.display = 'none'; }
+
+// ── View mode (single vs grid) ──────────────────────────────────────
+function afmSetView(v) {
+    _afmState.view = v;
+    document.getElementById('afmTabSingle').classList.toggle('afm-tabbtn-active', v === 'single');
+    document.getElementById('afmTabGrid').classList.toggle('afm-tabbtn-active', v === 'grid');
+    document.getElementById('afmNav').style.display = (v === 'single') ? 'flex' : 'none';
+    if (v === 'grid') renderAfmGrid(); else showAfmPage(_afmState.idx);
+}
+
+// ── Render: single file ─────────────────────────────────────────────
+function showAfmPage(i) {
+    if (!_afmState.files.length) return;
+    if (i < 0) i = 0;
+    if (i >= _afmState.files.length) i = _afmState.files.length - 1;
+    _afmState.idx = i;
+
+    var f = _afmState.files[i];
+    var ext = fileExt(f.name);
+    var viewer = document.getElementById('afmViewer');
+    viewer.classList.add('afm-viewer-single');
+    viewer.innerHTML = '';
+
+    var wrap = document.createElement('div');
+    wrap.className = 'afm-zoomwrap';
+    wrap.id = 'afmZoomWrap';
+
+    if (isImageExt(ext)) {
+        var img = document.createElement('img'); img.src = f.url; img.alt = f.name;
+        wrap.appendChild(img);
+    } else if (isPdfExt(ext)) {
+        var iframe = document.createElement('iframe'); iframe.src = f.url;
+        wrap.appendChild(iframe);
+    } else {
+        var ph = document.createElement('div'); ph.className = 'afm-placeholder';
+        ph.innerHTML = '<div class="ico">📎</div><div>' + f.name + '</div><div style="margin-top:10px;"><a href="' + f.url + '" target="_blank" style="color:#667eea;">📂 Open externally</a></div>';
+        wrap.appendChild(ph);
+    }
+
+    viewer.appendChild(wrap);
+    applyAfmZoom();
+    document.getElementById('afmFileName').textContent = f.name;
+    document.getElementById('afmPageNum').value = i + 1;
+    document.getElementById('afmItemCheck').checked = !!_afmState.selected[f.path || f.name];
+    updateAfmSelectionUI();
+}
+
+// ── Render: grid view ───────────────────────────────────────────────
+function renderAfmGrid() {
+    var viewer = document.getElementById('afmViewer');
+    viewer.classList.remove('afm-viewer-single');
+    viewer.innerHTML = '';
+
+    var grid = document.createElement('div');
+    grid.className = 'afm-grid';
+    _afmState.files.forEach(function(f, i) {
+        var ext = fileExt(f.name);
+        var key = f.path || f.name;
+        var thumb = document.createElement('div');
+        thumb.className = 'afm-thumb';
+        var numBadge = '<div class="afm-thumb-num">' + (i + 1) + '</div>';
+        var chkAttr = _afmState.selected[key] ? 'checked' : '';
+        var chk = '<input type="checkbox" class="afm-thumb-chk" ' + chkAttr + ' data-key="' + String(key).replace(/"/g,'&quot;') + '">';
+        var preview;
+        if (isImageExt(ext)) {
+            preview = '<div class="afm-thumb-preview"><img src="' + f.url + '" alt="' + f.name + '"></div>';
+        } else if (isPdfExt(ext)) {
+            preview = '<div class="afm-thumb-preview"><div class="ph">📄</div></div>';
+        } else {
+            preview = '<div class="afm-thumb-preview"><div class="ph">📎</div></div>';
+        }
+        thumb.innerHTML = numBadge + chk + preview + '<div class="afm-thumb-label">' + f.name + '</div>';
+        thumb.querySelector('input[type=checkbox]').addEventListener('change', function(e) {
+            e.stopPropagation();
+            _afmState.selected[this.getAttribute('data-key')] = this.checked;
+            updateAfmSelectionUI();
+        });
+        thumb.addEventListener('click', function(e) {
+            if (e.target.type === 'checkbox') return;
+            afmSetView('single');
+            showAfmPage(i);
+        });
+        grid.appendChild(thumb);
+    });
+    viewer.appendChild(grid);
+}
+
+// ── Navigation / zoom / selection helpers ───────────────────────────
+function afmPrev()       { showAfmPage(_afmState.idx - 1); }
+function afmNext()       { showAfmPage(_afmState.idx + 1); }
+function afmJumpTo()     { var v = parseInt(document.getElementById('afmPageNum').value, 10); if (!isNaN(v)) showAfmPage(v - 1); }
+function afmToggleMax()  { document.getElementById('allFilesModal').classList.toggle('afm-max'); }
+function afmZoom(d)      { _afmState.zoom = Math.max(0.25, Math.min(4, _afmState.zoom + d)); applyAfmZoom(); }
+function afmZoomReset()  { _afmState.zoom = 1; applyAfmZoom(); }
+function applyAfmZoom() {
+    var w = document.getElementById('afmZoomWrap'); if (w) w.style.transform = 'scale(' + _afmState.zoom + ')';
+    var pct = document.getElementById('afmZoomPct'); if (pct) pct.textContent = Math.round(_afmState.zoom * 100) + '%';
+}
+function afmToggleCurrent() {
+    var cur = _afmState.files[_afmState.idx]; if (!cur) return;
+    var k = cur.path || cur.name;
+    _afmState.selected[k] = !_afmState.selected[k];
+    updateAfmSelectionUI();
+}
+function afmToggleSelectAll(checked) {
+    _afmState.selected = {};
+    if (checked) _afmState.files.forEach(function(f) { _afmState.selected[f.path || f.name] = true; });
+    updateAfmSelectionUI();
+    if (_afmState.view === 'grid') renderAfmGrid();
+    else { var cur = _afmState.files[_afmState.idx]; if (cur) document.getElementById('afmItemCheck').checked = !!_afmState.selected[cur.path || cur.name]; }
+}
+function updateAfmSelectionUI() {
+    var count = Object.keys(_afmState.selected).filter(function(k) { return _afmState.selected[k]; }).length;
+    var total = _afmState.files.length;
+    var el = document.getElementById('afmSelCount'); if (el) el.textContent = count + ' of ' + total + ' selected';
+    var sa = document.getElementById('afmSelectAll'); if (sa) sa.checked = (count === total && total > 0);
+}
+
+// ── Drag / resize installation (once per page) ──────────────────────
+var _afmDragInstalled = false;
+function afmInstallDragResize() {
+    if (_afmDragInstalled) return;
+    _afmDragInstalled = true;
+    var box = document.getElementById('afmBox');
+    var handle = document.getElementById('afmDragHandle');
+    var dragging = false, startX = 0, startY = 0, startL = 0, startT = 0;
+
+    handle.addEventListener('mousedown', function(e) {
+        if (e.target.closest('button')) return;
+        var modal = document.getElementById('allFilesModal');
+        if (modal.classList.contains('afm-max')) return;
+        dragging = true;
+        startX = e.clientX; startY = e.clientY;
+        startL = box.offsetLeft; startT = box.offsetTop;
+        e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (dragging) { box.style.left = (startL + e.clientX - startX) + 'px'; box.style.top = (startT + e.clientY - startY) + 'px'; }
+    });
+    document.addEventListener('mouseup', function() { dragging = false; });
+
+    var rhandle = document.getElementById('afmResizeHandle');
+    var resizing = false, rsx = 0, rsy = 0, rsw = 0, rsh = 0;
+    rhandle.addEventListener('mousedown', function(e) {
+        resizing = true;
+        rsx = e.clientX; rsy = e.clientY;
+        rsw = box.offsetWidth; rsh = box.offsetHeight;
+        e.preventDefault(); e.stopPropagation();
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (resizing) {
+            box.style.width  = Math.max(400, rsw + e.clientX - rsx) + 'px';
+            box.style.height = Math.max(300, rsh + e.clientY - rsy) + 'px';
+        }
+    });
+    document.addEventListener('mouseup', function() { resizing = false; });
+}
+
+// ── Download helpers ────────────────────────────────────────────────
+async function downloadOne(url, name) {
+    try {
+        var resp = await fetch(url);
+        var blob = await resp.blob();
+        var blobUrl = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = blobUrl; a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 3000);
+    } catch(e) { console.warn('downloadOne failed:', name, e.message); }
+}
+async function downloadAllFiles() {
+    for (var i = 0; i < _afmState.files.length; i++) {
+        await downloadOne(_afmState.files[i].url, _afmState.files[i].name);
+        await new Promise(function(r) { setTimeout(r, 300); });
+    }
+}
+async function downloadSelectedFiles() {
+    var sel = _afmState.files.filter(function(f) { return _afmState.selected[f.path || f.name]; });
+    if (!sel.length) { showToast('⚠️ No files selected.', 'info'); return; }
+    for (var i = 0; i < sel.length; i++) {
+        await downloadOne(sel[i].url, sel[i].name);
+        await new Promise(function(r) { setTimeout(r, 300); });
+    }
+}
+
+// ── Print selected as merged PDF (uses pdf-lib) ─────────────────────
+async function ensurePdfLib() {
+    if (window.PDFLib) return window.PDFLib;
+    return new Promise(function(resolve, reject) {
+        var s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+        s.onload = function() { resolve(window.PDFLib); };
+        s.onerror = function() { reject(new Error('Failed to load pdf-lib')); };
+        document.head.appendChild(s);
+    });
+}
+async function printSelectedFiles(ev) {
+    var sel = _afmState.files.filter(function(f) { return _afmState.selected[f.path || f.name]; });
+    if (!sel.length) { showToast('⚠️ No files selected.', 'info'); return; }
+    var btn = ev && ev.target; var origText = btn ? btn.textContent : '';
+    if (btn) { btn.textContent = '⏳ Building PDF...'; btn.disabled = true; }
+    try {
+        var PDFLib = await ensurePdfLib();
+        var outPdf = await PDFLib.PDFDocument.create();
+        var HEADER_H = 24;
+        var headerBg = PDFLib.rgb(0.4, 0.31, 0.64);
+        var headerFg = PDFLib.rgb(1, 1, 1);
+        function stampHeader(page, name, idx, total, opacity) {
+            var sz = page.getSize();
+            var op = (opacity === undefined) ? 1 : opacity;
+            page.drawRectangle({ x:0, y:sz.height - HEADER_H, width:sz.width, height:HEADER_H, color:headerBg, opacity:op });
+            var dn = name.length > 80 ? name.substring(0, 77) + '...' : name;
+            page.drawText(dn, { x:10, y:sz.height - 16, size:10, color:headerFg, opacity:op });
+            page.drawText((idx + 1) + ' / ' + total, { x:sz.width - 50, y:sz.height - 16, size:10, color:headerFg, opacity:op });
+        }
+        for (var i = 0; i < sel.length; i++) {
+            var f = sel[i], url = f.url || '', ext = fileExt(f.name);
+            if (btn) btn.textContent = '⏳ ' + (i + 1) + '/' + sel.length;
+            try {
+                var resp = await fetch(url); var buf = await resp.arrayBuffer();
+                if (isPdfExt(ext)) {
+                    try {
+                        var srcPdf = await PDFLib.PDFDocument.load(buf, { ignoreEncryption: true, throwOnInvalidObject: false });
+                        var pages = await outPdf.copyPages(srcPdf, srcPdf.getPageIndices());
+                        pages.forEach(function(p, pi) {
+                            outPdf.addPage(p);
+                            var label = f.name + (pages.length > 1 ? ' (p.' + (pi + 1) + '/' + pages.length + ')' : '');
+                            stampHeader(p, label, i, sel.length, 0.85);
+                        });
+                    } catch(pe) {
+                        var ep = outPdf.addPage([595, 842]);
+                        stampHeader(ep, f.name + ' (error)', i, sel.length);
+                        ep.drawText('Could not embed PDF', { x:40, y:400, size:14 });
+                        ep.drawText(pe.message.substring(0, 80), { x:40, y:370, size:10 });
+                    }
+                } else if (ext === 'jpg' || ext === 'jpeg') {
+                    var img = await outPdf.embedJpg(buf);
+                    var pg = outPdf.addPage([img.width, img.height + HEADER_H]);
+                    pg.drawImage(img, { x:0, y:0, width:img.width, height:img.height });
+                    stampHeader(pg, f.name, i, sel.length);
+                } else if (ext === 'png') {
+                    var imgP = await outPdf.embedPng(buf);
+                    var pgP = outPdf.addPage([imgP.width, imgP.height + HEADER_H]);
+                    pgP.drawImage(imgP, { x:0, y:0, width:imgP.width, height:imgP.height });
+                    stampHeader(pgP, f.name, i, sel.length);
+                } else {
+                    var np = outPdf.addPage([595, 842]);
+                    stampHeader(np, f.name, i, sel.length);
+                    np.drawText('Skipped (unsupported type)', { x:40, y:400, size:14 });
+                }
+            } catch(e) {
+                var eep = outPdf.addPage([595, 842]);
+                stampHeader(eep, f.name + ' (error)', i, sel.length);
+                eep.drawText('Error loading file', { x:40, y:400, size:14 });
+                eep.drawText((e.message || String(e)).substring(0, 80), { x:40, y:370, size:10 });
+            }
+        }
+        var pdfBytes = await outPdf.save();
+        var blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        var blobUrl = URL.createObjectURL(blob);
+        var pw = window.open(blobUrl, '_blank');
+        if (pw) pw.addEventListener('load', function() { setTimeout(function() { try { pw.print(); } catch(e) {} }, 400); });
+    } catch(e) {
+        console.error('Print failed:', e);
+        showToast('❌ Print failed: ' + (e.message || e), 'error');
+    } finally {
+        if (btn) { btn.textContent = origText; btn.disabled = false; }
+    }
+}
+
+
+// ════════════════════════════════════════════════════════════════
+// STEP 2 — APPROVAL LOGIC (Accept / Refuse / Archive + Reset)
+// ════════════════════════════════════════════════════════════════
+
+var ADMIN_PWD = 'masr3434';
+
+function _checkAdminPassword(actionLabel) {
+    var p = prompt('🔐 Admin Password Required\n\nEnter password to ' + actionLabel + ':');
+    if (p === null) return false;
+    if (p !== ADMIN_PWD) { showToast('❌ Wrong password!', 'error'); return false; }
+    return true;
+}
+
+async function loadWorkerPhotoInto(box, w) {
+    box.innerHTML = '<div class="worker-photo-empty"><div class="ico">📸</div></div>';
+
+    // METHOD 1: Use WorkerImage URL directly (works for all workers from Supplier Portal)
+    if (w.WorkerImage && String(w.WorkerImage).indexOf('http') === 0) {
+        box.innerHTML = '<img src="' + w.WorkerImage + '" alt="Worker photo" title="Hover to enlarge" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<div class=&quot;worker-photo-empty&quot;><div class=&quot;ico&quot;>📸</div></div>\';">';
+        return;
+    }
+
+    // METHOD 2: Fallback for old workers — list folder and find photo by name pattern
+    var folder = w.WorkerFolder || '';
+    if (!folder) return;
+    var wCode = (w.SupplierCode || 'W') + '-' + String(w.WorkerID || '').padStart(4, '0');
+    try {
+        var fb = await _fbReady();
+        var folderRef = fb.ref(fb.storage, 'workers/' + folder);
+        var listing = await fb.listAll(folderRef);
+        var match = null;
+        for (var i = 0; i < listing.items.length; i++) {
+            var n = listing.items[i].name.toLowerCase();
+            if (n.indexOf(wCode.toLowerCase() + '-photo') === 0 ||
+                n.indexOf('photo-' + wCode.toLowerCase()) === 0 ||
+                n.indexOf('photo_' + wCode.toLowerCase()) === 0) {
+                match = listing.items[i]; break;
+            }
+        }
+        if (!match) return;
+        var url = await fb.getDownloadURL(match);
+        box.innerHTML = '<img src="' + url + '" alt="Worker photo" title="Hover to enlarge">';
+    } catch (e) { /* silent */ }
+}
+
+function renderApprovalPanel(w) {
+    var apEl = document.getElementById('apBody');
+    if (!w || !apEl) {
+        if (apEl) apEl.innerHTML = '<div style="color:#bbb;font-size:12px;text-align:center;padding:20px 0;">Select a worker</div>';
+        var sb0 = document.getElementById('scanStatusBadge'); if (sb0) sb0.innerHTML = '';
+        return;
+    }
+    var wCode = (w.SupplierCode || 'W') + '-' + String(w.WorkerID || '').padStart(4, '0');
+    var name = w.WFullName || ((w.WorkerFirstName || '') + ' ' + (w.WorkerLastName || '')).trim() || 'Worker';
+    var acc = isTrue(w.AcceptedByAdmin);
+    var ref = isTrue(w.RefusedByAdmin);
+    var arc = isTrue(w.WorkerArchived);
+    var locked = isTrue(w.WorkerLocked);
+    var sup = suppliers.find(function(s) { return String(s.SupplierID) === String(w.SupplierID); });
+    var supCode = sup ? (sup.SupplierCODE || sup.SupplierID) : (w.SupplierCode || '—');
+    document.getElementById('apWorkerLabel').textContent = wCode + ' — ' + name;
+
+    var statusBadge = arc
+        ? '<span class="sbadge" style="background:#e9d8fd;color:#553c9a;border:1px solid #6f42c1;">🗄️ Archived</span>'
+        : acc
+            ? '<span class="sbadge sb-accepted">✔️ Accepted' + (locked ? ' 🔒' : '') + '</span>'
+            : ref
+                ? '<span class="sbadge sb-refused">✖️ Refused</span>'
+                : '<span class="sbadge sb-pending">⏳ Pending</span>';
+    var sbEl = document.getElementById('scanStatusBadge');
+    if (sbEl) sbEl.innerHTML = statusBadge;
+
+    apEl.innerHTML = '';
+
+    var photoBox = document.createElement('div');
+    photoBox.className = 'worker-photo-box';
+    photoBox.id = 'workerPhotoBox';
+    photoBox.innerHTML = '<div class="worker-photo-empty"><div class="ico">📸</div></div>';
+    apEl.appendChild(photoBox);
+    loadWorkerPhotoInto(photoBox, w);
+
+    var row = document.createElement('div'); row.className = 'btn-row';
+    var btnA = document.createElement('button');
+    btnA.type = 'button';
+    btnA.className = 'act-btn btn-accept' + (acc ? ' is-active' : '');
+    btnA.innerHTML = '<span class="icon">✔️</span><span>' + (acc ? 'Accepted' : 'Accept') + '</span>';
+    btnA.onclick = function() { saveApproval('accept'); };
+    row.appendChild(btnA);
+    var btnR = document.createElement('button');
+    btnR.type = 'button';
+    btnR.className = 'act-btn btn-refuse' + (ref ? ' is-active' : '');
+    btnR.innerHTML = '<span class="icon">✖️</span><span>' + (ref ? 'Refused' : 'Refuse') + '</span>';
+    btnR.onclick = function() { saveApproval('refuse'); };
+    row.appendChild(btnR);
+    var btnX = document.createElement('button');
+    btnX.type = 'button';
+    btnX.className = 'act-btn btn-archive' + (arc ? ' is-active' : '');
+    btnX.innerHTML = '<span class="icon">🗄️</span><span>' + (arc ? 'Archived' : 'Archive') + '</span>';
+    btnX.onclick = function() { saveApproval('archive'); };
+    row.appendChild(btnX);
+    apEl.appendChild(row);
+
+    if (acc || ref || arc) {
+        var btnP = document.createElement('button');
+        btnP.type = 'button';
+        btnP.className = 'btn-reset';
+        btnP.textContent = '↩️ Reset to Pending';
+        btnP.onclick = function() { saveApproval('reset'); };
+        apEl.appendChild(btnP);
+    }
+
+    var hr = document.createElement('hr');
+    hr.style.cssText = 'border:none;border-top:1px dashed #dee2e6;margin:8px 0;';
+    apEl.appendChild(hr);
+
+    function ir(label, val) {
+        return '<tr><td style="color:#888;font-weight:600;font-size:10px;padding:2px 8px 2px 0;width:44%;white-space:nowrap;">'
+            + label + '</td><td style="color:#222;font-size:10px;padding:2px 0;">'
+            + (val ? esc(String(val)) : '<span style="color:#ccc;">—</span>') + '</td></tr>';
+    }
+    var tbl = document.createElement('table');
+    tbl.style.cssText = 'width:100%;border-collapse:collapse;margin-bottom:6px;';
+    tbl.innerHTML = ir('Code', wCode)
+        + ir('Nationality', w.Nationality || '')
+        + ir('Passport', w.PassportNumber ? '📘 ' + w.PassportNumber : '')
+        + ir('ID', w.IDNumber ? '🪪 ' + w.IDNumber : '')
+        + ir('DOB', w.DateOfBirth || '')
+        + ir('Gender', w.Gender || '')
+        + ir('Supplier', supCode);
+    apEl.appendChild(tbl);
+
+    if (acc || locked) {
+        var lk = document.createElement('div');
+        lk.className = 'lock-notice';
+        lk.innerHTML = '🔒 Worker <strong>Accepted &amp; Locked</strong> — supplier cannot edit.';
+        apEl.appendChild(lk);
+    }
+
+    if (ref && w.RefusalReason) {
+        var rb = document.createElement('div');
+        rb.className = 'refusal-shown';
+        rb.innerHTML = '<div class="lbl">✖️ Refusal Reason</div><div class="reason">' + esc(w.RefusalReason) + '</div>';
+        apEl.appendChild(rb);
+    }
+
+    if (arc) {
+        var ab = document.createElement('div');
+        ab.className = 'archived-badge';
+        ab.innerHTML = '🗄️ Archived — hidden from active workflow';
+        apEl.appendChild(ab);
+    }
+}
+
+function saveApproval(action) {
+    if (!currentWorker) return;
+    var w = currentWorker;
+    var acc = isTrue(w.AcceptedByAdmin);
+    var ref = isTrue(w.RefusedByAdmin);
+    var arc = isTrue(w.WorkerArchived);
+
+    if (action === 'accept') {
+        if (ref || arc) { if (!_checkAdminPassword('change to Accepted')) return; }
+        w.AcceptedByAdmin = true;
+        w.RefusedByAdmin  = false;
+        w.WorkerArchived  = false;
+        w.WorkerLocked    = true;
+        w.LockedDate      = new Date().toISOString();
+        w.RefusalReason   = '';
+        commitDecision(w, 'accepted');
+        return;
+    }
+
+    if (action === 'refuse') {
+        if (acc || arc) { if (!_checkAdminPassword('change to Refused')) return; }
+        showRefusalBox(w);
+        return;
+    }
+
+    if (action === 'archive') {
+        if (!_checkAdminPassword('archive this worker')) return;
+        if (!confirm('🗄️ Archive ' + (w.WFullName || w.WorkerFirstName || 'this worker') + '?\n\nArchived workers will be hidden from all views.\nYou can restore later via Reset.')) return;
+        w.WorkerArchived  = true;
+        w.AcceptedByAdmin = false;
+        w.RefusedByAdmin  = false;
+        w.WorkerLocked    = false;
+        w.RefusalReason   = '';
+        w.ArchivedDate    = new Date().toISOString();
+        commitDecision(w, 'archived');
+        return;
+    }
+
+    if (action === 'reset') {
+        if (!_checkAdminPassword('reset to Pending')) return;
+        w.AcceptedByAdmin = false;
+        w.RefusedByAdmin  = false;
+        w.WorkerArchived  = false;
+        w.WorkerLocked    = false;
+        w.RefusalReason   = '';
+        commitDecision(w, 'reset');
+        return;
+    }
+}
+
+async function commitDecision(w, type) {
+    var idx = allWorkers.findIndex(function(aw) { return String(aw.WorkerID) === String(w.WorkerID); });
+    if (idx >= 0) allWorkers[idx] = w;
+    var fIdx = filteredList.findIndex(function(aw) { return String(aw.WorkerID) === String(w.WorkerID); });
+    if (fIdx >= 0) filteredList[fIdx] = w;
+    renderApprovalPanel(w);
+    renderWorkerList();
+    updateCounters();
+    var msgs  = { accepted: '🔒 Worker Accepted & Locked!', reset: '↩️ Reset to Pending', refused: '✖️ Worker Refused!', archived: '🗄️ Worker Archived' };
+    var types = { accepted: 'success', reset: 'info', refused: 'error', archived: 'info' };
+    showToast(msgs[type] || 'Done', types[type] || 'info');
+    var res = await CloudDB.saveRow('Workers', w, 'WorkerID');
+    if (res && res.success) {
+        setCloud('🔥 Saved ' + new Date().toLocaleTimeString(), '#28a745');
+        if (type === 'archived') applyFilters();
+    } else {
+        setCloud('⚠️ Save failed', '#ffc107');
+        showToast('⚠️ Save failed: ' + (res ? res.error : 'Unknown'), 'error');
+    }
+}
+
+function showRefusalBox(w) {
+    var apEl = document.getElementById('apBody');
+    if (!apEl) return;
+    var old = document.getElementById('refusalInputBox');
+    if (old) { old.remove(); return; }
+    var box = document.createElement('div');
+    box.className = 'refusal-box';
+    box.id = 'refusalInputBox';
+    var hdr = document.createElement('div');
+    hdr.className = 'refusal-box-hdr';
+    hdr.textContent = '✖️ Enter Refusal Reason';
+    box.appendChild(hdr);
+    var body = document.createElement('div');
+    body.className = 'refusal-box-body';
+    var ta = document.createElement('textarea');
+    ta.className = 'refusal-reason-ta';
+    ta.placeholder = 'Enter reason for refusal (visible to supplier)...';
+    if (w.RefusalReason) ta.value = w.RefusalReason;
+    body.appendChild(ta);
+    var confirmBtn = document.createElement('button');
+    confirmBtn.className = 'refusal-confirm-btn';
+    confirmBtn.type = 'button';
+    confirmBtn.textContent = '✖️ Confirm Refusal';
+    confirmBtn.onclick = function() {
+        var r = ta.value.trim();
+        if (!r) { showToast('⚠️ Please enter a reason', 'error'); ta.focus(); return; }
+        w.RefusedByAdmin  = true;
+        w.AcceptedByAdmin = false;
+        w.WorkerArchived  = false;
+        w.WorkerLocked    = false;
+        w.RefusalReason   = r;
+        w.RefusalDate     = new Date().toISOString();
+        box.remove();
+        commitDecision(w, 'refused');
+    };
+    body.appendChild(confirmBtn);
+    var cancelBtn = document.createElement('button');
+    cancelBtn.className = 'refusal-cancel-btn';
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = '↩ Cancel';
+    cancelBtn.onclick = function() { box.remove(); };
+    body.appendChild(cancelBtn);
+    box.appendChild(body);
+    apEl.appendChild(box);
+    setTimeout(function() { ta.focus(); }, 50);
+}
+
+(function() {
+    var origSelect = window.selectWorker;
+    window.selectWorker = function(idx) {
+        origSelect(idx);
+        renderApprovalPanel(currentWorker);
+    };
+})();
+
+(function() {
+    var origApply = window.applyFilters;
+    if (!origApply) return;
+    window.applyFilters = function() {
+        var savedAll = allWorkers;
+        allWorkers = allWorkers.filter(function(w) { return !isTrue(w.WorkerArchived); });
+        origApply();
+        allWorkers = savedAll;
+        if (!currentWorker) {
+            var apEl = document.getElementById('apBody');
+            if (apEl) apEl.innerHTML = '<div style="color:#bbb;font-size:12px;text-align:center;padding:20px 0;">Select a worker</div>';
+            var sbEl = document.getElementById('scanStatusBadge');
+            if (sbEl) sbEl.innerHTML = '';
+        }
+    };
+})();
+
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+
+
+<!-- All Files Modal (Workers-style: draggable, resizable, zoom, grid/single) -->
+<div id="allFilesModal">
+    <div class="afm-backdrop" onclick="closeAllFilesModal()"></div>
+    <div class="afm-box" id="afmBox">
+        <div class="afm-hdr" id="afmDragHandle">
+            <div style="flex:1;min-width:0;">
+                <div class="afm-title">📂 All Worker Files</div>
+                <div class="afm-sub" id="afmSub">Loading...</div>
+            </div>
+            <div class="afm-hdr-btns">
+                <button class="afm-icon-btn" title="Maximize/Restore" onclick="afmToggleMax()">⤢</button>
+                <button class="afm-close" onclick="closeAllFilesModal()">✕</button>
+            </div>
+        </div>
+        <div class="afm-toolbar">
+            <div class="afm-tabgroup">
+                <button class="afm-tabbtn afm-tabbtn-active" id="afmTabSingle" onclick="afmSetView('single')">📄 Single</button>
+                <button class="afm-tabbtn" id="afmTabGrid" onclick="afmSetView('grid')">▦ Thumbnails</button>
+            </div>
+            <label class="afm-checklabel"><input type="checkbox" id="afmSelectAll" onchange="afmToggleSelectAll(this.checked)"> Select all</label>
+            <span id="afmSelCount" style="color:#888;font-size:12px;">0 of 0 selected</span>
+            <div style="flex:1;"></div>
+            <button class="afm-btn" onclick="downloadAllFiles()">⬇️ Download all</button>
+            <button class="afm-btn afm-btn-primary" onclick="downloadSelectedFiles()">⬇️ Download selected</button>
+            <button class="afm-btn afm-btn-accent" onclick="printSelectedFiles(event)">🖨️ Print selected</button>
+        </div>
+        <div class="afm-body">
+            <div class="afm-viewer afm-viewer-single" id="afmViewer">
+                <div class="afm-placeholder"><div class="ico">⏳</div><div>Loading...</div></div>
+            </div>
+        </div>
+        <div class="afm-nav" id="afmNav" style="display:flex;">
+            <button class="afm-btn" onclick="afmPrev()">◀ Prev</button>
+            <div class="afm-zoom">
+                <button class="afm-icon-btn" title="Zoom out" onclick="afmZoom(-0.25)">−</button>
+                <span id="afmZoomPct" style="min-width:50px;text-align:center;font-size:12px;color:#334155;font-weight:600;">100%</span>
+                <button class="afm-icon-btn" title="Zoom in" onclick="afmZoom(0.25)">+</button>
+                <button class="afm-icon-btn" title="Reset zoom" onclick="afmZoomReset()">↺</button>
+            </div>
+            <div class="afm-pageinfo">
+                <input type="checkbox" id="afmItemCheck" onchange="afmToggleCurrent()" title="Select this file">
+                <span>Page <input id="afmPageNum" type="number" min="1" value="1" style="width:55px;padding:4px;border:1px solid #ccc;border-radius:4px;text-align:center;" onchange="afmJumpTo()"> of <span id="afmPageTotal">0</span></span>
+            </div>
+            <div style="flex:1;text-align:center;font-size:12px;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="afmFileName"></div>
+            <button class="afm-btn" onclick="afmNext()">Next ▶</button>
+        </div>
+        <div class="afm-resize-handle" id="afmResizeHandle"></div>
+    </div>
+</div>
+<!-- ============================================================
+     STEP 3 PATCH — WORKER APPROVAL (admin side)
+     v1.0 — Refusal reason capture/edit + Re-Review loop
+     Paste this entire block before </body> in Worker_Approval.html
+     (place it AFTER the v3.0 fix patch if that exists)
+============================================================ -->
+
+<style>
+/* ── Refusal reason modal ─────────────────────────── */
+.rr-overlay {
+  display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.65); z-index:100000;
+  align-items:center; justify-content:center;
+}
+.rr-overlay.show { display:flex; }
+.rr-box {
+  background:white; border-radius:12px; width:520px; max-width:94vw;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3); overflow:hidden;
+  animation:rrSlide 0.2s ease-out;
+}
+@keyframes rrSlide { from{transform:scale(0.94);opacity:0} to{transform:scale(1);opacity:1} }
+.rr-hdr {
+  background:linear-gradient(135deg,#dc3545,#c82333); color:white;
+  padding:14px 18px; font-weight:700; font-size:14px;
+  display:flex; align-items:center; gap:8px;
+}
+.rr-body { padding:18px; }
+.rr-body label {
+  display:block; font-size:11px; font-weight:700;
+  color:#475057; margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px;
+}
+.rr-body textarea {
+  width:100%; padding:10px 12px; border:2px solid #e9ecef; border-radius:7px;
+  font-size:13px; font-family:inherit; min-height:90px; resize:vertical;
+  box-sizing:border-box;
+}
+.rr-body textarea:focus { outline:none; border-color:#dc3545; }
+.rr-buttons { padding:10px 18px; background:#f8f9fa; border-top:1px solid #e9ecef;
+  display:flex; justify-content:flex-end; gap:8px; }
+.rr-btn { padding:8px 18px; border:none; border-radius:6px; font-weight:700;
+  font-size:12px; cursor:pointer; font-family:inherit; }
+.rr-btn-primary { background:#dc3545; color:white; }
+.rr-btn-primary:hover { background:#c82333; }
+.rr-btn-secondary { background:white; color:#495057; border:1.5px solid #ced4da; }
+.rr-btn-secondary:hover { background:#f8f9fa; }
+
+/* ── Re-Review badge in topbar ────────────────────── */
+.tbadge.rereview {
+  background:rgba(156,39,176,0.35);
+  border-color:rgba(156,39,176,0.7);
+  animation:pulse 2s infinite;
+}
+@keyframes pulse {
+  0%,100% { box-shadow:0 0 0 0 rgba(156,39,176,0.5); }
+  50%     { box-shadow:0 0 0 6px rgba(156,39,176,0); }
+}
+
+/* ── 🔁 marker on worker list items ───────────────── */
+.wl-item .rereview-mark {
+  display:inline-block; margin-left:4px; font-size:11px;
+  background:#9c27b0; color:white; padding:1px 5px; border-radius:8px;
+  font-weight:700;
+}
+
+/* ── Refusal info card (in approval panel) ────────── */
+.refusal-info-card {
+  margin-top:10px; background:#fff5f5; border:1.5px solid #f5c6cb;
+  border-radius:7px; overflow:hidden;
+}
+.refusal-info-hdr {
+  background:#dc3545; color:white; padding:5px 12px;
+  font-size:11px; font-weight:700;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.refusal-info-body { padding:8px 12px; }
+.refusal-info-body .rr-text {
+  background:white; padding:7px 9px; border:1px solid #f5c6cb;
+  border-radius:5px; font-size:11px; color:#495057;
+  font-style:italic; line-height:1.5; white-space:pre-wrap;
+  user-select:text;
+}
+.refusal-info-body .rr-meta {
+  font-size:10px; color:#888; margin-top:5px;
+}
+.update-reason-btn {
+  background:white; color:#dc3545; border:1px solid #dc3545;
+  padding:3px 9px; border-radius:5px; font-size:10px; font-weight:700;
+  cursor:pointer; font-family:inherit;
+}
+.update-reason-btn:hover { background:#dc3545; color:white; }
+
+/* ── Re-review request notice (admin sees this) ──── */
+.rereview-notice {
+  margin-top:8px; background:#f3e5f5; border:1.5px solid #9c27b0;
+  border-radius:7px; overflow:hidden;
+}
+.rereview-notice-hdr {
+  background:#9c27b0; color:white; padding:5px 12px;
+  font-size:11px; font-weight:700;
+}
+.rereview-notice-body { padding:8px 12px; font-size:11px; color:#4a148c; }
+.rereview-notice-body .rrn-note {
+  background:white; padding:7px 9px; border:1px solid #ce93d8;
+  border-radius:5px; margin-top:5px; font-style:italic;
+  color:#4a148c; white-space:pre-wrap; user-select:text;
+}
+.rereview-notice-body .rrn-meta { font-size:10px; color:#7b1fa2; margin-top:5px; }
+</style>
+
+<!-- Refusal Reason Modal (used for both initial Refuse and Update) -->
+<div class="rr-overlay" id="rrModal">
+  <div class="rr-box">
+    <div class="rr-hdr">
+      <span style="font-size:18px;">✖️</span>
+      <span id="rrModalTitle">Refuse Worker</span>
+    </div>
+    <div class="rr-body">
+      <div id="rrWorkerLabel" style="font-size:12px;color:#666;margin-bottom:10px;font-weight:600;"></div>
+      <label>Refusal Reason <span style="color:#dc3545;">*</span></label>
+      <textarea id="rrReasonInput" placeholder="Explain why this worker is refused (e.g. missing fingerprint, expired passport, image quality, name mismatch...)"></textarea>
+      <div style="font-size:10px;color:#888;margin-top:5px;" id="rrPrevReasonInfo"></div>
+    </div>
+    <div class="rr-buttons">
+      <button class="rr-btn rr-btn-secondary" onclick="rrCloseModal()">Cancel</button>
+      <button class="rr-btn rr-btn-primary" id="rrSaveBtn" onclick="rrSaveReason()">✖️ Refuse Worker</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+console.log('🔧 Step 3 Patch (Worker Approval) loading...');
+
+// ============================================================
+// HELPERS
+// ============================================================
+function isT(v){ return v===true||v==='true'||v==='TRUE'||v===1||v==='1'; }
+function nowISO(){ return new Date().toISOString(); }
+function escapeHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmtDate(iso){
+  if(!iso) return '';
+  try{ var d=new Date(iso); return d.toLocaleDateString()+' '+d.toLocaleTimeString().substring(0,5); }
+  catch(e){ return iso; }
+}
+
+// ============================================================
+// ADD RE-REVIEW BADGE TO TOPBAR
+// ============================================================
+function injectRereviewBadge(){
+  if(document.getElementById('badgeRereview')) return;
+  var refused = document.getElementById('badgeRefused');
+  if(!refused) return;
+  var badge = document.createElement('span');
+  badge.className = 'tbadge rereview';
+  badge.id = 'badgeRereview';
+  badge.title = 'Workers awaiting re-review';
+  badge.onclick = function(){ setStatusFilter('rereview'); };
+  badge.innerHTML = '🔁 <span id="cntRereview">0</span> Re-Review';
+  refused.parentNode.insertBefore(badge, refused.nextSibling);
+}
+injectRereviewBadge();
+
+// ============================================================
+// EXTEND STATUS FILTER to handle 'rereview'
+// ============================================================
+var _origApplyFilters = window.applyFilters;
+window.applyFilters = function(){
+  var statusEl = document.getElementById('fltStatus');
+  var status = statusEl ? statusEl.value : '';
+
+  // Handle special 'rereview' filter
+  if(status === 'rereview'){
+    // Clear other badge active states
+    ['badgeAll','badgePending','badgeAccepted','badgeRefused'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.classList.remove('active-filter');
+    });
+    var rrBadge = document.getElementById('badgeRereview');
+    if(rrBadge) rrBadge.classList.add('active-filter');
+
+    var suppId = document.getElementById('fltSupplier').value;
+    var natVal = document.getElementById('fltNationality').value;
+    var search = document.getElementById('fltSearch').value.toLowerCase().trim();
+
+    filteredList = allWorkers.filter(function(w){
+      if(!isT(w.RefusedByAdmin)) return false;
+      if(!isT(w.ReviewRequested)) return false;
+      if(suppId && String(w.SupplierID||'').trim()!==String(suppId).trim()) return false;
+      if(natVal && (w.Nationality||'').toLowerCase().trim()!==natVal.toLowerCase().trim()) return false;
+      if(search){
+        var blob=[w.WFullName,w.WorkerFirstName,w.WorkerMiddleName,w.WorkerLastName,
+                  w.ArabicName,w.FatherName,w.FamilyName,w.ArabicFullName,
+                  w.PassportNumber,w.IDNumber,w.Nationality,w.ContactNumber,
+                  w.SupplierCode,String(w.WorkerID||'')].join(' ').toLowerCase();
+        if(blob.indexOf(search)===-1) return false;
+      }
+      return true;
+    });
+
+    currentIndex = 0;
+    var rc = document.getElementById('resultCount'); if(rc) rc.textContent = filteredList.length+' results';
+    var lc = document.getElementById('listCount'); if(lc) lc.textContent = filteredList.length;
+    renderWorkerList();
+    if(typeof updateFileNav === 'function') updateFileNav();
+    if(filteredList.length>0){ selectWorker(0); }
+    else {
+      currentWorker = null;
+      var ips = document.getElementById('infoPanelScroll');
+      if(ips) ips.innerHTML = '<div class="doc-empty" style="margin-top:60px;"><div class="eicon">🔁</div><div style="font-weight:700;color:#666;">No workers awaiting re-review</div></div>';
+      var sb = document.getElementById('saveBar'); if(sb) sb.style.display='none';
+      var apl = document.getElementById('apWorkerLabel'); if(apl) apl.textContent='No worker selected';
+      var apb = document.getElementById('apBody'); if(apb) apb.innerHTML='<div style="color:#bbb;font-size:12px;text-align:center;padding:20px 0;">No worker selected</div>';
+      var ssb = document.getElementById('scanStatusBadge'); if(ssb) ssb.innerHTML='';
+      if(typeof clearDocViewer==='function') clearDocViewer();
+      var wpb = document.getElementById('workerPhotoBox'); if(wpb) wpb.innerHTML='<div style="color:#ccc;font-size:11px;">No worker selected</div>';
+    }
+    return;
+  }
+
+  // Otherwise call the original
+  _origApplyFilters.call(window);
+};
+
+// ============================================================
+// EXTEND setStatusFilter to set the value
+// ============================================================
+var _origSetStatusFilter = window.setStatusFilter;
+window.setStatusFilter = function(val){
+  var sel = document.getElementById('fltStatus');
+  if(sel){
+    // Add 'rereview' option if not present
+    var hasRR = false;
+    for(var i=0;i<sel.options.length;i++) if(sel.options[i].value==='rereview') hasRR=true;
+    if(!hasRR){
+      var o = document.createElement('option');
+      o.value='rereview'; o.textContent='🔁 Re-Review';
+      sel.appendChild(o);
+    }
+    sel.value = val;
+  }
+  applyFilters();
+};
+
+// ============================================================
+// EXTEND updateCounters to include re-review count
+// ============================================================
+var _origUpdateCounters = window.updateCounters;
+window.updateCounters = function(){
+  if(_origUpdateCounters) _origUpdateCounters.call(window);
+  var rrCount = allWorkers.filter(function(w){
+    return isT(w.RefusedByAdmin) && isT(w.ReviewRequested);
+  }).length;
+  var el = document.getElementById('cntRereview');
+  if(el) el.textContent = rrCount;
+};
+
+// ============================================================
+// EXTEND renderWorkerList to add 🔁 marker
+// ============================================================
+var _origRenderWorkerList = window.renderWorkerList;
+window.renderWorkerList = function(){
+  _origRenderWorkerList.call(window);
+  // Add re-review markers
+  var items = document.querySelectorAll('.wl-item');
+  items.forEach(function(item, idx){
+    var w = filteredList[idx];
+    if(!w) return;
+    if(isT(w.RefusedByAdmin) && isT(w.ReviewRequested)){
+      var nameEl = item.querySelector('.wl-name');
+      if(nameEl && !nameEl.querySelector('.rereview-mark')){
+        var mark = document.createElement('span');
+        mark.className = 'rereview-mark';
+        mark.textContent = '🔁';
+        mark.title = 'Awaiting re-review';
+        nameEl.appendChild(mark);
+      }
+    }
+  });
+};
+
+// ============================================================
+// REFUSAL REASON MODAL
+// ============================================================
+var _rrMode = 'refuse'; // 'refuse' or 'update'
+
+window.rrOpenModal = function(mode){
+  if(!currentWorker) return;
+  _rrMode = mode || 'refuse';
+  var w = currentWorker;
+  var wCode = (w.SupplierCode||'W')+'-'+String(w.WorkerID||'').padStart(4,'0');
+  var name = w.WFullName||w.WorkerFirstName||'Worker';
+
+  document.getElementById('rrWorkerLabel').textContent = wCode+' — '+name;
+  document.getElementById('rrModalTitle').textContent =
+    (_rrMode==='update') ? 'Update Refusal Reason' : 'Refuse Worker';
+  document.getElementById('rrSaveBtn').innerHTML =
+    (_rrMode==='update') ? '💾 Save Updated Reason' : '✖️ Refuse Worker';
+
+  var existing = w.RefusalReason || '';
+  document.getElementById('rrReasonInput').value = existing;
+
+  // Show previous reason info if updating
+  var info = document.getElementById('rrPrevReasonInfo');
+  if(_rrMode==='update' && w.RefusedAt){
+    info.innerHTML = 'Originally refused on: '+escapeHtml(fmtDate(w.RefusedAt));
+  } else { info.innerHTML = ''; }
+
+  document.getElementById('rrModal').classList.add('show');
+  setTimeout(function(){
+    document.getElementById('rrReasonInput').focus();
+  }, 100);
+};
+
+window.rrCloseModal = function(){
+  document.getElementById('rrModal').classList.remove('show');
+};
+
+window.rrSaveReason = async function(){
+  if(!currentWorker) return;
+  var reason = (document.getElementById('rrReasonInput').value||'').trim();
+  if(!reason){
+    alert('⚠️ Please enter a refusal reason.');
+    document.getElementById('rrReasonInput').focus();
+    return;
+  }
+
+  var w = currentWorker;
+
+  if(_rrMode === 'update'){
+    // Just update the reason, keep status
+    w.RefusalReason = reason;
+    w.RefusedAt = w.RefusedAt || nowISO();
+    w.RefusedBy = w.RefusedBy || 'admin';
+    // If supplier had marked it solved, the new reason resets that flag
+    if(isT(w.ReviewRequested)){
+      w.ReviewRequested = false;
+      w.ReviewRequestedAt = '';
+      w.ReviewRequestedBy = '';
+      w.ReviewSolvedNote = '';
+    }
+  } else {
+    // Initial refuse
+    w.AcceptedByAdmin = false;
+    w.RefusedByAdmin = true;
+    w.RefusalReason = reason;
+    w.RefusedAt = nowISO();
+    w.RefusedBy = 'admin';
+    w.ReviewRequested = false;
+    w.ReviewRequestedAt = '';
+    w.ReviewRequestedBy = '';
+    w.ReviewSolvedNote = '';
+  }
+
+  // Update master array + localStorage
+  var idx = allWorkers.findIndex(function(aw){return String(aw.WorkerID)===String(w.WorkerID);});
+  if(idx>=0) allWorkers[idx] = w;
+  try{ localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers)); }catch(e){}
+
+  rrCloseModal();
+  renderApprovalPanel(w);
+  renderWorkerList();
+  updateCounters();
+  showToast(_rrMode==='update' ? '💾 Reason updated' : '✖️ Worker refused', _rrMode==='update'?'info':'error');
+
+  // Save to cloud (Firestore)
+  try{
+    var res = await CloudDB.saveRow('Workers', w, 'WorkerID');
+    if(res && res.success) setCloud('🔥 Saved '+new Date().toLocaleTimeString(), '#28a745');
+    else { setCloud('⚠️ Save failed', '#ffc107'); showToast('⚠️ Save failed: '+(res ? res.error : 'Unknown'), 'error'); }
+  } catch(e){ setCloud('⚠️ Save error', '#ffc107'); showToast('⚠️ '+e.message, 'error'); }
+};
+
+// ============================================================
+// OVERRIDE saveApproval to route Refuse → modal, and clear review flags on Accept/Reset
+// ============================================================
+window.saveApproval = async function(action){
+  if(!currentWorker) return;
+  var w = currentWorker;
+
+  // 'refuse' → open modal first (don't save until reason captured)
+  if(action === 'refuse' || action === false){
+    rrOpenModal('refuse');
+    return;
+  }
+
+  var msg = '';
+  var msgType = 'info';
+
+  if(action === 'accept' || action === true){
+    w.AcceptedByAdmin = true;
+    w.RefusedByAdmin  = false;
+    w.WorkerArchived  = false;
+    w.WorkerLocked    = true;
+    w.LockedDate      = new Date().toISOString();
+    w.RefusalReason   = '';
+    w.RefusedAt       = '';
+    w.RefusedBy       = '';
+    w.ReviewRequested = false;
+    w.ReviewRequestedAt = '';
+    w.ReviewRequestedBy = '';
+    w.ReviewSolvedNote = '';
+    msg = '🔒 Worker Accepted & Locked!';
+    msgType = 'success';
+  }
+  else if(action === 'archive'){
+    if(!_checkAdminPassword('archive this worker')) return;
+    if(!confirm('🗄️ Archive ' + (w.WFullName || w.WorkerFirstName || 'this worker') + '?\n\nArchived workers will be hidden from all views.\nYou can restore later via Reset.')) return;
+    w.WorkerArchived  = true;
+    w.AcceptedByAdmin = false;
+    w.RefusedByAdmin  = false;
+    w.WorkerLocked    = false;
+    w.RefusalReason   = '';
+    w.ArchivedDate    = new Date().toISOString();
+    w.ReviewRequested = false;
+    w.ReviewRequestedAt = '';
+    w.ReviewRequestedBy = '';
+    w.ReviewSolvedNote = '';
+    msg = '🗄️ Worker Archived';
+    msgType = 'info';
+  }
+  else if(action === 'reset' || action === null){
+    if(!_checkAdminPassword('reset to Pending')) return;
+    w.AcceptedByAdmin = false;
+    w.RefusedByAdmin  = false;
+    w.WorkerArchived  = false;
+    w.WorkerLocked    = false;
+    w.RefusalReason   = '';
+    w.RefusedAt       = '';
+    w.RefusedBy       = '';
+    w.ReviewRequested = false;
+    w.ReviewRequestedAt = '';
+    w.ReviewRequestedBy = '';
+    w.ReviewSolvedNote = '';
+    msg = '↩️ Reset to Pending';
+    msgType = 'info';
+  }
+  else {
+    console.warn('Unknown saveApproval action:', action);
+    return;
+  }
+
+  var idx = allWorkers.findIndex(function(aw){return String(aw.WorkerID)===String(w.WorkerID);});
+  if(idx>=0) allWorkers[idx] = w;
+
+  renderApprovalPanel(w);
+  renderWorkerList();
+  updateCounters();
+  showToast(msg, msgType);
+
+  try{
+    var res = await CloudDB.saveRow('Workers', w, 'WorkerID');
+    if(res && res.success){
+      setCloud('🔥 Saved '+new Date().toLocaleTimeString(), '#28a745');
+      if(action === 'archive') applyFilters();
+    } else {
+      setCloud('⚠️ Save failed', '#ffc107');
+      showToast('⚠️ Save failed: '+(res ? res.error : 'Unknown'), 'error');
+    }
+  } catch(e){
+    setCloud('⚠️ Save error', '#ffc107');
+    showToast('⚠️ '+e.message, 'error');
+  }
+};
+
+// ============================================================
+// EXTEND renderApprovalPanel to show:
+//   - Refusal reason card + "Update Reason" button (if refused)
+//   - Re-review notice (if supplier/admin marked solved)
+// ============================================================
+var _origRenderApprovalPanel = window.renderApprovalPanel;
+window.renderApprovalPanel = function(w){
+  // Call original first
+  _origRenderApprovalPanel.call(window, w);
+
+  if(!w) return;
+
+  var apBody = document.getElementById('apBody');
+  if(!apBody) return;
+
+  // Append refusal info card (if refused)
+  if(isT(w.RefusedByAdmin) && w.RefusalReason){
+    var refusedAt = w.RefusedAt ? fmtDate(w.RefusedAt) : '';
+    var refCard = document.createElement('div');
+    refCard.className = 'refusal-info-card';
+    refCard.innerHTML =
+      '<div class="refusal-info-hdr">'
+      +'<span>📋 Refusal Reason</span>'
+      +'<button class="update-reason-btn" onclick="rrOpenModal(\'update\')">✏️ Update</button>'
+      +'</div>'
+      +'<div class="refusal-info-body">'
+      +'<div class="rr-text">'+escapeHtml(w.RefusalReason)+'</div>'
+      +(refusedAt ? '<div class="rr-meta">Refused: '+escapeHtml(refusedAt)+'</div>' : '')
+      +'</div>';
+    apBody.appendChild(refCard);
+  }
+
+  // Re-review notice (if marked solved by supplier/admin)
+  if(isT(w.ReviewRequested)){
+    var requestedAt = w.ReviewRequestedAt ? fmtDate(w.ReviewRequestedAt) : '';
+    var by = w.ReviewRequestedBy || '';
+    var bySource = '';
+    if(by.indexOf('supplier:')===0) bySource = 'Supplier (via Portal)';
+    else if(by.indexOf('admin:')===0) bySource = 'Admin (Supplier Manager)';
+    else bySource = by || 'Unknown';
+
+    var notice = document.createElement('div');
+    notice.className = 'rereview-notice';
+    notice.innerHTML =
+      '<div class="rereview-notice-hdr">🔁 RE-REVIEW REQUESTED</div>'
+      +'<div class="rereview-notice-body">'
+      +'<strong>Marked as solved by:</strong> '+escapeHtml(bySource)
+      +(w.ReviewSolvedNote ? '<div class="rrn-note">'+escapeHtml(w.ReviewSolvedNote)+'</div>' : '<div class="rrn-note" style="color:#999;font-style:normal;">(no note provided)</div>')
+      +(requestedAt ? '<div class="rrn-meta">Submitted: '+escapeHtml(requestedAt)+'</div>' : '')
+      +'<div style="margin-top:8px;font-size:11px;font-weight:700;color:#7b1fa2;">Re-review the documents and decide: Accept, keep Refused, or Update the reason.</div>'
+      +'</div>';
+    apBody.appendChild(notice);
+  }
+};
+
+// Bind ESC to close modal
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape' && document.getElementById('rrModal').classList.contains('show')){
+    rrCloseModal();
+  }
+});
+
+// Initial counter update
+setTimeout(function(){ if(typeof updateCounters==='function') updateCounters(); }, 1500);
+
+console.log('✅ Step 3 Patch (Worker Approval) loaded');
+})();
+</script>
+<!-- ============================================================
+     END STEP 3 PATCH — WORKER APPROVAL
+============================================================ -->
+<!-- ============================================================
+     STEP 3 PATCH — SUPPLIER PORTAL (supplier side)
+     v1.0 — Display refusal reason + "Mark as Solved" flow
+     Paste this entire block before </body> in Supplier_Portal.html
+============================================================ -->
+
+<style>
+/* ── Mark Solved modal ────────────────────────────── */
+.ms-overlay {
+  display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.65); z-index:100000;
+  align-items:center; justify-content:center;
+}
+.ms-overlay.show { display:flex; }
+.ms-box {
+  background:white; border-radius:12px; width:520px; max-width:94vw;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3); overflow:hidden;
+  animation:msSlide 0.2s ease-out;
+}
+@keyframes msSlide { from{transform:scale(0.94);opacity:0} to{transform:scale(1);opacity:1} }
+.ms-hdr {
+  background:linear-gradient(135deg,#28a745,#218838); color:white;
+  padding:14px 18px; font-weight:700; font-size:14px;
+  display:flex; align-items:center; gap:8px;
+}
+.ms-body { padding:18px; }
+.ms-body .ms-prev-reason {
+  background:#fff5f5; border:1px solid #f5c6cb; border-radius:7px;
+  padding:9px 12px; margin-bottom:14px;
+  font-size:11px; color:#721c24; font-style:italic; white-space:pre-wrap;
+}
+.ms-body .ms-prev-reason-label {
+  font-weight:700; font-style:normal; color:#dc3545; margin-bottom:4px; display:block;
+}
+.ms-body label {
+  display:block; font-size:11px; font-weight:700;
+  color:#475057; margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px;
+}
+.ms-body textarea {
+  width:100%; padding:10px 12px; border:2px solid #e9ecef; border-radius:7px;
+  font-size:13px; font-family:inherit; min-height:90px; resize:vertical;
+  box-sizing:border-box;
+}
+.ms-body textarea:focus { outline:none; border-color:#28a745; }
+.ms-buttons { padding:10px 18px; background:#f8f9fa; border-top:1px solid #e9ecef;
+  display:flex; justify-content:flex-end; gap:8px; }
+.ms-btn { padding:8px 18px; border:none; border-radius:6px; font-weight:700;
+  font-size:12px; cursor:pointer; font-family:inherit; }
+.ms-btn-primary { background:#28a745; color:white; }
+.ms-btn-primary:hover { background:#218838; }
+.ms-btn-secondary { background:white; color:#495057; border:1.5px solid #ced4da; }
+.ms-btn-secondary:hover { background:#f8f9fa; }
+</style>
+
+<!-- Mark Solved Modal -->
+<div class="ms-overlay" id="msModal">
+  <div class="ms-box">
+    <div class="ms-hdr">
+      <span style="font-size:18px;">✅</span>
+      <span>Mark as Solved — Request Re-Review</span>
+    </div>
+    <div class="ms-body">
+      <div id="msWorkerLabel" style="font-size:12px;color:#666;margin-bottom:10px;font-weight:600;"></div>
+      <div class="ms-prev-reason" id="msPrevReason"></div>
+      <label>What did you do to fix it? <span style="color:#dc3545;">*</span></label>
+      <textarea id="msNoteInput" placeholder="e.g. Re-uploaded clearer passport scan, corrected name spelling, replaced expired document..."></textarea>
+      <div style="font-size:10px;color:#888;margin-top:6px;">
+        ℹ️ Once submitted, the worker will be locked until MGS admin reviews again.
+      </div>
+    </div>
+    <div class="ms-buttons">
+      <button class="ms-btn ms-btn-secondary" onclick="msCloseModal()">Cancel</button>
+      <button class="ms-btn ms-btn-primary" id="msSaveBtn" onclick="msSaveSolved()">✅ Submit for Re-Review</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+console.log('🔧 Step 3 Patch (Supplier Portal) loading...');
+
+// ============================================================
+// HELPERS
+// ============================================================
+function isT(v){ return v===true||v==='true'||v==='TRUE'||v===1||v==='1'; }
+function nowISO(){ return new Date().toISOString(); }
+function escHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmtDate(iso){
+  if(!iso) return '';
+  try{ var d=new Date(iso); return d.toLocaleDateString()+' '+d.toLocaleTimeString().substring(0,5); }
+  catch(e){ return iso; }
+}
+
+// ============================================================
+// REPLACE / DEFINE showWorkerStatusBanner
+// Renders the banner above the form when a worker is selected:
+//  - Refusal reason (if refused)
+//  - Locked notice (if marked solved)
+//  - Mark as Solved action box (if refused but not yet solved)
+// ============================================================
+window.showWorkerStatusBanner = function(){
+  // Remove any existing banner
+  var oldBanner = document.getElementById('workerStatusBanner');
+  if(oldBanner) oldBanner.remove();
+
+  if(!currentWorker) return;
+  var w = currentWorker;
+
+  var refused = isT(w.RefusedByAdmin);
+  var reviewRequested = isT(w.ReviewRequested);
+
+  if(!refused) return; // Only show banner for refused workers
+
+  var banner = document.createElement('div');
+  banner.id = 'workerStatusBanner';
+  banner.style.cssText = 'padding:12px 20px;background:#fff;border-bottom:1px solid #e9ecef;';
+
+  var html = '';
+
+  // 1) Refusal reason display (always shown when refused)
+  if(w.RefusalReason){
+    var refusedAt = w.RefusedAt ? fmtDate(w.RefusedAt) : '';
+    html += '<div class="refusal-reason-display">'
+      +'<div class="rf-title">❌ Refused by MGS Admin'+(refusedAt?' — '+escHtml(refusedAt):'')+'</div>'
+      +'<div class="rf-text">'+escHtml(w.RefusalReason)+'</div>'
+      +'</div>';
+  } else {
+    html += '<div class="refusal-reason-display">'
+      +'<div class="rf-title">❌ Refused by MGS Admin</div>'
+      +'<div class="rf-text" style="color:#999;font-style:italic;">No reason was provided. Please contact MGS for details.</div>'
+      +'</div>';
+  }
+
+  // 2) Either show "marked solved" notice OR "Mark as Solved" action
+  if(reviewRequested){
+    var requestedAt = w.ReviewRequestedAt ? fmtDate(w.ReviewRequestedAt) : '';
+    html += '<div class="worker-locked-notice" style="margin-top:8px;">'
+      +'🔁 You marked this worker as solved on '+escHtml(requestedAt)+'. Awaiting MGS re-review.'
+      +'</div>';
+    if(w.ReviewSolvedNote){
+      html += '<div style="margin-top:6px;padding:8px 12px;background:#e8f5e9;border:1px solid #a7f3d0;border-radius:7px;font-size:11px;color:#1b5e20;">'
+        +'<strong style="color:#2e7d32;">Your note:</strong> <span style="font-style:italic;">'+escHtml(w.ReviewSolvedNote)+'</span>'
+        +'</div>';
+    }
+  } else {
+    html += '<div class="refusal-actions">'
+      +'<div class="refusal-actions-hdr">⚙️ Action Required</div>'
+      +'<div class="refusal-actions-body">'
+      +'<p>If you have fixed the issue (e.g. re-uploaded clearer documents, corrected information), click <strong>Mark as Solved</strong> to send this worker back to MGS for re-review.</p>'
+      +'<div class="solved-btn-row">'
+      +'<button class="btn-portal-solved" onclick="msOpenModal()">✅ Mark as Solved</button>'
+      +'</div>'
+      +'</div>'
+      +'</div>';
+  }
+
+  banner.innerHTML = html;
+
+  // Insert banner inside form-content, at the top
+  var formContent = document.querySelector('.form-content');
+  if(formContent){
+    formContent.insertBefore(banner, formContent.firstChild);
+  }
+};
+
+// ============================================================
+// MARK AS SOLVED MODAL
+// ============================================================
+window.msOpenModal = function(){
+  if(!currentWorker) return;
+  if(!isT(currentWorker.RefusedByAdmin)){
+    alert('⚠️ This worker is not in refused status.');
+    return;
+  }
+  var w = currentWorker;
+  var sc = currentSupplier ? String(currentSupplier.SupplierCODE||'').toUpperCase() : '';
+  var wCode = sc+'-'+String(w.WorkerID||'').padStart(4,'0');
+  var name = w.WFullName||w.WorkerFirstName||'Worker';
+
+  document.getElementById('msWorkerLabel').textContent = wCode+' — '+name;
+
+  var prev = document.getElementById('msPrevReason');
+  if(w.RefusalReason){
+    prev.innerHTML = '<span class="ms-prev-reason-label">MGS refusal reason:</span>'+escHtml(w.RefusalReason);
+    prev.style.display = 'block';
+  } else {
+    prev.style.display = 'none';
+  }
+
+  document.getElementById('msNoteInput').value = '';
+  document.getElementById('msModal').classList.add('show');
+  setTimeout(function(){ document.getElementById('msNoteInput').focus(); }, 100);
+};
+
+window.msCloseModal = function(){
+  document.getElementById('msModal').classList.remove('show');
+};
+
+window.msSaveSolved = async function(){
+  if(!currentWorker) return;
+  var note = (document.getElementById('msNoteInput').value||'').trim();
+  if(!note){
+    alert('⚠️ Please describe what you did to fix the issue.');
+    document.getElementById('msNoteInput').focus();
+    return;
+  }
+  if(note.length < 5){
+    alert('⚠️ Please provide a more detailed description (at least 5 characters).');
+    return;
+  }
+
+  var w = currentWorker;
+  w.ReviewRequested = true;
+  w.ReviewRequestedAt = nowISO();
+  w.ReviewRequestedBy = 'supplier:'+(currentSupplier ? currentSupplier.SupplierID : '');
+  w.ReviewSolvedNote = note;
+
+  var btn = document.getElementById('msSaveBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  try{
+    var res = await cloudSave('Workers', w);
+    if(res && res.success){
+      // Update local copy
+      var idx = workers.findIndex(function(aw){return String(aw.WorkerID)===String(w.WorkerID);});
+      if(idx>=0) workers[idx] = w;
+
+      msCloseModal();
+      showWorkerStatusBanner();
+      renderWorkerList();
+      if(typeof updateStats==='function') updateStats();
+      if(typeof setStatus==='function') setStatus('✅ Sent for re-review', true);
+      alert('✅ Worker has been sent for re-review.\n\nMGS admin will review the documents again. You will see the result here once they decide.');
+    } else {
+      alert('❌ Save failed. Please try again.');
+    }
+  } catch(e){
+    alert('❌ Save error: '+e.message);
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '✅ Submit for Re-Review'; }
+  }
+};
+
+// ============================================================
+// EXTEND selectWorker to refresh the banner after each select
+// (the original selectWorker already calls showWorkerStatusBanner)
+// — but we also disable form fields when ReviewRequested=true
+// ============================================================
+var _origSelectWorker = window.selectWorker;
+window.selectWorker = function(worker){
+  _origSelectWorker.call(window, worker);
+  // Disable form editing if locked (review pending)
+  setTimeout(function(){
+    if(!currentWorker) return;
+    var locked = isT(currentWorker.ReviewRequested);
+    // Find all editable fields in the form (excluding the modal/banner inputs)
+    var form = document.getElementById('workerForm');
+    if(!form) return;
+    var fields = form.querySelectorAll('input:not([readonly]):not([type=hidden]), select:not([disabled]), textarea');
+    fields.forEach(function(el){
+      // Skip the modal & banner inputs
+      if(el.closest('.ms-overlay')) return;
+      if(el.closest('#workerStatusBanner')) return;
+      if(locked){
+        el.dataset._wasReadonly = el.readOnly ? '1' : '0';
+        el.dataset._wasDisabled = el.disabled ? '1' : '0';
+        el.readOnly = true;
+        if(el.tagName==='SELECT') el.disabled = true;
+        el.style.opacity = '0.7';
+        el.style.cursor = 'not-allowed';
+      } else {
+        if(el.dataset._wasReadonly === '0') el.readOnly = false;
+        if(el.dataset._wasDisabled === '0' && el.tagName==='SELECT') el.disabled = false;
+        el.style.opacity = '';
+        el.style.cursor = '';
+      }
+    });
+    // Disable Save Worker button if locked
+    var saveBtns = document.querySelectorAll('.form-toolbar button.btn-success, .nav-buttons button.btn-success');
+    saveBtns.forEach(function(b){
+      if(b.textContent.indexOf('Save')>=0 || b.textContent.indexOf('💾')>=0){
+        b.disabled = locked;
+        b.style.opacity = locked ? '0.5' : '';
+        b.style.cursor = locked ? 'not-allowed' : '';
+        b.title = locked ? 'Locked — awaiting MGS re-review' : '';
+      }
+    });
+  }, 100);
+};
+
+// Bind ESC to close modal
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape' && document.getElementById('msModal').classList.contains('show')){
+    msCloseModal();
+  }
+});
+
+console.log('✅ Step 3 Patch (Supplier Portal) loaded');
+})();
+</script>
+<!-- ============================================================
+     END STEP 3 PATCH — SUPPLIER PORTAL
+============================================================ -->
+<!-- ============================================================
+     STEP 3 PATCH — SUPPLIER MANAGER (admin acting for supplier)
+     v1.0 — "Mark as Solved" action on refused worker rows
+     Paste this entire block before </body> in Supplier_Manager_FINAL.html
+============================================================ -->
+
+<style>
+/* ── Mark Solved modal (admin side, purple theme) ─── */
+.smms-overlay {
+  display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.65); z-index:100000;
+  align-items:center; justify-content:center;
+}
+.smms-overlay.show { display:flex; }
+.smms-box {
+  background:white; border-radius:12px; width:540px; max-width:94vw;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3); overflow:hidden;
+  animation:smmsSlide 0.2s ease-out;
+}
+@keyframes smmsSlide { from{transform:scale(0.94);opacity:0} to{transform:scale(1);opacity:1} }
+.smms-hdr {
+  background:linear-gradient(135deg,#9c27b0,#7b1fa2); color:white;
+  padding:14px 18px; font-weight:700; font-size:14px;
+  display:flex; align-items:center; gap:8px;
+}
+.smms-body { padding:18px; }
+.smms-body .smms-prev-reason {
+  background:#fff5f5; border:1px solid #f5c6cb; border-radius:7px;
+  padding:9px 12px; margin-bottom:14px;
+  font-size:11px; color:#721c24; font-style:italic; white-space:pre-wrap;
+}
+.smms-body .smms-prev-reason-label {
+  font-weight:700; font-style:normal; color:#dc3545; margin-bottom:4px; display:block;
+}
+.smms-body label {
+  display:block; font-size:11px; font-weight:700;
+  color:#475057; margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px;
+}
+.smms-body textarea {
+  width:100%; padding:10px 12px; border:2px solid #e9ecef; border-radius:7px;
+  font-size:13px; font-family:inherit; min-height:90px; resize:vertical;
+  box-sizing:border-box;
+}
+.smms-body textarea:focus { outline:none; border-color:#9c27b0; }
+.smms-buttons { padding:10px 18px; background:#f8f9fa; border-top:1px solid #e9ecef;
+  display:flex; justify-content:flex-end; gap:8px; }
+.smms-btn { padding:8px 18px; border:none; border-radius:6px; font-weight:700;
+  font-size:12px; cursor:pointer; font-family:inherit; }
+.smms-btn-primary { background:#9c27b0; color:white; }
+.smms-btn-primary:hover { background:#7b1fa2; }
+.smms-btn-secondary { background:white; color:#495057; border:1.5px solid #ced4da; }
+.smms-btn-secondary:hover { background:#f8f9fa; }
+
+/* ── 🔁 marker on refused rows that are awaiting re-review ── */
+.row-rereview-mark {
+  display:inline-block; background:#9c27b0; color:white;
+  padding:2px 7px; border-radius:10px; font-size:10px; font-weight:700;
+  margin-left:5px; animation:smmsPulse 2.5s infinite;
+}
+@keyframes smmsPulse {
+  0%,100% { box-shadow:0 0 0 0 rgba(156,39,176,0.5); }
+  50%     { box-shadow:0 0 0 5px rgba(156,39,176,0); }
+}
+</style>
+
+<!-- Mark Solved Modal (admin) -->
+<div class="smms-overlay" id="smmsModal">
+  <div class="smms-box">
+    <div class="smms-hdr">
+      <span style="font-size:18px;">🔁</span>
+      <span>Mark as Solved — Send for Re-Review</span>
+    </div>
+    <div class="smms-body">
+      <div id="smmsWorkerLabel" style="font-size:12px;color:#666;margin-bottom:10px;font-weight:600;"></div>
+      <div class="smms-prev-reason" id="smmsPrevReason"></div>
+      <label>What was done to fix it? <span style="color:#dc3545;">*</span></label>
+      <textarea id="smmsNoteInput" placeholder="e.g. Re-uploaded clearer passport scan, corrected name spelling, replaced expired document..."></textarea>
+      <div style="font-size:10px;color:#888;margin-top:6px;">
+        ℹ️ This action will lock the worker until MGS admin reviews again.
+        It will be tagged as: <strong>admin:supplier_manager</strong>
+      </div>
+    </div>
+    <div class="smms-buttons">
+      <button class="smms-btn smms-btn-secondary" onclick="smmsCloseModal()">Cancel</button>
+      <button class="smms-btn smms-btn-primary" id="smmsSaveBtn" onclick="smmsSaveSolved()">🔁 Submit for Re-Review</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+console.log('🔧 Step 3 Patch (Supplier Manager) loading...');
+
+// ============================================================
+// HELPERS
+// ============================================================
+function isT(v){ return v===true||v==='true'||v==='TRUE'||v===1||v==='1'; }
+function nowISO(){ return new Date().toISOString(); }
+function escHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmtDate(iso){
+  if(!iso) return '';
+  try{ var d=new Date(iso); return d.toLocaleDateString()+' '+d.toLocaleTimeString().substring(0,5); }
+  catch(e){ return iso; }
+}
+
+// ============================================================
+// MARK SOLVED MODAL
+// ============================================================
+var _smmsCurrentWorkerId = null;
+
+window.smmsOpenModal = function(workerId){
+  var w = allWorkers.find(function(aw){return String(aw.WorkerID)===String(workerId);});
+  if(!w){ alert('Worker not found.'); return; }
+  if(!isT(w.RefusedByAdmin)){ alert('Worker is not in refused status.'); return; }
+  if(isT(w.ReviewRequested)){
+    if(!confirm('This worker is already marked as solved (awaiting re-review).\n\nDo you want to update the note and re-submit?')) return;
+  }
+
+  _smmsCurrentWorkerId = workerId;
+  var sc = currentSupplier ? String(currentSupplier.SupplierCODE||'').toUpperCase() : (w.SupplierCode||'');
+  var wCode = sc+'-'+String(w.WorkerID||'').padStart(4,'0');
+  var name = w.WFullName||w.WorkerFirstName||'Worker';
+
+  document.getElementById('smmsWorkerLabel').textContent = wCode+' — '+name;
+
+  var prev = document.getElementById('smmsPrevReason');
+  if(w.RefusalReason){
+    var refusedAt = w.RefusedAt ? fmtDate(w.RefusedAt) : '';
+    prev.innerHTML = '<span class="smms-prev-reason-label">MGS refusal reason'+(refusedAt?' ('+escHtml(refusedAt)+')':'')+':</span>'+escHtml(w.RefusalReason);
+    prev.style.display = 'block';
+  } else {
+    prev.innerHTML = '<span class="smms-prev-reason-label">MGS refusal reason:</span><span style="font-style:normal;color:#999;">No reason recorded.</span>';
+    prev.style.display = 'block';
+  }
+
+  document.getElementById('smmsNoteInput').value = w.ReviewSolvedNote || '';
+  document.getElementById('smmsModal').classList.add('show');
+  setTimeout(function(){ document.getElementById('smmsNoteInput').focus(); }, 100);
+};
+
+window.smmsCloseModal = function(){
+  document.getElementById('smmsModal').classList.remove('show');
+  _smmsCurrentWorkerId = null;
+};
+
+window.smmsSaveSolved = async function(){
+  if(!_smmsCurrentWorkerId) return;
+  var note = (document.getElementById('smmsNoteInput').value||'').trim();
+  if(!note){
+    alert('⚠️ Please describe what was done to fix the issue.');
+    document.getElementById('smmsNoteInput').focus();
+    return;
+  }
+  if(note.length < 5){
+    alert('⚠️ Please provide a more detailed description (at least 5 characters).');
+    return;
+  }
+
+  var w = allWorkers.find(function(aw){return String(aw.WorkerID)===String(_smmsCurrentWorkerId);});
+  if(!w){ alert('Worker not found.'); return; }
+
+  w.ReviewRequested = true;
+  w.ReviewRequestedAt = nowISO();
+  w.ReviewRequestedBy = 'admin:supplier_manager';
+  w.ReviewSolvedNote = note;
+
+  var btn = document.getElementById('smmsSaveBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  try{
+    // Save via CloudDB (Supplier_Manager uses this pattern)
+    var res = await CloudDB.saveRow('Workers', w);
+    if(res && res.success){
+      // Update local arrays
+      var idx = allWorkers.findIndex(function(aw){return String(aw.WorkerID)===String(w.WorkerID);});
+      if(idx>=0) allWorkers[idx] = w;
+      try{ localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers)); }catch(e){}
+
+      smmsCloseModal();
+      alert('🔁 Worker sent for re-review.\n\nMGS admin will see it in their Re-Review queue and decide.');
+      // Refresh the workers list
+      if(typeof loadWorkersForSupplier==='function') loadWorkersForSupplier('all');
+    } else {
+      alert('❌ Save failed. Please try again.');
+    }
+  } catch(e){
+    alert('❌ Save error: '+e.message);
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '🔁 Submit for Re-Review'; }
+  }
+};
+
+// ============================================================
+// EXTEND loadWorkersForSupplier to add:
+//   - 🔁 marker on refused rows awaiting re-review
+//   - "Mark as Solved" button on refused rows (not yet solved)
+// ============================================================
+var _origLoadWorkers = window.loadWorkersForSupplier;
+window.loadWorkersForSupplier = function(status){
+  _origLoadWorkers.call(window, status);
+
+  // After original render, walk each row and inject the action / marker
+  setTimeout(function(){
+    var listId = 'workersList-' + (status || 'all');
+    var listEl = document.getElementById(listId);
+    if(!listEl) return;
+
+    var rows = listEl.querySelectorAll('table tbody tr');
+    rows.forEach(function(row){
+      var viewBtn = row.querySelector('button[onclick*="viewWorker"]');
+      if(!viewBtn) return;
+      var match = viewBtn.getAttribute('onclick').match(/viewWorker\((\d+)\)/);
+      if(!match) return;
+      var workerId = parseInt(match[1]);
+      var w = allWorkers.find(function(aw){return parseInt(aw.WorkerID)===workerId;});
+      if(!w) return;
+
+      // Skip if already augmented
+      if(row.dataset._smmsAugmented === '1') return;
+
+      var refused = isT(w.RefusedByAdmin);
+      if(!refused) return; // Only augment refused rows
+
+      var actionsCell = viewBtn.parentElement;
+      var reviewRequested = isT(w.ReviewRequested);
+
+      if(reviewRequested){
+        // Add 🔁 marker next to approval badge (4th column)
+        var approvalCell = row.cells[3];
+        if(approvalCell && !approvalCell.querySelector('.row-rereview-mark')){
+          var mark = document.createElement('span');
+          mark.className = 'row-rereview-mark';
+          mark.textContent = '🔁 Re-Review';
+          mark.title = 'Awaiting MGS re-review' + (w.ReviewRequestedAt ? ' (since '+fmtDate(w.ReviewRequestedAt)+')' : '');
+          approvalCell.appendChild(mark);
+        }
+        // Add "Update note" button
+        if(!actionsCell.querySelector('.smms-update-btn')){
+          var updateBtn = document.createElement('button');
+          updateBtn.className = 'smms-update-btn';
+          updateBtn.textContent = '🔁 Update Note';
+          updateBtn.style.cssText = 'padding:4px 10px;background:#9c27b0;color:white;border:none;border-radius:5px;cursor:pointer;font-size:11px;margin-left:3px;font-weight:700;';
+          updateBtn.onclick = function(ev){ ev.stopPropagation(); smmsOpenModal(workerId); };
+          updateBtn.title = 'Update solved note';
+          actionsCell.appendChild(updateBtn);
+        }
+      } else {
+        // Add "Mark Solved" button
+        if(!actionsCell.querySelector('.smms-solved-btn')){
+          var solvedBtn = document.createElement('button');
+          solvedBtn.className = 'smms-solved-btn';
+          solvedBtn.textContent = '✅ Mark Solved';
+          solvedBtn.style.cssText = 'padding:4px 10px;background:#28a745;color:white;border:none;border-radius:5px;cursor:pointer;font-size:11px;margin-left:3px;font-weight:700;';
+          solvedBtn.onclick = function(ev){ ev.stopPropagation(); smmsOpenModal(workerId); };
+          solvedBtn.title = 'Mark as solved & send for re-review';
+          actionsCell.appendChild(solvedBtn);
+        }
+      }
+
+      row.dataset._smmsAugmented = '1';
+    });
+  }, 50);
+};
+
+// Bind ESC to close modal
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape' && document.getElementById('smmsModal').classList.contains('show')){
+    smmsCloseModal();
+  }
+});
+
+console.log('✅ Step 3 Patch (Supplier Manager) loaded');
+})();
+</script>
+<!-- ============================================================
+     END STEP 3 PATCH — SUPPLIER MANAGER
+============================================================ -->
+<script>
+// ============================================================
+// FIX: Replace broken applyFilters override with clean version
+// Handles: '', pending, accepted, refused, archived, rereview
+// ============================================================
+window.applyFilters = function(){
+  var statusEl = document.getElementById('fltStatus');
+  var status = statusEl ? statusEl.value : '';
+  var suppId = document.getElementById('fltSupplier').value;
+  var natVal = document.getElementById('fltNationality').value;
+  var search = document.getElementById('fltSearch').value.toLowerCase().trim();
+
+  ['badgeAll','badgePending','badgeAccepted','badgeRefused','badgeArchived','badgeRereview'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.classList.remove('active-filter');
+  });
+  var map = {'':'badgeAll','pending':'badgePending','accepted':'badgeAccepted','refused':'badgeRefused','archived':'badgeArchived','rereview':'badgeRereview'};
+  if(map[status]){
+    var mapEl = document.getElementById(map[status]);
+    if(mapEl) mapEl.classList.add('active-filter');
+  }
+
+  filteredList = allWorkers.filter(function(w){
+    if(status === 'archived'){
+      if(!isTrue(w.WorkerArchived)) return false;
+    } else if(status === 'rereview'){
+      if(!isT(w.RefusedByAdmin) || !isT(w.ReviewRequested)) return false;
+    } else {
+      if(isTrue(w.WorkerArchived)) return false;
+      if(status === 'pending')  { if(isTrue(w.AcceptedByAdmin) || isTrue(w.RefusedByAdmin)) return false; }
+      if(status === 'accepted') { if(!isTrue(w.AcceptedByAdmin)) return false; }
+      if(status === 'refused')  { if(!isTrue(w.RefusedByAdmin))  return false; }
+    }
+    if(suppId && String(w.SupplierID||'').trim()!==String(suppId).trim()) return false;
+    if(natVal && (w.Nationality||'').toLowerCase().trim()!==natVal.toLowerCase().trim()) return false;
+    if(search){
+      var blob=[w.WFullName,w.WorkerFirstName,w.WorkerMiddleName,w.WorkerLastName,
+                w.ArabicName,w.FatherName,w.FamilyName,w.ArabicFullName,
+                w.PassportNumber,w.IDNumber,w.Nationality,w.ContactNumber,
+                w.SupplierCode,String(w.WorkerID||'')].join(' ').toLowerCase();
+      if(blob.indexOf(search)===-1) return false;
+    }
+    return true;
+  });
+
+  currentIndex = 0;
+  var rc = document.getElementById('resultCount'); if(rc) rc.textContent = filteredList.length+' results';
+  var lc = document.getElementById('listCount'); if(lc) lc.textContent = filteredList.length;
+  renderWorkerList();
+  if(typeof updateFileNav === 'function') updateFileNav();
+  if(filteredList.length>0){ selectWorker(0); }
+  else {
+    currentWorker = null;
+    var emptyMsg = '<div class="doc-empty" style="margin-top:60px;"><div class="eicon">🔍</div><div style="font-weight:700;color:#666;">No workers found</div></div>';
+    if(status === 'rereview') emptyMsg = '<div class="doc-empty" style="margin-top:60px;"><div class="eicon">🔁</div><div style="font-weight:700;color:#666;">No workers awaiting re-review</div></div>';
+    if(status === 'archived') emptyMsg = '<div class="doc-empty" style="margin-top:60px;"><div class="eicon">🗄️</div><div style="font-weight:700;color:#666;">No archived workers</div></div>';
+    var ips = document.getElementById('infoPanelScroll'); if(ips) ips.innerHTML = emptyMsg;
+    var sb = document.getElementById('saveBar'); if(sb) sb.style.display='none';
+    var apl = document.getElementById('apWorkerLabel'); if(apl) apl.textContent='No worker selected';
+    var apb = document.getElementById('apBody'); if(apb) apb.innerHTML='<div style="color:#bbb;font-size:12px;text-align:center;padding:20px 0;">No worker selected</div>';
+    var ssb = document.getElementById('scanStatusBadge'); if(ssb) ssb.innerHTML='';
+    if(typeof clearDocViewer==='function') clearDocViewer();
+    var wpb = document.getElementById('workerPhotoBox'); if(wpb) wpb.innerHTML='<div style="color:#ccc;font-size:11px;">No worker selected</div>';
+  }
+};
+console.log('✅ applyFilters fix patch applied');
+</script>
+<!-- ============================================================
+     WORKER CV MODAL (single worker, with print + save PDF)
+     ============================================================ -->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
+#cvModal { display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.85); overflow:auto; }
+#cvModal .cvm-toolbar { position:sticky; top:0; background:linear-gradient(135deg,#064e3b,#065f46); color:white; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; gap:14px; box-shadow:0 4px 14px rgba(0,0,0,0.3); flex-wrap:wrap; z-index:10; }
+#cvModal .cvm-toolbar h2 { font-size:15px; font-weight:700; flex:1; min-width:200px; margin:0; }
+#cvModal .cvm-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+#cvModal .cvm-btn { background:rgba(255,255,255,0.15); color:white; border:1px solid rgba(255,255,255,0.25); padding:7px 13px; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.15s; white-space:nowrap; font-family:'Tajawal','Segoe UI',sans-serif; }
+#cvModal .cvm-btn:hover { background:rgba(255,255,255,0.25); }
+#cvModal .cvm-btn.primary { background:#fbbf24; color:#1e293b; border-color:#f59e0b; font-weight:800; }
+#cvModal .cvm-btn.primary:hover { background:#f59e0b; color:white; }
+#cvModal .cvm-btn.save { background:#3b82f6; border-color:#2563eb; }
+#cvModal .cvm-btn.save:hover { background:#2563eb; }
+#cvModal .cvm-btn.close { background:rgba(220,53,69,0.9); border-color:#dc3545; }
+#cvModal .cvm-btn.close:hover { background:#dc3545; }
+#cvModal .cvm-stage { padding:24px 16px 40px; display:flex; justify-content:center; }
+#cvModal .cv-page { width:210mm; height:297mm; background:white; box-shadow:0 8px 30px rgba(0,0,0,0.25); padding:12mm 13mm 10mm; color:#1e293b; display:flex; flex-direction:column; font-size:10.5pt; line-height:1.35; overflow:hidden; font-family:'Tajawal','Segoe UI',sans-serif; }
+#cvModal .cv-header { display:flex; align-items:center; justify-content:space-between; padding-bottom:8px; border-bottom:3px solid #064e3b; margin-bottom:10px; flex-shrink:0; }
+#cvModal .cv-header .ag-name { font-size:17pt; font-weight:800; color:#064e3b; line-height:1.1; }
+#cvModal .cv-header .ag-meta { font-size:9pt; color:#64748b; margin-top:2px; }
+#cvModal .cv-header .ag-badge { width:46px; height:46px; background:linear-gradient(135deg,#064e3b,#065f46); border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-size:20px; flex-shrink:0; }
+#cvModal .cv-top { display:grid; grid-template-columns:100px 1fr; gap:14px; margin-bottom:10px; flex-shrink:0; }
+#cvModal .cv-photo { width:100px; height:130px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:4px; overflow:hidden; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:9pt; }
+#cvModal .cv-photo img { width:100%; height:100%; object-fit:cover; display:block; }
+#cvModal .cv-identity .worker-name { font-size:16pt; font-weight:800; color:#064e3b; line-height:1.1; }
+#cvModal .cv-identity .worker-name .ar { display:block; font-size:11pt; color:#475569; font-weight:600; margin-top:2px; direction:rtl; }
+#cvModal .cv-identity .worker-code { display:inline-block; margin-top:5px; background:#ecfdf5; color:#065f46; padding:2px 9px; border-radius:5px; font-size:9.5pt; font-weight:700; font-family:'Courier New',monospace; }
+#cvModal .cv-identity table { width:100%; margin-top:7px; border-collapse:collapse; }
+#cvModal .cv-identity table td { padding:2px 0; font-size:9.5pt; vertical-align:top; }
+#cvModal .cv-identity table td:first-child { color:#64748b; font-weight:500; width:38%; }
+#cvModal .cv-identity table td:last-child { font-weight:600; color:#1e293b; }
+#cvModal .cv-section { margin-bottom:8px; flex-shrink:0; }
+#cvModal .cv-section-title { font-size:8.5pt; font-weight:800; color:#064e3b; text-transform:uppercase; letter-spacing:1.3px; padding-bottom:3px; margin-bottom:5px; border-bottom:1px solid #cbd5e1; }
+#cvModal .cv-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:3px 16px; }
+#cvModal .cv-field { font-size:9.5pt; padding:1px 0; }
+#cvModal .cv-field .lbl { color:#64748b; font-weight:500; font-size:8.5pt; display:block; }
+#cvModal .cv-field .val { font-weight:600; color:#1e293b; }
+#cvModal .cv-field .val.mono { font-family:'Courier New',monospace; }
+#cvModal .cv-passport-block { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; margin-top:4px; }
+#cvModal .cv-passport-img { flex:1 1 auto; min-height:0; background:#f1f5f9; border:1px dashed #94a3b8; border-radius:4px; overflow:hidden; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:9.5pt; }
+#cvModal .cv-passport-img img { max-width:100%; max-height:100%; object-fit:contain; display:block; }
+#cvModal .cv-footer { margin-top:6px; padding-top:5px; border-top:1px solid #cbd5e1; display:flex; justify-content:space-between; font-size:7.5pt; color:#94a3b8; flex-shrink:0; }
+@media print {
+    body * { visibility:hidden !important; }
+    #cvModal, #cvModal * { visibility:visible !important; }
+    #cvModal { position:absolute !important; inset:0 !important; background:white !important; }
+    #cvModal .cvm-toolbar { display:none !important; }
+    #cvModal .cvm-stage { padding:0 !important; display:block !important; }
+    #cvModal .cv-page { box-shadow:none !important; margin:0 !important; width:210mm !important; height:297mm !important; }
+    @page { size:A4; margin:0; }
+}
+</style>
+
+<div id="cvModal">
+    <div class="cvm-toolbar">
+        <h2>📄 Worker CV — <span id="cvmWorkerLabel">—</span></h2>
+        <div class="cvm-controls">
+            <button class="cvm-btn primary" onclick="window.print()">🖨️ Print</button>
+            <button class="cvm-btn save" onclick="cvmSavePDF()">💾 Save PDF</button>
+            <button class="cvm-btn close" onclick="cvmClose()">✕ Close</button>
+        </div>
+    </div>
+    <div class="cvm-stage" id="cvmStage"></div>
+</div>
+
+<script>
+// ============================================================
+// CV MODAL LOGIC (adapts worker_cv.html for single worker)
+// ============================================================
+function cvmOpen() {
+    if (!currentWorker) { showToast('⚠️ Select a worker first', 'info'); return; }
+    var html = cvmBuildCVHTML(currentWorker);
+    document.getElementById('cvmStage').innerHTML = html;
+    var wCode = (currentWorker.SupplierCode || 'W') + '-' + String(currentWorker.WorkerID || '').padStart(4, '0');
+    var name = currentWorker.WFullName || currentWorker.WorkerFirstName || 'Worker';
+    document.getElementById('cvmWorkerLabel').textContent = wCode + ' — ' + name;
+    document.getElementById('cvModal').style.display = 'block';
+}
+
+function cvmClose() {
+    document.getElementById('cvModal').style.display = 'none';
+}
+
+async function cvmSavePDF() {
+    if (!currentWorker) return;
+    if (!window.html2pdf) {
+        await new Promise(function(resolve, reject) {
+            var s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+            s.onload = resolve; s.onerror = reject;
+            document.head.appendChild(s);
+        });
+    }
+    var w = currentWorker;
+    var code = (w.SupplierCode || 'W') + '-' + String(w.WorkerID || '').padStart(4, '0');
+    var name = (w.WFullName || w.WorkerFirstName || 'WORKER').replace(/[^a-zA-Z0-9 ]/g, '').trim();
+    var filename = code + '-' + name + '.pdf';
+    var page = document.querySelector('#cvmStage .cv-page');
+    if (!page) { showToast('⚠️ Open the CV first', 'error'); return; }
+    showToast('💾 Generating PDF...', 'info');
+    var opt = {
+        margin: 0,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: false, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all'] }
+    };
+    try {
+        await html2pdf().set(opt).from(page).save();
+        showToast('✅ PDF saved: ' + filename, 'success');
+    } catch(e) {
+        showToast('❌ Save failed: ' + e.message, 'error');
+    }
+}
+
+function cvmEscapeHTML(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function cvmEscapeAttr(s) {
+    if (!s) return '';
+    return String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function cvmFormatDate(d) {
+    if (!d) return '—';
+    try {
+        var dt = new Date(d);
+        if (isNaN(dt.getTime())) return String(d);
+        var dd = String(dt.getDate()).padStart(2, '0');
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return dd + ' ' + months[dt.getMonth()] + ' ' + dt.getFullYear();
+    } catch(e) { return String(d); }
+}
+
+function cvmCapitalize(s) {
+    if (!s) return '';
+    return String(s).charAt(0).toUpperCase() + String(s).slice(1).toLowerCase();
+}
+
+function cvmBuildCVHTML(w) {
+    var workerCode = (w.SupplierCode || 'W') + '-' + String(w.WorkerID || '').padStart(4, '0');
+    var fullName = w.WFullName || ([w.WorkerFirstName, w.WorkerMiddleName, w.WorkerLastName].filter(Boolean).join(' ').trim()) || 'Unnamed Worker';
+    var arabicName = w.ArabicFullName || ([w.ArabicName, w.FatherName, w.FamilyName].filter(Boolean).join(' ').trim()) || '';
+
+    var photoURL = w.WorkerImage || w.PhotoURL || w.WorkerPhoto || w.PhotoPath || '';
+    var photoHTML = photoURL
+        ? '<img src="' + cvmEscapeAttr(photoURL) + '" alt="Photo" crossorigin="anonymous" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<span>📷 Photo unavailable</span>\';">'
+        : '<span>📷 No photo</span>';
+
+    var docType = String(w.DocumentType || 'passport').toLowerCase();
+    var scanRaw = '';
+    if (docType === 'id') {
+        scanRaw = w.IDFileURL || w.IDScanPath || w.PassportFileURL || w.PassportScanPath || '';
+    } else {
+        scanRaw = w.PassportFileURL || w.PassportScanPath || w.IDFileURL || w.IDScanPath || '';
+    }
+    var scanLabel = docType === 'id' ? 'ID' : 'Passport';
+    var scanURL = '';
+    if (scanRaw) {
+        if (String(scanRaw).indexOf('http') === 0) scanURL = scanRaw;
+        else {
+            scanURL = 'https://firebasestorage.googleapis.com/v0/b/mgsd2026.firebasestorage.app/o/' + encodeURIComponent(scanRaw) + '?alt=media';
+        }
+    }
+    var passportHTML = scanURL
+        ? '<img src="' + cvmEscapeAttr(scanURL) + '" alt="' + scanLabel + '" crossorigin="anonymous" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<span>📘 ' + scanLabel + ' scan unavailable</span>\';">'
+        : '<span>📘 No ' + scanLabel.toLowerCase() + ' scan uploaded</span>';
+
+    var age = '';
+    if (w.DateOfBirth) {
+        try {
+            var dob = new Date(w.DateOfBirth);
+            if (!isNaN(dob.getTime())) {
+                var today = new Date();
+                var years = today.getFullYear() - dob.getFullYear();
+                var m = today.getMonth() - dob.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) years--;
+                age = years + ' yrs';
+            }
+        } catch(e) {}
+    }
+    var dobDisplay = w.DateOfBirth ? cvmFormatDate(w.DateOfBirth) + (age ? ' · ' + age : '') : '—';
+
+    var todayStr = (function(){var d=new Date();return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();})();
+
+    return '<div class="cv-page">' +
+        '<div class="cv-header">' +
+            '<div>' +
+                '<div class="ag-name">Massroua General Services</div>' +
+                '<div class="ag-meta">MGS · Worker Recruitment · Lebanon</div>' +
+            '</div>' +
+            '<div class="ag-badge">★</div>' +
+        '</div>' +
+        '<div class="cv-top">' +
+            '<div class="cv-photo">' + photoHTML + '</div>' +
+            '<div class="cv-identity">' +
+                '<div class="worker-name">' + cvmEscapeHTML(fullName) +
+                    (arabicName ? '<span class="ar">' + cvmEscapeHTML(arabicName) + '</span>' : '') +
+                '</div>' +
+                '<span class="worker-code">' + cvmEscapeHTML(workerCode) + '</span>' +
+                '<table>' +
+                    '<tr><td>Nationality</td><td>' + cvmEscapeHTML(w.Nationality || '—') + '</td></tr>' +
+                    '<tr><td>Date of birth</td><td>' + cvmEscapeHTML(dobDisplay) + '</td></tr>' +
+                    '<tr><td>Gender</td><td>' + cvmEscapeHTML(w.Gender || '—') + '</td></tr>' +
+                    '<tr><td>Contact</td><td>' + cvmEscapeHTML(w.ContactNumber || '—') + '</td></tr>' +
+                '</table>' +
+            '</div>' +
+        '</div>' +
+        '<div class="cv-section">' +
+            '<div class="cv-section-title">Document Information</div>' +
+            '<div class="cv-grid-2">' +
+                '<div class="cv-field"><span class="lbl">Document type</span><span class="val">' + cvmEscapeHTML(w.DocumentType ? cvmCapitalize(w.DocumentType) : '—') + '</span></div>' +
+                '<div class="cv-field"><span class="lbl">Document number</span><span class="val mono">' + cvmEscapeHTML(w.PassportNumber || w.IDNumber || '—') + '</span></div>' +
+                '<div class="cv-field"><span class="lbl">Issue date</span><span class="val">' + cvmEscapeHTML(cvmFormatDate(w.PassportIssueDate || w.IDIssueDate)) + '</span></div>' +
+                '<div class="cv-field"><span class="lbl">Expiry date</span><span class="val">' + cvmEscapeHTML(cvmFormatDate(w.PassportExpiryDate || w.IDExpiryDate)) + '</span></div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="cv-section cv-passport-block">' +
+            '<div class="cv-section-title">' + scanLabel + ' Scan</div>' +
+            '<div class="cv-passport-img">' + passportHTML + '</div>' +
+        '</div>' +
+        '<div class="cv-footer">' +
+            '<span>Generated ' + todayStr + ' · MGS</span>' +
+            '<span>' + cvmEscapeHTML(workerCode) + '</span>' +
+        '</div>' +
+    '</div>';
+}
+
+// Bind ESC to close
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('cvModal').style.display === 'block') cvmClose();
+});
+
+console.log('✅ Worker CV modal patch loaded');
+</script>
+
+</body>
+</html>

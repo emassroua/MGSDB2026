@@ -1,0 +1,781 @@
+<!-- Supplier Portal: Supplier-driven Upload Files + All Files   -->
+<!-- Paste before </body> in supplier_portal.html                -->
+<!-- Includes:                                                    -->
+<!--   A) Supplier-driven Upload Files (loadWorkerUploadList)     -->
+<!--   B) All Files modal (movable, zoom, thumbnails, print)      -->
+<!-- ============================================================ -->
+<script>
+(function(){
+    'use strict';
+
+    // ============================================================
+    // PART A — Supplier-driven Required Docs + Upload Files
+    // ============================================================
+
+    var _docsCache = null;
+    async function loadDocuments() {
+        if (_docsCache) return _docsCache;
+        if (!window.CloudDB || !window.CloudDB.loadSheet) {
+            console.warn('CloudDB not available, documents list empty');
+            return [];
+        }
+        try {
+            var docs = await window.CloudDB.loadSheet('Worker_Documents');
+            _docsCache = Array.isArray(docs) ? docs : [];
+            return _docsCache;
+        } catch(e) {
+            console.warn('Failed to load Worker_Documents:', e);
+            return [];
+        }
+    }
+
+    function getDocName(docId, docs) {
+        var d = (docs || []).find(function(x){ return String(x.DocumentID) === String(docId); });
+        return d ? (d.DocumentNameEN || d.DocumentName || d.Name || ('Doc #' + docId)) : ('Doc #' + docId);
+    }
+
+    function parseMaybeArray(v) {
+        if (Array.isArray(v)) return v;
+        if (typeof v === 'string') {
+            try { var j = JSON.parse(v); return Array.isArray(j) ? j : []; } catch(e) { return []; }
+        }
+        return [];
+    }
+
+    function parseMaybeObject(v) {
+        if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+        if (typeof v === 'string') {
+            try { var j = JSON.parse(v); return (j && typeof j === 'object' && !Array.isArray(j)) ? j : {}; } catch(e) { return {}; }
+        }
+        return {};
+    }
+
+    function fileExt(name){ var m=/\.([a-z0-9]+)$/i.exec(name||''); return m?m[1].toLowerCase():''; }
+    function isImageExt(e){ return /^(jpe?g|png|gif|webp)$/i.test(e); }
+    function isPdfExt(e){ return e==='pdf'; }
+    function escHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+    function renderDocSlot(docId, docName, files) {
+        var filesHtml = '';
+        if (files && files.length) {
+            filesHtml = '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">';
+            files.forEach(function(f, i){
+                var ext = fileExt(f.fileName || f.name || '');
+                var icon = isImageExt(ext) ? '???' : (isPdfExt(ext) ? '??' : '??');
+                var label = f.fileName || f.name || 'file';
+                var url = f.fileUrl || f.url || '';
+                filesHtml += '<div style="background:white;border:1px solid #d1d5db;border-radius:6px;padding:4px 8px;font-size:11px;display:flex;align-items:center;gap:6px;">' +
+                    '<span>' + icon + '</span>' +
+                    '<a href="' + escHtml(url) + '" target="_blank" style="color:#4338ca;text-decoration:none;font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(label) + '</a>' +
+                    '<button onclick="spDeleteUploadedDoc(\'' + docId + '\', ' + i + ')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;padding:0 2px;" title="Delete">?</button>' +
+                    '</div>';
+            });
+            filesHtml += '</div>';
+        }
+
+        var uploadedCount = (files && files.length) || 0;
+        var countBadge = uploadedCount > 0
+            ? '<span style="background:#16a34a;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">? ' + uploadedCount + '</span>'
+            : '<span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">Empty</span>';
+
+        return '<div class="sp-doc-slot" data-docid="' + escHtml(docId) + '" data-docname="' + escHtml(docName) + '" style="background:#f9fafb;border:2px dashed #cbd5e1;border-radius:10px;padding:14px;margin-bottom:12px;transition:all 0.2s;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+                '<div style="font-weight:700;color:#334155;font-size:14px;">?? ' + escHtml(docName) + '</div>' +
+                countBadge +
+            '</div>' +
+            '<div class="sp-dropzone" style="text-align:center;padding:10px;color:#64748b;font-size:12px;">' +
+                '<div>?? Drag & drop files here, or</div>' +
+                '<label style="display:inline-block;margin-top:6px;padding:5px 12px;background:#667eea;color:white;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;">' +
+                    'Choose Files' +
+                    '<input type="file" multiple class="sp-file-input" style="display:none;">' +
+                '</label>' +
+                '<div style="font-size:10px;color:#9ca3af;margin-top:4px;">Max 10 MB per file</div>' +
+            '</div>' +
+            filesHtml +
+        '</div>';
+    }
+
+    window.spDeleteUploadedDoc = async function(docId, fileIdx) {
+        if (!window.currentWorker) return;
+        if (!confirm('Delete this uploaded file?')) return;
+        var uploaded = parseMaybeObject(window.currentWorker.UploadedWorkerDocs);
+        var arr = uploaded[docId] || [];
+        var removed = arr.splice(fileIdx, 1)[0];
+        uploaded[docId] = arr;
+        window.currentWorker.UploadedWorkerDocs = uploaded;
+
+        // Try to delete from storage
+        if (removed && removed.path && window.CloudStorage && window.CloudStorage.deleteFile) {
+            try { await window.CloudStorage.deleteFile(removed.path); } catch(e) { console.warn('Delete failed:', e); }
+        }
+
+        await window.CloudDB.saveRow('Workers', window.currentWorker);
+        window.loadWorkerUploadList();
+    };
+
+    function attachDragDropHandlers() {
+        var slots = document.querySelectorAll('#workerUploadList .sp-doc-slot');
+        slots.forEach(function(slot) {
+            var dropzone = slot.querySelector('.sp-dropzone');
+            var input = slot.querySelector('.sp-file-input');
+            var docId = slot.getAttribute('data-docid');
+            var docName = slot.getAttribute('data-docname');
+
+            function handleFiles(files) {
+                if (!files || !files.length) return;
+                spUploadFilesForDoc(docId, docName, Array.from(files));
+            }
+
+            if (input) {
+                input.addEventListener('change', function(e){ handleFiles(e.target.files); });
+            }
+
+            if (dropzone) {
+                ['dragenter','dragover'].forEach(function(ev){
+                    dropzone.addEventListener(ev, function(e){
+                        e.preventDefault(); e.stopPropagation();
+                        slot.style.borderColor = '#667eea';
+                        slot.style.background = '#eef2ff';
+                    });
+                });
+                ['dragleave','drop'].forEach(function(ev){
+                    dropzone.addEventListener(ev, function(e){
+                        e.preventDefault(); e.stopPropagation();
+                        slot.style.borderColor = '#cbd5e1';
+                        slot.style.background = '#f9fafb';
+                    });
+                });
+                dropzone.addEventListener('drop', function(e){
+                    e.preventDefault(); e.stopPropagation();
+                    handleFiles(e.dataTransfer.files);
+                });
+            }
+        });
+    }
+
+    async function spUploadFilesForDoc(docId, docName, files) {
+        if (!window.currentWorker) { alert('?? Please select a worker first!'); return; }
+        if (!window.CloudStorage || !window.CloudStorage.uploadFile) { alert('?? Upload not available.'); return; }
+
+        // Filter oversized files
+        var MAX = 10 * 1024 * 1024;
+        var tooBig = files.filter(function(f){ return f.size > MAX; });
+        if (tooBig.length) {
+            alert('? ' + tooBig.length + ' file(s) exceed 10 MB limit:\n' + tooBig.map(function(f){ return '• ' + f.name; }).join('\n'));
+            files = files.filter(function(f){ return f.size <= MAX; });
+            if (!files.length) return;
+        }
+
+        var worker = window.currentWorker;
+        var supplier = window.currentSupplier || {};
+        var sc = String(supplier.SupplierCODE || supplier.SupplierCode || '').toUpperCase();
+        var wid = worker.WorkerID;
+        var wid4 = String(wid).padStart(4, '0');
+        var fullName = worker.WFullName || worker.WorkerFirstName || 'UNNAMED';
+
+        // Always prefer existing WorkerFolder (set by portal's upload) for consistency
+        var folder = worker.WorkerFolder;
+        if (!folder) {
+            if (typeof window.workerFolderKey === 'function') folder = window.workerFolderKey(sc, wid, fullName);
+            else folder = sc + ' (' + wid4 + ') ' + fullName;
+        }
+
+        var uploaded = parseMaybeObject(worker.UploadedWorkerDocs);
+        var existingArr = uploaded[docId] || [];
+        var existingCount = existingArr.length;
+
+        var uploadedOk = [];
+        var failed = [];
+
+        if (typeof window.showUploadOverlay === 'function') {
+            window.showUploadOverlay('?? Uploading ' + docName, '1 of ' + files.length);
+        }
+
+        for (var i = 0; i < files.length; i++) {
+            var file = files[i];
+            var copyNum = existingCount + i + 1;
+            var ext = file.name.substring(file.name.lastIndexOf('.')) || '';
+            // Filename pattern: {DocumentNameEN}[N]-{SupCode-WorkerID4d}.{ext}
+            var versionSuffix = (copyNum === 1) ? '' : String(copyNum);
+            var fileName = docName + versionSuffix + '-' + sc + '-' + wid4 + ext;
+            var path = 'workers/' + folder + '/' + fileName;
+
+            if (typeof window.showUploadOverlay === 'function') {
+                window.showUploadOverlay('?? Uploading ' + docName, (i+1) + ' of ' + files.length + ': ' + file.name);
+            }
+
+            try {
+                var result = await window.CloudStorage.uploadFile(path, file);
+                if (result && result.success) {
+                    uploadedOk.push({
+                        fileName: fileName,
+                        displayName: docName + (versionSuffix ? ' (' + versionSuffix + ')' : ''),
+                        baseName: docName,
+                        version: copyNum,
+                        fileUrl: result.url,
+                        url: result.url,
+                        path: path,
+                        docId: docId,
+                        uploadedAt: new Date().toISOString()
+                    });
+                } else {
+                    failed.push({ fileName: file.name, error: (result && result.error) || 'Unknown error' });
+                }
+            } catch(e) {
+                failed.push({ fileName: file.name, error: e.message || String(e) });
+            }
+        }
+
+        // Update worker
+        if (uploadedOk.length) {
+            existingArr = existingArr.concat(uploadedOk);
+            uploaded[docId] = existingArr;
+            worker.UploadedWorkerDocs = uploaded;
+            // Make sure WorkerFolder is persisted
+            if (!worker.WorkerFolder) worker.WorkerFolder = folder;
+            try {
+                await window.CloudDB.saveRow('Workers', worker);
+            } catch(e) {
+                console.warn('Worker save failed:', e);
+            }
+        }
+
+        if (typeof window.hideUploadOverlay === 'function') {
+            window.hideUploadOverlay(uploadedOk.length > 0, uploadedOk.length + ' uploaded');
+        }
+
+        // Refresh UI
+        window.loadWorkerUploadList();
+
+        if (failed.length) {
+            alert('?? ' + uploadedOk.length + ' uploaded, ' + failed.length + ' failed:\n\n' +
+                failed.map(function(f){ return '• ' + f.fileName + ': ' + f.error; }).join('\n'));
+        }
+    }
+
+    // Override loadWorkerUploadList — supplier-driven
+    window.loadWorkerUploadList = async function() {
+        var container = document.getElementById('workerUploadList');
+        if (!container) return;
+
+        if (!window.currentWorker) {
+            container.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">?? Please select a worker first!</p>';
+            return;
+        }
+
+        container.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">? Loading required documents...</p>';
+
+        var supplier = window.currentSupplier || {};
+        var requiredDocs = parseMaybeArray(supplier.RequiredWorkerDocs);
+
+        var docs = await loadDocuments();
+
+        // If no required docs configured on supplier, show all active docs as fallback
+        var slotList;
+        if (requiredDocs.length) {
+            slotList = requiredDocs.map(function(docId){
+                return { docId: docId, docName: getDocName(docId, docs) };
+            });
+        } else if (docs.length) {
+            slotList = docs.filter(function(d){ return d.Active !== false; })
+                .map(function(d){ return { docId: String(d.DocumentID), docName: (d.DocumentNameEN || d.DocumentName || ('Doc #' + d.DocumentID)) }; });
+            if (slotList.length) {
+                container.innerHTML = '<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:10px 14px;margin-bottom:12px;color:#92400e;font-size:12px;">?? No required docs configured on supplier — showing all active document types.</div>' +
+                    '<div id="spSlotsWrap"></div>';
+            }
+        } else {
+            container.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">?? No documents configured.</p>';
+            return;
+        }
+
+        if (!slotList || !slotList.length) {
+            container.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">?? No required documents for this supplier.</p>';
+            return;
+        }
+
+        var uploaded = parseMaybeObject(window.currentWorker.UploadedWorkerDocs);
+
+        // Header info
+        var worker = window.currentWorker;
+        var sc = String((supplier.SupplierCODE || supplier.SupplierCode || '')).toUpperCase();
+        var wid4 = String(worker.WorkerID).padStart(4, '0');
+        var wname = worker.WFullName || worker.WorkerFirstName || 'Worker';
+        var header = '<div style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#3730a3;">' +
+            '<strong>?? ' + escHtml(sc + '-' + wid4) + ' — ' + escHtml(wname) + '</strong>' +
+            '<span style="margin-left:10px;color:#6b7280;font-size:11px;">' + slotList.length + ' required document type' + (slotList.length !== 1 ? 's' : '') + '</span>' +
+        '</div>';
+
+        var slotsHtml = '';
+        slotList.forEach(function(item){
+            slotsHtml += renderDocSlot(item.docId, item.docName, uploaded[item.docId] || []);
+        });
+
+        // If we already rendered the warning wrapper, inject slots inside it
+        var wrap = document.getElementById('spSlotsWrap');
+        if (wrap) {
+            wrap.innerHTML = header + slotsHtml;
+        } else {
+            container.innerHTML = header + slotsHtml;
+        }
+
+        attachDragDropHandlers();
+    };
+
+    console.log('? Supplier Portal: Supplier-driven Upload Files installed');
+
+
+    // ============================================================
+    // PART B — All Files modal (movable, zoom, thumbnails, print)
+    // ============================================================
+
+    var _pdfLibPromise = null;
+    function ensurePdfLib() {
+        if (window.PDFLib) return Promise.resolve(window.PDFLib);
+        if (_pdfLibPromise) return _pdfLibPromise;
+        _pdfLibPromise = new Promise(function(resolve, reject) {
+            var s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+            s.onload = function(){ resolve(window.PDFLib); };
+            s.onerror = function(){ reject(new Error('Failed to load pdf-lib')); };
+            document.head.appendChild(s);
+        });
+        return _pdfLibPromise;
+    }
+
+    var _state = { files: [], idx: 0, selected: {}, view: 'single', zoom: 1 };
+
+    function buildModal(){
+        if (document.getElementById('spAllFilesModal')) return document.getElementById('spAllFilesModal');
+        var m = document.createElement('div');
+        m.id = 'spAllFilesModal';
+        m.innerHTML =
+            '<div class="sfm-backdrop" onclick="closeSpFilesModal()"></div>' +
+            '<div class="sfm-box" id="spfmBox">' +
+                '<div class="sfm-hdr" id="spfmDragHandle">' +
+                    '<div style="flex:1;min-width:0;"><div class="sfm-title">?? Worker Files</div><div class="sfm-sub" id="spfmSub">Loading...</div></div>' +
+                    '<div class="sfm-hdr-btns">' +
+                        '<button class="sfm-icon-btn" title="Maximize" onclick="spfmToggleMax()">?</button>' +
+                        '<button class="sfm-close" onclick="closeSpFilesModal()">?</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="sfm-toolbar">' +
+                    '<div class="sfm-tabgroup">' +
+                        '<button class="sfm-tabbtn sfm-tabbtn-active" id="spfmTabSingle" onclick="spfmSetView(\'single\')">?? Single</button>' +
+                        '<button class="sfm-tabbtn" id="spfmTabGrid" onclick="spfmSetView(\'grid\')">? Thumbnails</button>' +
+                    '</div>' +
+                    '<label class="sfm-checklabel"><input type="checkbox" id="spfmSelectAll"> Select all</label>' +
+                    '<span id="spfmSelCount" style="color:#888;font-size:12px;">0 selected</span>' +
+                    '<div style="flex:1;"></div>' +
+                    '<button class="sfm-btn" onclick="spfmDownloadAll()">?? Download all</button>' +
+                    '<button class="sfm-btn sfm-btn-primary" onclick="spfmDownloadSelected()">?? Download selected</button>' +
+                    '<button class="sfm-btn sfm-btn-accent" onclick="spfmPrintSelected(event)">??? Print selected</button>' +
+                '</div>' +
+                '<div class="sfm-body"><div class="sfm-viewer" id="spfmViewer"></div></div>' +
+                '<div class="sfm-nav" id="spfmNav">' +
+                    '<button class="sfm-btn" onclick="spfmPrev()">? Prev</button>' +
+                    '<div class="sfm-zoom">' +
+                        '<button class="sfm-icon-btn" onclick="spfmZoom(-0.25)">-</button>' +
+                        '<span id="spfmZoomPct" style="min-width:50px;text-align:center;font-size:12px;color:#334155;font-weight:600;">100%</span>' +
+                        '<button class="sfm-icon-btn" onclick="spfmZoom(0.25)">+</button>' +
+                        '<button class="sfm-icon-btn" onclick="spfmZoomReset()">?</button>' +
+                    '</div>' +
+                    '<div class="sfm-pageinfo">' +
+                        '<input type="checkbox" id="spfmItemCheck" onchange="spfmToggleCurrent()"> ' +
+                        '<span>Page <input id="spfmPageNum" type="number" min="1" value="1" style="width:55px;padding:4px;border:1px solid #ccc;border-radius:4px;text-align:center;" onchange="spfmJumpTo()"> of <span id="spfmPageTotal">0</span></span>' +
+                    '</div>' +
+                    '<div style="flex:1;text-align:center;font-size:12px;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="spfmFileName"></div>' +
+                    '<button class="sfm-btn" onclick="spfmNext()">Next ?</button>' +
+                '</div>' +
+                '<div class="sfm-resize-handle" id="spfmResizeHandle"></div>' +
+            '</div>';
+        m.style.cssText = 'display:none;position:fixed;inset:0;z-index:99998;';
+        document.body.appendChild(m);
+
+        var style = document.createElement('style');
+        style.textContent =
+            '#spAllFilesModal .sfm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.75);}' +
+            '#spAllFilesModal .sfm-box{position:absolute;top:5%;left:5%;width:90%;height:88%;background:white;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.4);display:flex;flex-direction:column;overflow:hidden;}' +
+            '#spAllFilesModal .sfm-hdr{padding:12px 18px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;cursor:move;user-select:none;}' +
+            '#spAllFilesModal .sfm-title{font-size:17px;font-weight:700;}' +
+            '#spAllFilesModal .sfm-sub{font-size:12px;opacity:0.9;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}' +
+            '#spAllFilesModal .sfm-hdr-btns{display:flex;gap:6px;flex-shrink:0;}' +
+            '#spAllFilesModal .sfm-icon-btn{background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:6px;font-size:14px;cursor:pointer;font-weight:700;display:flex;align-items:center;justify-content:center;}' +
+            '#spAllFilesModal .sfm-icon-btn:hover{background:rgba(255,255,255,0.35);}' +
+            '#spAllFilesModal .sfm-nav .sfm-icon-btn{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;}' +
+            '#spAllFilesModal .sfm-close{background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;font-size:15px;cursor:pointer;font-weight:700;}' +
+            '#spAllFilesModal .sfm-close:hover{background:rgba(255,80,80,0.7);}' +
+            '#spAllFilesModal .sfm-toolbar{padding:10px 18px;background:#f8f9fa;border-bottom:1px solid #e9ecef;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;}' +
+            '#spAllFilesModal .sfm-tabgroup{display:flex;background:white;border:1px solid #dee2e6;border-radius:7px;overflow:hidden;}' +
+            '#spAllFilesModal .sfm-tabbtn{padding:6px 12px;background:white;border:none;color:#64748b;cursor:pointer;font-size:12px;font-weight:600;}' +
+            '#spAllFilesModal .sfm-tabbtn:hover{background:#f1f5f9;}' +
+            '#spAllFilesModal .sfm-tabbtn-active{background:#667eea !important;color:white !important;}' +
+            '#spAllFilesModal .sfm-checklabel{font-size:13px;color:#334155;display:flex;align-items:center;gap:6px;cursor:pointer;}' +
+            '#spAllFilesModal .sfm-btn{padding:7px 12px;background:white;border:1px solid #c7d2fe;color:#4338ca;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;}' +
+            '#spAllFilesModal .sfm-btn:hover{background:#eef2ff;}' +
+            '#spAllFilesModal .sfm-btn-primary{background:#667eea;border-color:#667eea;color:white;}' +
+            '#spAllFilesModal .sfm-btn-primary:hover{background:#5568d3;}' +
+            '#spAllFilesModal .sfm-btn-accent{background:#28a745;border-color:#28a745;color:white;}' +
+            '#spAllFilesModal .sfm-btn-accent:hover{background:#218838;}' +
+            '#spAllFilesModal .sfm-body{flex:1;overflow:hidden;background:#2a2a2a;display:flex;padding:10px;}' +
+            '#spAllFilesModal .sfm-viewer{width:100%;height:100%;background:#1e1e1e;border-radius:8px;overflow:auto;position:relative;}' +
+            '#spAllFilesModal .sfm-viewer-single{display:flex;align-items:center;justify-content:center;}' +
+            '#spAllFilesModal .sfm-zoomwrap{transform-origin:center center;transition:transform 0.15s;display:inline-block;}' +
+            '#spAllFilesModal .sfm-viewer-single img{max-width:100%;max-height:calc(100vh - 260px);object-fit:contain;background:white;display:block;}' +
+            '#spAllFilesModal .sfm-viewer-single iframe{width:100%;height:calc(100vh - 260px);border:0;background:white;}' +
+            '#spAllFilesModal .sfm-placeholder{color:#aaa;text-align:center;padding:60px 20px;width:100%;}' +
+            '#spAllFilesModal .sfm-placeholder .ico{font-size:64px;margin-bottom:10px;}' +
+            '#spAllFilesModal .sfm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;padding:16px;background:#1e1e1e;width:100%;align-content:start;}' +
+            '#spAllFilesModal .sfm-thumb{background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;transition:transform 0.15s;position:relative;}' +
+            '#spAllFilesModal .sfm-thumb:hover{transform:translateY(-3px);}' +
+            '#spAllFilesModal .sfm-thumb-chk{position:absolute;top:6px;left:6px;z-index:2;}' +
+            '#spAllFilesModal .sfm-thumb-preview{height:140px;background:#f8f9fa;display:flex;align-items:center;justify-content:center;overflow:hidden;}' +
+            '#spAllFilesModal .sfm-thumb-preview img{max-width:100%;max-height:100%;object-fit:contain;}' +
+            '#spAllFilesModal .sfm-thumb-preview .ph{font-size:44px;color:#999;}' +
+            '#spAllFilesModal .sfm-thumb-label{padding:8px 10px;font-size:11px;color:#334155;font-weight:600;border-top:1px solid #eee;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:white;}' +
+            '#spAllFilesModal .sfm-thumb-num{position:absolute;top:6px;right:6px;background:rgba(102,126,234,0.95);color:white;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;z-index:2;}' +
+            '#spAllFilesModal .sfm-nav{padding:10px 18px;background:#f8f9fa;border-top:1px solid #e9ecef;display:flex;align-items:center;gap:14px;flex-shrink:0;flex-wrap:wrap;}' +
+            '#spAllFilesModal .sfm-zoom{display:flex;align-items:center;gap:4px;}' +
+            '#spAllFilesModal .sfm-pageinfo{font-size:13px;color:#334155;display:flex;align-items:center;gap:8px;}' +
+            '#spAllFilesModal .sfm-resize-handle{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 50%,#999 50%,#999 60%,transparent 60%,transparent 70%,#999 70%,#999 80%,transparent 80%);}' +
+            '#spAllFilesModal.sfm-max .sfm-box{top:0 !important;left:0 !important;width:100% !important;height:100% !important;border-radius:0 !important;}';
+        document.head.appendChild(style);
+
+        document.getElementById('spfmSelectAll').addEventListener('change', function(e){
+            _state.files.forEach(function(f){ _state.selected[f.path || f.name] = e.target.checked; });
+            if (_state.view === 'grid') renderGrid(); else updateSelUI();
+        });
+        makeDraggable(document.getElementById('spfmBox'), document.getElementById('spfmDragHandle'));
+        makeResizable(document.getElementById('spfmBox'), document.getElementById('spfmResizeHandle'));
+        return m;
+    }
+
+    function makeDraggable(box, handle){
+        var sx=0, sy=0, bl=0, bt=0, dragging=false;
+        handle.addEventListener('mousedown', function(e){
+            if (e.target.closest('button')) return;
+            dragging=true; sx=e.clientX; sy=e.clientY;
+            var r=box.getBoundingClientRect();
+            bl=r.left; bt=r.top;
+            box.style.top=bt+'px'; box.style.left=bl+'px';
+            box.style.width=r.width+'px'; box.style.height=r.height+'px';
+            document.body.style.userSelect='none';
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e){
+            if (!dragging) return;
+            box.style.left=(bl+e.clientX-sx)+'px';
+            box.style.top=(bt+e.clientY-sy)+'px';
+        });
+        document.addEventListener('mouseup', function(){ if(dragging){dragging=false; document.body.style.userSelect='';} });
+    }
+    function makeResizable(box, handle){
+        var sx=0, sy=0, sw=0, sh=0, resizing=false;
+        handle.addEventListener('mousedown', function(e){
+            resizing=true; sx=e.clientX; sy=e.clientY;
+            var r=box.getBoundingClientRect();
+            sw=r.width; sh=r.height;
+            box.style.top=r.top+'px'; box.style.left=r.left+'px';
+            document.body.style.userSelect='none';
+            e.preventDefault(); e.stopPropagation();
+        });
+        document.addEventListener('mousemove', function(e){
+            if (!resizing) return;
+            box.style.width=Math.max(500, sw+e.clientX-sx)+'px';
+            box.style.height=Math.max(400, sh+e.clientY-sy)+'px';
+        });
+        document.addEventListener('mouseup', function(){ if(resizing){resizing=false; document.body.style.userSelect='';} });
+    }
+    window.spfmToggleMax = function(){ document.getElementById('spAllFilesModal').classList.toggle('sfm-max'); };
+
+    function updateSelUI(){
+        var count=0;
+        _state.files.forEach(function(f){ if(_state.selected[f.path||f.name]) count++; });
+        var cc=document.getElementById('spfmSelCount'); if(cc) cc.textContent = count+' of '+_state.files.length+' selected';
+        var cur=_state.files[_state.idx];
+        var ic=document.getElementById('spfmItemCheck'); if(ic) ic.checked = cur ? !!_state.selected[cur.path||cur.name] : false;
+        var sa=document.getElementById('spfmSelectAll'); if(sa) sa.checked = (count===_state.files.length && _state.files.length>0);
+    }
+
+    function showPage(i){
+        if (!_state.files.length) return;
+        if (i<0) i=0;
+        if (i>=_state.files.length) i=_state.files.length-1;
+        _state.idx=i; _state.zoom=1; _state.view='single';
+        setTabBtn();
+        var f=_state.files[i], ext=fileExt(f.name), url=f.url||f.fileUrl||'';
+        var viewer=document.getElementById('spfmViewer');
+        viewer.className='sfm-viewer sfm-viewer-single';
+        var inner;
+        if (isImageExt(ext)) inner='<img src="'+url+'" alt="'+f.name+'">';
+        else if (isPdfExt(ext)) inner='<iframe src="'+url+'#view=FitH"></iframe>';
+        else inner='<div class="sfm-placeholder"><div class="ico">??</div><div style="font-size:15px;font-weight:600;">'+(ext.toUpperCase()||'FILE')+'</div><a href="'+url+'" target="_blank" style="color:#c7d2fe;padding:8px 16px;background:rgba(255,255,255,0.1);border-radius:6px;text-decoration:none;font-size:12px;margin-top:12px;display:inline-block;">?? Open</a></div>';
+        viewer.innerHTML='<div class="sfm-zoomwrap" id="spfmZoomWrap" style="transform:scale(1);">'+inner+'</div>';
+        applyZoom();
+        document.getElementById('spfmPageNum').value=i+1;
+        document.getElementById('spfmPageTotal').textContent=_state.files.length;
+        document.getElementById('spfmFileName').textContent=f.name;
+        document.getElementById('spfmNav').style.display='flex';
+        updateSelUI();
+    }
+
+    function renderGrid(){
+        _state.view='grid'; setTabBtn();
+        var viewer=document.getElementById('spfmViewer');
+        viewer.className='sfm-viewer';
+        var html='<div class="sfm-grid">';
+        _state.files.forEach(function(f, idx){
+            var ext=fileExt(f.name), url=f.url||f.fileUrl||'';
+            var checked=!!_state.selected[f.path||f.name];
+            var preview = isImageExt(ext) ? '<img src="'+url+'" loading="lazy">' : (isPdfExt(ext) ? '<div class="ph">??</div>' : '<div class="ph">??</div>');
+            html+='<div class="sfm-thumb" data-idx="'+idx+'"><input type="checkbox" class="sfm-thumb-chk" data-idx="'+idx+'"'+(checked?' checked':'')+'><span class="sfm-thumb-num">'+(idx+1)+'</span><div class="sfm-thumb-preview">'+preview+'</div><div class="sfm-thumb-label" title="'+escHtml(f.name)+'">'+escHtml(f.name)+'</div></div>';
+        });
+        html+='</div>';
+        viewer.innerHTML=html;
+        viewer.querySelectorAll('.sfm-thumb').forEach(function(el){
+            el.addEventListener('click', function(e){
+                if (e.target.classList.contains('sfm-thumb-chk')) return;
+                showPage(parseInt(el.getAttribute('data-idx'),10));
+            });
+        });
+        viewer.querySelectorAll('.sfm-thumb-chk').forEach(function(cb){
+            cb.addEventListener('click', function(e){ e.stopPropagation(); });
+            cb.addEventListener('change', function(){
+                var idx=parseInt(cb.getAttribute('data-idx'),10);
+                _state.selected[_state.files[idx].path||_state.files[idx].name]=cb.checked;
+                updateSelUI();
+            });
+        });
+        document.getElementById('spfmNav').style.display='none';
+        updateSelUI();
+    }
+    function setTabBtn(){
+        document.getElementById('spfmTabSingle').classList.toggle('sfm-tabbtn-active', _state.view==='single');
+        document.getElementById('spfmTabGrid').classList.toggle('sfm-tabbtn-active', _state.view==='grid');
+    }
+    function applyZoom(){
+        var wrap=document.getElementById('spfmZoomWrap'); if (wrap) wrap.style.transform='scale('+_state.zoom+')';
+        var pct=document.getElementById('spfmZoomPct'); if (pct) pct.textContent=Math.round(_state.zoom*100)+'%';
+    }
+    window.spfmSetView = function(v){ if (v==='grid') renderGrid(); else showPage(_state.idx); };
+    window.spfmZoom = function(d){ _state.zoom=Math.max(0.25, Math.min(4, _state.zoom+d)); applyZoom(); };
+    window.spfmZoomReset = function(){ _state.zoom=1; applyZoom(); };
+    window.spfmPrev = function(){ showPage(_state.idx-1); };
+    window.spfmNext = function(){ showPage(_state.idx+1); };
+    window.spfmJumpTo = function(){ var v=parseInt(document.getElementById('spfmPageNum').value,10); if (!isNaN(v)) showPage(v-1); };
+    window.spfmToggleCurrent = function(){
+        var cur=_state.files[_state.idx]; if (!cur) return;
+        var k=cur.path||cur.name;
+        _state.selected[k]=!_state.selected[k];
+        updateSelUI();
+    };
+    window.closeSpFilesModal = function(){ var m=document.getElementById('spAllFilesModal'); if (m) m.style.display='none'; };
+
+    // Mouse wheel zoom
+    document.addEventListener('wheel', function(e){
+        var m=document.getElementById('spAllFilesModal');
+        if (!m || m.style.display==='none') return;
+        if (_state.view!=='single') return;
+        var viewer=document.getElementById('spfmViewer');
+        if (!viewer || !viewer.contains(e.target)) return;
+        e.preventDefault();
+        window.spfmZoom(e.deltaY>0 ? -0.15 : 0.15);
+    }, { passive:false });
+
+    async function downloadOne(url, name){
+        try {
+            var resp=await fetch(url);
+            var blob=await resp.blob();
+            var link=document.createElement('a');
+            link.href=URL.createObjectURL(blob); link.download=name;
+            document.body.appendChild(link); link.click();
+            setTimeout(function(){ document.body.removeChild(link); URL.revokeObjectURL(link.href); },500);
+        } catch(e){ window.open(url,'_blank'); }
+    }
+    window.spfmDownloadAll = async function(){
+        for (var i=0; i<_state.files.length; i++){
+            await downloadOne(_state.files[i].url||_state.files[i].fileUrl||'', _state.files[i].name);
+            await new Promise(function(r){ setTimeout(r,300); });
+        }
+    };
+    window.spfmDownloadSelected = async function(){
+        var sel=_state.files.filter(function(f){ return _state.selected[f.path||f.name]; });
+        if (!sel.length){ alert('?? No files selected.'); return; }
+        for (var i=0; i<sel.length; i++){
+            await downloadOne(sel[i].url||sel[i].fileUrl||'', sel[i].name);
+            await new Promise(function(r){ setTimeout(r,300); });
+        }
+    };
+    window.spfmPrintSelected = async function(ev){
+        var sel=_state.files.filter(function(f){ return _state.selected[f.path||f.name]; });
+        if (!sel.length){ alert('?? No files selected.'); return; }
+        var btn=ev&&ev.target; var origText=btn?btn.textContent:'';
+        if (btn){ btn.textContent='? Building...'; btn.disabled=true; }
+        try {
+            var PDFLib=await ensurePdfLib();
+            var outPdf=await PDFLib.PDFDocument.create();
+            var HEADER_H = 24;
+            var headerBg = PDFLib.rgb(0.4, 0.31, 0.64);
+            var headerFg = PDFLib.rgb(1, 1, 1);
+            function stamp(page, name, idx, total, op) {
+                var sz=page.getSize(); op=(op===undefined)?1:op;
+                page.drawRectangle({x:0,y:sz.height-HEADER_H,width:sz.width,height:HEADER_H,color:headerBg,opacity:op});
+                var dn=name.length>80?name.substring(0,77)+'...':name;
+                page.drawText(dn,{x:10,y:sz.height-16,size:10,color:headerFg,opacity:op});
+                page.drawText((idx+1)+' / '+total,{x:sz.width-50,y:sz.height-16,size:10,color:headerFg,opacity:op});
+            }
+            for (var i=0; i<sel.length; i++){
+                var f=sel[i], url=f.url||f.fileUrl||'', ext=fileExt(f.name);
+                if (btn) btn.textContent='? '+(i+1)+'/'+sel.length;
+                try {
+                    var resp=await fetch(url); var buf=await resp.arrayBuffer();
+                    if (isPdfExt(ext)){
+                        try {
+                            var src=await PDFLib.PDFDocument.load(buf,{ignoreEncryption:true,throwOnInvalidObject:false});
+                            var pages=await outPdf.copyPages(src,src.getPageIndices());
+                            pages.forEach(function(p,pi){
+                                outPdf.addPage(p);
+                                stamp(p, f.name+(pages.length>1?' (p.'+(pi+1)+'/'+pages.length+')':''), i, sel.length, 0.85);
+                            });
+                        } catch(pe){
+                            var ep=outPdf.addPage([595,842]); stamp(ep,f.name+' (error)',i,sel.length);
+                            ep.drawText('PDF error: '+pe.message.substring(0,60),{x:40,y:400,size:12});
+                        }
+                    } else if (ext==='jpg'||ext==='jpeg'){
+                        var img=await outPdf.embedJpg(buf);
+                        var pg=outPdf.addPage([img.width,img.height+HEADER_H]);
+                        pg.drawImage(img,{x:0,y:0,width:img.width,height:img.height});
+                        stamp(pg,f.name,i,sel.length);
+                    } else if (ext==='png'){
+                        var imgP=await outPdf.embedPng(buf);
+                        var pgP=outPdf.addPage([imgP.width,imgP.height+HEADER_H]);
+                        pgP.drawImage(imgP,{x:0,y:0,width:imgP.width,height:imgP.height});
+                        stamp(pgP,f.name,i,sel.length);
+                    } else {
+                        var np=outPdf.addPage([595,842]); stamp(np,f.name,i,sel.length);
+                        np.drawText('Unsupported: '+ext,{x:40,y:400,size:12});
+                    }
+                } catch(e){
+                    var eep=outPdf.addPage([595,842]); stamp(eep,f.name+' (error)',i,sel.length);
+                    eep.drawText('Error: '+e.message.substring(0,60),{x:40,y:400,size:12});
+                }
+            }
+            var bytes=await outPdf.save();
+            var blob=new Blob([bytes],{type:'application/pdf'});
+            var w=window.open(URL.createObjectURL(blob),'_blank');
+            if (w) w.addEventListener('load', function(){ setTimeout(function(){try{w.print();}catch(e){}},400); });
+        } catch(e){
+            alert('? Print failed: '+(e.message||e));
+        } finally {
+            if (btn){ btn.textContent=origText; btn.disabled=false; }
+        }
+    };
+
+    // Entry point for All Files tab
+    window.loadAllFilesTab = async function(){
+        var container = document.getElementById('tab-allfiles');
+        if (!container) return;
+
+        if (!window.currentWorker) {
+            container.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">?? Please select a worker first!</p>';
+            return;
+        }
+
+        var folder = window.currentWorker.WorkerFolder;
+        if (!folder) {
+            container.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">?? No files uploaded yet. Use the Upload Files tab first.</p>';
+            return;
+        }
+
+        var sc = String((window.currentSupplier && (window.currentSupplier.SupplierCODE || window.currentSupplier.SupplierCode)) || '').toUpperCase();
+        var wid4 = String(window.currentWorker.WorkerID).padStart(4, '0');
+        container.innerHTML = '<div style="padding:20px;text-align:center;">' +
+            '<button class="sfm-btn sfm-btn-primary" onclick="spOpenAllFiles()" style="padding:10px 20px;font-size:14px;font-weight:600;background:#667eea;color:white;border:none;border-radius:8px;cursor:pointer;">?? Open All Files Browser</button>' +
+            '<p style="color:#888;font-size:13px;margin-top:12px;">' + escHtml(sc + '-' + wid4) + ' — ' + escHtml(window.currentWorker.WFullName || '') + '</p>' +
+        '</div>';
+    };
+
+    window.spOpenAllFiles = async function() {
+        if (!window.currentWorker) { alert('?? No worker selected.'); return; }
+        if (!window.CloudStorage) { alert('?? CloudStorage not available.'); return; }
+
+        var folder = window.currentWorker.WorkerFolder;
+        if (!folder) { alert('?? Worker has no folder yet. Upload files first.'); return; }
+
+        var modal = buildModal();
+        modal.style.display = 'block';
+
+        var folderPath = 'workers/' + folder;
+        var sc = String((window.currentSupplier && (window.currentSupplier.SupplierCODE || window.currentSupplier.SupplierCode)) || '').toUpperCase();
+        var wid4 = String(window.currentWorker.WorkerID).padStart(4, '0');
+        var wname = window.currentWorker.WFullName || window.currentWorker.WorkerFirstName || '';
+
+        document.getElementById('spfmSub').textContent = 'Loading...';
+        document.getElementById('spfmViewer').innerHTML = '<div class="sfm-placeholder"><div class="ico">?</div><div>Loading files...</div></div>';
+
+        var result;
+        // Try CloudStorage.listFiles if available
+        if (window.CloudStorage.listFiles) {
+            try { result = await window.CloudStorage.listFiles(folderPath); } catch(e) { result = { success: false, error: e.message }; }
+        } else {
+            // REST API fallback
+            try {
+                var BUCKET = 'mgsd2026.firebasestorage.app';
+                var listUrl = 'https://firebasestorage.googleapis.com/v0/b/' + BUCKET + '/o?prefix=' + encodeURIComponent(folderPath + '/');
+                var resp = await fetch(listUrl);
+                if (!resp.ok) { result = { success:false, error:'List failed: '+resp.status, files:[] }; }
+                else {
+                    var data = await resp.json();
+                    var files = (data.items||[]).map(function(item){
+                        var fullPath = item.name;
+                        var justName = fullPath.split('/').pop();
+                        var downloadUrl = 'https://firebasestorage.googleapis.com/v0/b/' + BUCKET + '/o/' + encodeURIComponent(fullPath) + '?alt=media';
+                        return { name: justName, path: fullPath, url: downloadUrl, fileUrl: downloadUrl };
+                    });
+                    result = { success:true, files:files };
+                }
+            } catch(e) { result = { success:false, error:e.message, files:[] }; }
+        }
+
+        if (!result || !result.success) {
+            document.getElementById('spfmViewer').innerHTML = '<div class="sfm-placeholder"><div class="ico">?</div><div>' + ((result && result.error) || 'Unknown error') + '</div></div>';
+            return;
+        }
+
+        var files = (result.files || []).slice();
+        if (!files.length) {
+            document.getElementById('spfmViewer').innerHTML = '<div class="sfm-placeholder"><div class="ico">??</div><div>No files yet.</div></div>';
+            document.getElementById('spfmSub').textContent = folderPath + ' — empty';
+            return;
+        }
+
+        files.sort(function(a,b){
+            function rank(n){ var e=fileExt(n); if (isImageExt(e)) return 0; if (isPdfExt(e)) return 1; return 2; }
+            var ra=rank(a.name), rb=rank(b.name);
+            if (ra!==rb) return ra-rb;
+            return a.name.localeCompare(b.name);
+        });
+
+        _state.files=files; _state.idx=0; _state.selected={};
+        _state.view='single'; _state.zoom=1;
+
+        document.getElementById('spfmSub').textContent = sc + '-' + wid4 + (wname?' — '+wname:'') + ' — ' + files.length + ' file' + (files.length!==1?'s':'');
+        document.getElementById('spfmSelectAll').checked = false;
+        showPage(0);
+    };
+
+    document.addEventListener('keydown', function(e){
+        var m=document.getElementById('spAllFilesModal');
+        if (!m || m.style.display==='none') return;
+        if (e.target.tagName==='INPUT') return;
+        if (_state.view==='single'){
+            if (e.key==='ArrowLeft'){ window.spfmPrev(); e.preventDefault(); }
+            if (e.key==='ArrowRight'){ window.spfmNext(); e.preventDefault(); }
+            if (e.key==='+'||e.key==='='){ window.spfmZoom(0.25); e.preventDefault(); }
+            if (e.key==='-'){ window.spfmZoom(-0.25); e.preventDefault(); }
+        }
+        if (e.key==='Escape') window.closeSpFilesModal();
+    });
+
+    console.log('? Supplier Portal: All Files modal installed');
+})();
+</script>

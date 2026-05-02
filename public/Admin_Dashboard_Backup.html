@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MGS Admin Dashboard</title>
+<link rel="icon" href="data:,">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+:root {
+  --bg:#0d0f14;--surface:#141720;--surface2:#1c2030;--surface3:#222840;
+  --border:#262c3d;--border2:#323b52;--text:#e2e8f0;--text2:#8892a4;--text3:#4a5568;
+  --green:#25d366;--blue:#3b82f6;--orange:#f59e0b;--red:#ef4444;--purple:#a855f7;
+  --accent:#dc3545;--accent2:#6c1d2e;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+
+#loginScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0d0f14 0%,#1a0a0e 50%,#0d0f14 100%);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0}
+.login-box{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:40px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.5)}
+.login-logo{font-family:var(--mono);font-size:28px;font-weight:600;color:var(--accent);letter-spacing:4px;text-align:center;margin-bottom:6px}
+.login-sub{font-size:13px;color:var(--text3);text-align:center;margin-bottom:28px}
+.login-field{margin-bottom:16px}
+.login-field label{display:block;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.login-field input{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:14px;padding:12px 14px;transition:border-color 0.2s}
+.login-field input:focus{outline:none;border-color:var(--accent)}
+.login-btn{width:100%;background:var(--accent);color:white;border:none;border-radius:8px;padding:13px;font-family:var(--sans);font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;transition:background 0.2s}
+.login-btn:hover{background:#c82333}
+.login-error{font-size:12px;color:var(--red);text-align:center;margin-top:10px;display:none}
+
+#mainDash{display:none}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100}
+.logo{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);letter-spacing:2px}
+.sep{color:var(--border2)}
+.htitle{font-size:15px;font-weight:600}
+.hsub{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.hright{margin-left:auto;display:flex;gap:10px;align-items:center}
+.btn{border:none;border-radius:8px;padding:8px 16px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px}
+.btn-red{background:var(--accent);color:white}
+.btn-red:hover{background:#c82333}
+.btn-grey{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+.btn-grey:hover{border-color:var(--blue);color:var(--blue)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.content{max-width:1100px;margin:0 auto;padding:28px 24px}
+.section{margin-bottom:36px}
+.section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:14px}
+.section-title.collapsible{cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;transition:color 0.2s}
+.section-title.collapsible:hover{color:var(--accent)}
+.section-title.collapsible .toggle-arrow{display:inline-block;font-size:10px;transition:transform 0.2s}
+.section-title.collapsible.expanded .toggle-arrow{transform:rotate(0deg)}
+.section-content.collapsed{display:none}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.stat-num{font-size:30px;font-weight:700;color:var(--accent);font-family:var(--mono);margin-bottom:4px}
+.stat-num.green{color:var(--green)}
+.stat-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px}
+
+.modules-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.mod-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;cursor:pointer;transition:all 0.2s;position:relative}
+.mod-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.mod-card.active{border-color:rgba(220,53,69,0.4)}
+.mod-card.soon{opacity:0.4;cursor:not-allowed}
+.mod-card.soon:hover{transform:none}
+.mod-card.status-done { border-color:rgba(37,211,102,0.6) !important; background:rgba(37,211,102,0.06) !important; }
+.mod-card.status-crucial { border-color:rgba(239,68,68,0.7) !important; background:rgba(239,68,68,0.08) !important; }
+.mod-icon{font-size:28px;margin-bottom:10px}
+.mod-title{font-size:14px;font-weight:600;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.mod-shield{font-size:11px;color:var(--green);cursor:help}
+.mod-desc{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px}
+.mod-badge{position:absolute;top:10px;right:10px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(220,53,69,0.15);color:var(--accent);border:1px solid rgba(220,53,69,0.3)}
+.mod-badge.soon-badge{background:rgba(245,158,11,0.15);color:var(--orange);border-color:rgba(245,158,11,0.3)}
+.mod-badge.done-badge{background:rgba(37,211,102,0.15);color:var(--green);border-color:rgba(37,211,102,0.3)}
+.mod-badge.crucial-badge{background:rgba(239,68,68,0.2);color:#ff6b6b;border-color:rgba(239,68,68,0.5);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+
+.mod-checks{display:flex;flex-direction:column;gap:5px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px}
+.mod-check-row{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;cursor:pointer;user-select:none;padding:3px 0}
+.mod-check-row input[type=checkbox]{width:14px;height:14px;cursor:pointer;accent-color:var(--green)}
+.mod-check-row.check-done{color:var(--green)}
+.mod-check-row.check-crucial{color:#ff6b6b}
+.mod-check-row.check-show{color:var(--blue)}
+.mod-check-row input[type=checkbox].crucial-chk{accent-color:var(--red)}
+.mod-check-row input[type=checkbox].show-chk{accent-color:var(--blue)}
+
+.security-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.sec-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.sec-item:hover{border-color:var(--border2)}
+.sec-top{display:flex;align-items:center;gap:12px}
+.sec-info{flex:1}
+.sec-name{font-size:13px;font-weight:600}
+.sec-status{font-size:11px;color:var(--green);margin-top:2px}
+.sec-status.locked{color:var(--red)}
+.sw{position:relative;width:38px;height:21px;flex-shrink:0}
+.sw input{opacity:0;width:0;height:0}
+.sw-track{position:absolute;inset:0;background:var(--border2);border-radius:10px;cursor:pointer;transition:0.25s}
+.sw-track:before{content:'';position:absolute;width:15px;height:15px;left:3px;top:3px;background:#fff;border-radius:50%;transition:0.25s}
+.sw input:checked+.sw-track{background:var(--red)}
+.sw input:checked+.sw-track:before{transform:translateX(17px)}
+.sec-pw-row{display:flex;gap:6px;margin-top:10px;align-items:center}
+.sec-pw-row input{flex:1;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 10px;transition:border-color 0.2s}
+.sec-pw-row input:focus{outline:none;border-color:var(--accent)}
+.sec-pw-row input::placeholder{color:var(--text3)}
+.sec-pw-row button{background:var(--accent);color:white;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+.sec-pw-row button:hover{background:#c82333}
+
+.pw-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-top:14px}
+.pw-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.pw-field{flex:1;min-width:200px}
+.pw-field label{display:block;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.pw-field input{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:14px;padding:10px 12px;transition:border-color 0.2s}
+.pw-field input:focus{outline:none;border-color:var(--accent)}
+
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.table-head{padding:14px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:space-between}
+.table-head h3{font-size:15px;font-weight:600;color:white}
+table{width:100%;border-collapse:collapse}
+thead tr{border-bottom:1px solid var(--border)}
+th{padding:10px 14px;text-align:left;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;background:var(--surface2)}
+td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.url-cell{font-family:var(--mono);font-size:11px;color:var(--text2)}
+
+.maint-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:12px}
+.maint-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.maint-title{font-size:15px;font-weight:600}
+.maint-desc{font-size:12px;color:var(--text2);margin-bottom:14px}
+.warn-box{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:12px;font-size:12px;color:var(--orange)}
+.status-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px;margin-top:10px;display:none}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 18px;font-size:13px;z-index:99999;transform:translateY(80px);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);display:flex;align-items:center;gap:8px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{border-color:rgba(37,211,102,0.4)}
+.toast.error{border-color:rgba(239,68,68,0.4)}
+
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9000;align-items:center;justify-content:center;padding:20px}
+.modal-bg.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:14px;width:100%;max-width:480px;overflow:hidden}
+.modal-header{padding:16px 20px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;font-size:15px;font-weight:600}
+.modal-body{padding:20px}
+.modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+.legend-bar{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--text2)}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+</style>
+<!-- ========================================================================
+     PHASE 1 PATCH — Firebase SDK loader + Firestore test
+     Date: April 26, 2026
+     Goal: Connect Admin_Dashboard.html to Firestore directly
+     Test: After install, open F12 Console, type: mgsTestFirestore()
+     ======================================================================== -->
+
+<!-- Firebase SDK from Google CDN (compat version - simpler API) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script>
+(function(){
+  'use strict';
+
+  // Connect to YOUR mgsd2026 Firestore project
+  var firebaseConfig = {
+    apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+    authDomain: "mgsd2026.firebaseapp.com",
+    projectId: "mgsd2026",
+    storageBucket: "mgsd2026.firebasestorage.app",
+    messagingSenderId: "918582360831",
+    appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+  };
+
+  // Initialize once (avoid duplicate-app error if patch runs twice)
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    window._db = firebase.firestore();
+    console.log('✅ Firebase SDK connected to Firestore (project: mgsd2026)');
+  } catch(e) {
+    console.error('❌ Firebase initialization failed:', e);
+    window._db = null;
+  }
+
+  // Test function — run from F12 console
+  window.mgsTestFirestore = async function() {
+    console.log('🧪 Testing Firestore connection...');
+    if (!window._db) {
+      console.error('❌ Firestore not initialized.');
+      return { success: false, error: 'No DB' };
+    }
+
+    try {
+      // Try reading mgs_admin_settings/module_passwords
+      var doc = await window._db
+        .collection('mgs_admin_settings')
+        .doc('module_passwords')
+        .get();
+
+      if (doc.exists) {
+        var data = doc.data();
+        console.log('✅ READ SUCCESS — module_passwords document:');
+        console.log(data);
+        console.log('   value (passwords map):', data.value);
+        console.log('   updatedAt:', data.updatedAt);
+        return { success: true, data: data };
+      } else {
+        console.warn('⚠️ Document does not exist');
+        return { success: false, error: 'No document' };
+      }
+    } catch(e) {
+      console.error('❌ READ FAILED:', e.message);
+      console.error('   This usually means Firestore rules are blocking the read.');
+      console.error('   Or the SDK hasn\'t fully loaded yet — try again in 2 seconds.');
+      return { success: false, error: e.message };
+    }
+  };
+
+  console.log('💡 Test ready. Type: mgsTestFirestore()');
+})();
+</script>
+<!-- ======================================================================== -->
+
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">MGS</div>
+    <div class="login-sub">Admin Dashboard — Restricted Access</div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="loginPw" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-field" style="display:flex;align-items:center;gap:8px;margin-top:-6px">
+      <input type="checkbox" id="rememberMe" checked style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
+      <label for="rememberMe" style="font-size:12px;color:var(--text2);text-transform:none;letter-spacing:normal;font-weight:400;cursor:pointer;margin:0">Remember me on this device (30 days)</label>
+    </div>
+    <button class="login-btn" onclick="doLogin()">🔐 Enter Dashboard</button>
+    <div class="login-error" id="loginError">❌ Incorrect password. Try again.</div>
+  </div>
+</div>
+
+<div id="mainDash">
+<div class="header">
+  <span class="logo">MGS</span>
+  <span class="sep">›</span>
+  <span class="htitle">🔐 Admin Dashboard</span>
+  <span class="hsub">Massroua General Services</span>
+  <div class="hright">
+    <select id="themeSelector" onchange="switchTheme(this.value)" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:6px 12px;border-radius:8px;font-size:12px;font-family:var(--sans)">
+      <option value="default">🌙 Dark</option>
+      <option value="crimson">🔴 Crimson</option>
+    </select>
+    <button class="btn btn-grey btn-sm" onclick="window.location.href='Dashboard.html'">🏠 Main Dashboard</button>
+    <button class="btn btn-grey btn-sm" onclick="doLogout()">🚪 Logout</button>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="section">
+    <div class="section-title">📊 System Statistics</div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num" id="statWorkers">—</div><div class="stat-label">Workers</div></div>
+      <div class="stat-card"><div class="stat-num" id="statEmployers">—</div><div class="stat-label">Employers</div></div>
+      <div class="stat-card"><div class="stat-num" id="statSuppliers">—</div><div class="stat-label">Suppliers</div></div>
+      <div class="stat-card"><div class="stat-num" id="statAgencies">—</div><div class="stat-label">Agencies</div></div>
+      <div class="stat-card"><div class="stat-num" id="statNationalities">—</div><div class="stat-label">Nationalities</div></div>
+      <div class="stat-card"><div class="stat-num green" id="statActive">—</div><div class="stat-label">Active Countries</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">🔐 Admin Modules</div>
+    <div class="legend-bar">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> 95% Done</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div> Crucial Repair</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div> Show on Main</div>
+      <div class="legend-item">🛡️ Reset-Protected</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--border2)"></div> Default</div>
+    </div>
+
+    <div onclick="toggleMainPreview()" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--green);margin:18px 0 10px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;" title="Click to expand/collapse — preview of cards visible on Main Dashboard">
+      <span id="mainPreviewArrow">▶</span>
+      🏠 Visible on Main Dashboard (preview)
+      <span style="flex:1;height:1px;background:linear-gradient(90deg,var(--green),transparent);"></span>
+      <span id="countMainPreview" style="font-family:var(--mono);font-size:11px;color:var(--green);">0</span>
+    </div>
+    <div class="modules-grid" id="modulesGridMainPreview" style="display:none;"></div>
+
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--blue);margin:18px 0 10px;display:flex;align-items:center;gap:8px;">
+      📋 Active Modules
+      <span style="flex:1;height:1px;background:linear-gradient(90deg,var(--blue),transparent);"></span>
+      <span id="countVisible" style="font-family:var(--mono);font-size:11px;color:var(--blue);">0</span>
+    </div>
+    <div class="modules-grid" id="modulesGridVisible"></div>
+
+    <div onclick="toggleHiddenModules()" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);margin:28px 0 10px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;" title="Click to expand/collapse">
+      <span id="hiddenToggleArrow">▶</span>
+      🙈 Hidden Modules (click to expand)
+      <span style="flex:1;height:1px;background:linear-gradient(90deg,var(--text3),transparent);"></span>
+      <span id="countHidden" style="font-family:var(--mono);font-size:11px;color:var(--text3);">0</span>
+    </div>
+    <div class="modules-grid" id="modulesGridHidden" style="display:none;"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title collapsible" id="hdrModuleSecurity" onclick="toggleSection('hdrModuleSecurity')">
+      <span class="toggle-arrow">▶</span>
+      🔒 Module Security Control
+    </div>
+    <div class="section-content collapsed">
+      <div class="security-grid" id="securityGrid"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title collapsible" id="hdrGlobalPw" onclick="toggleSection('hdrGlobalPw')">
+      <span class="toggle-arrow">▶</span>
+      🔑 Global Admin Password
+    </div>
+    <div class="section-content collapsed">
+      <div class="pw-panel">
+        <div class="pw-row">
+          <div class="pw-field">
+            <label>Global Admin Password</label>
+            <input type="text" id="globalPw" value="masr3434" onchange="saveGlobalPw()">
+          </div>
+          <button class="btn btn-red btn-sm" onclick="saveGlobalPw()">💾 Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title collapsible" id="hdrDataMaint" onclick="toggleSection('hdrDataMaint')">
+      <span class="toggle-arrow">▶</span>
+      🧹 Data Maintenance
+    </div>
+    <div class="section-content collapsed">
+      <div class="maint-card">
+        <div class="maint-header">
+          <div><div class="maint-title">🗑️ Database Reset Manager</div><div class="maint-desc">Clear specific tables or reset entire database (protected tables skipped)</div></div>
+          <button class="btn btn-red btn-sm" onclick="openPage('database_reset_manager')">Open →</button>
+        </div>
+        <div class="warn-box">⚠️ This tool permanently deletes data. Protected tables (Nationalities, Processing Costs, Documents, Invoice Header, Message Templates, Rules) are skipped.</div>
+      </div>
+      <div class="maint-card">
+        <div class="maint-header">
+          <div><div class="maint-title">🧹 Cleanup Unlinked Employers</div><div class="maint-desc">Find and remove employers not linked to any agency</div></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-grey btn-sm" onclick="scanUnlinked()">🔍 Scan</button>
+            <button class="btn btn-red btn-sm" onclick="cleanUnlinked()">🗑️ Cleanup</button>
+          </div>
+        </div>
+        <div class="status-box" id="cleanStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title collapsible" id="hdrScripts" onclick="toggleSection('hdrScripts')">
+      <span class="toggle-arrow">▶</span>
+      🔗 Scripts &amp; Links
+    </div>
+    <div class="section-content collapsed">
+      <div class="table-wrap">
+        <div class="table-head">
+          <h3>🔗 Scripts &amp; Links</h3>
+          <button class="btn btn-sm" style="background:white;color:var(--accent);border:none" onclick="addScript()">+ Add</button>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Description</th><th>URL</th><th style="text-align:center">Actions</th></tr></thead>
+          <tbody id="scriptsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div class="toast" id="toast"><span id="toastIcon">✅</span><span id="toastMsg"></span></div>
+<div class="modal-bg" id="adminFrameModal">
+  <div class="modal" style="max-width:96vw;width:96vw;height:92vh;display:flex;flex-direction:column;padding:0">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+      <span id="adminFrameTitle">Module</span>
+      <button class="btn btn-sm" style="background:white;color:var(--accent);border:none" onclick="closeAdminFrame()">✕ Close</button>
+    </div>
+    <div style="flex:1;background:var(--bg);overflow:hidden">
+      <iframe id="adminFrame" src="about:blank" style="width:100%;height:100%;border:0;display:block"></iframe>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="adminFrameModal">
+  <div class="modal" style="max-width:96vw;width:96vw;height:92vh;display:flex;flex-direction:column;padding:0">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+      <span id="adminFrameTitle">Module</span>
+      <button class="btn btn-sm" style="background:white;color:var(--accent);border:none" onclick="closeAdminFrame()">✕ Close</button>
+    </div>
+    <div style="flex:1;background:var(--bg);overflow:hidden">
+      <iframe id="adminFrame" src="about:blank" style="width:100%;height:100%;border:0;display:block"></iframe>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="confirmModal">
+  <div class="modal">
+    <div class="modal-header" id="confirmTitle">Confirm</div>
+    <div class="modal-body"><div id="confirmText" style="font-size:13px;line-height:1.7;white-space:pre-wrap"></div></div>
+    <div class="modal-footer">
+      <button class="btn btn-grey btn-sm" onclick="closeConfirm(false)">Cancel</button>
+      <button class="btn btn-red btn-sm" onclick="closeConfirm(true)">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+    authDomain: "mgsd2026.firebaseapp.com",
+    projectId: "mgsd2026",
+    storageBucket: "mgsd2026.firebasestorage.app",
+    messagingSenderId: "918582360831",
+    appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+window.CloudSettings = {
+    async load(key) {
+        try { const s = await getDoc(doc(db, 'mgs_admin_settings', key)); return s.exists() ? s.data().value : null; }
+        catch(e) { console.warn('load fail:', key, e); return null; }
+    },
+    async save(key, value) {
+        try { await setDoc(doc(db, 'mgs_admin_settings', key), { value: value, updatedAt: new Date().toISOString() }); return true; }
+        catch(e) { console.warn('save fail:', key, e); return false; }
+    }
+};
+
+window.loadSystemStats = async function() {
+    const collections = [
+        { name: 'Workers', target: 'statWorkers' },
+        { name: 'employers', target: 'statEmployers' },
+        { name: 'supplier_manager', target: 'statSuppliers' },
+        { name: 'Local_Agencies', target: 'statAgencies' },
+        { name: 'nationalities', target: 'statNationalities' }
+    ];
+    for (const c of collections) {
+        try {
+            const snap = await getDocs(collection(db, c.name));
+            const el = document.getElementById(c.target);
+            if (el) el.textContent = snap.size;
+            if (c.name === 'nationalities') {
+                let activeCount = 0;
+                snap.forEach(d => { if (d.data().Active) activeCount++; });
+                const a = document.getElementById('statActive');
+                if (a) a.textContent = activeCount;
+            }
+        } catch(e) {
+            const el = document.getElementById(c.target);
+            if (el) el.textContent = '0';
+        }
+    }
+};
+</script>
+
+<script>
+var DEFAULT_GLOBAL_PW = 'masr3434';
+var _loggedIn = false;
+var REMEMBER_TOKEN_KEY = 'mgs_admin_token';
+var REMEMBER_DAYS = 30;
+
+function _saveRememberToken() {
+  var token = 'tok_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  var expiresAt = Date.now() + (REMEMBER_DAYS * 24 * 60 * 60 * 1000);
+  localStorage.setItem(REMEMBER_TOKEN_KEY, JSON.stringify({ token: token, expiresAt: expiresAt }));
+}
+
+function _checkRememberToken() {
+  try {
+    var raw = localStorage.getItem(REMEMBER_TOKEN_KEY);
+    if (!raw) return false;
+    var data = JSON.parse(raw);
+    if (!data.expiresAt || Date.now() > data.expiresAt) {
+      localStorage.removeItem(REMEMBER_TOKEN_KEY);
+      return false;
+    }
+    return true;
+  } catch(e) { return false; }
+}
+
+async function doLogin() {
+  var pw = document.getElementById('loginPw').value;
+  var rememberEl = document.getElementById('rememberMe');
+  var remember = rememberEl ? rememberEl.checked : false;
+  var saved = await CloudSettings.load('security_password');
+  var expected = saved || DEFAULT_GLOBAL_PW;
+  if (pw === expected) {
+    _loggedIn = true;
+    if (remember) _saveRememberToken();
+    else localStorage.removeItem(REMEMBER_TOKEN_KEY);
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('mainDash').style.display='block';
+    initDashboard();
+  } else {
+    document.getElementById('loginError').style.display='block';
+    document.getElementById('loginPw').value='';
+    document.getElementById('loginPw').focus();
+  }
+}
+function doLogout() {
+  _loggedIn = false;
+  localStorage.removeItem(REMEMBER_TOKEN_KEY);
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('mainDash').style.display='none';
+  document.getElementById('loginPw').value='';
+}
+
+// Auto-login on page load if Remember Me token is valid
+(function(){
+  function tryAutoLogin() {
+    if (!window.CloudSettings) { setTimeout(tryAutoLogin, 300); return; }
+    if (_checkRememberToken()) {
+      console.log('🔓 Auto-login via Remember Me token');
+      _loggedIn = true;
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('mainDash').style.display = 'block';
+      initDashboard();
+    } else {
+      var pwField = document.getElementById('loginPw');
+      if (pwField) setTimeout(function(){ pwField.focus(); }, 100);
+    }
+  }
+  tryAutoLogin();
+})();
+(function(){ setTimeout(function(){ var el=document.getElementById('loginPw'); if(el)el.focus(); },100); })();
+
+function initDashboard() {
+  renderModules();
+  renderSecurity();
+  renderScripts();
+  setTimeout(function(){ if(window.loadSystemStats) window.loadSystemStats(); }, 300);
+  loadSecuritySettings();
+}
+
+async function getModuleStatuses() {
+  var s = await CloudSettings.load('module_status');
+  return s || {};
+}
+async function saveModuleStatuses(s) { await CloudSettings.save('module_status', s); }
+
+async function setModuleStatus(key, field, val) {
+  var s = await getModuleStatuses();
+  if(!s[key]) s[key]={done:false,crucial:false,showOnMain:false,hideFromAdmin:false};
+  s[key][field] = val;
+  if(field==='done'&&val) s[key].crucial=false;
+  if(field==='crucial'&&val) s[key].done=false;
+  await saveModuleStatuses(s);
+  showToast(field+' updated for '+key,'success');
+  // Re-render to move card between sections
+  renderModules();
+}
+function applyModuleCardStyle(key, status) {
+  var card = document.getElementById('modcard-'+key);
+  if(!card) return;
+  card.classList.remove('status-done','status-crucial');
+  var badge = card.querySelector('.mod-badge');
+  if(status.done) {
+    card.classList.add('status-done');
+    if(badge){ badge.className='mod-badge done-badge'; badge.textContent='✅ 95% DONE'; }
+  } else if(status.crucial) {
+    card.classList.add('status-crucial');
+    if(badge){ badge.className='mod-badge crucial-badge'; badge.textContent='🔴 REPAIR NEEDED'; }
+  } else {
+    if(badge && !card.classList.contains('soon')){
+      badge.className='mod-badge'; badge.textContent='ACTIVE';
+    }
+  }
+}
+
+var PROTECTED_MODULES = ['Nationalities_Manager','Processing_Costs','Worker_Documents','Employer_Documents','Invoice_Header','Message_Templates','Rules_Review'];
+
+var MODULES = [
+  {key:'Workers_Manager',            page:'workers_manager',            icon:'👷',title:'Workers Manager',         desc:'Add, edit and manage all workers'},
+  {key:'Employers_Manager',          page:'employers_manager',          icon:'💼',title:'Employers Manager',        desc:'Manage employer profiles and folders'},
+  {key:'Supplier_Manager_FINAL',     page:'supplier_manager',           icon:'🏢',title:'Suppliers Manager',        desc:'Manage supplier information and contacts'},
+  {key:'Employer_Documents',         page:'employer_documents',         icon:'📄',title:'Employer Documents',       desc:'Manage required documents from employers'},
+  {key:'Nationalities_Manager',      page:'nationalities',              icon:'🌍',title:'Nationalities',            desc:'Manage countries and nationalities database'},
+  {key:'Worker_Documents',           page:'worker_documents',           icon:'📁',title:'Worker Documents',         desc:'Manage documents collected from workers'},
+  {key:'Worker_Approval',            page:'worker_approval',            icon:'✅',title:'Worker Approval',          desc:'Review and approve worker applications'},
+  {key:'Processing_Manager',         page:'processing_manager',         icon:'🔄',title:'Processing',               desc:'Track workers being processed for employers'},
+  {key:'Processing_Costs',           page:'processing_costs',           icon:'💲',title:'Processing Costs',         desc:'Manage processing fees and invoicing items'},
+  {key:'Messaging_Manager',          page:'messaging_manager',          icon:'💬',title:'Messaging Manager',        desc:'Send WhatsApp messages to employers'},
+  {key:'Message_Templates',          page:'message_templates',          icon:'📝',title:'Message Templates',        desc:'Create and manage WhatsApp message templates'},
+  {key:'Rules_Review',               page:'rules_review',               icon:'⚙️',title:'Rules Review',             desc:'Review and modify auto-send rule configurations'},
+  {key:'Accountant',                 page:'accountant',                 icon:'💰',title:'Accountant',               desc:'Invoicing and financial management'},
+  {key:'Reports',                    page:'reports',                    icon:'📊',title:'Reports & Analytics',      desc:'Generate employer reports and save as PDF'},
+  {key:'Reports_Manager',            page:'reports_manager',            icon:'📊',title:'Reports Manager',          desc:'Generate and view business reports and analytics'},
+  {key:'Workers_In_Lebanon',         page:'workers_in_lebanon',         icon:'🌍',title:'Workers in Lebanon',       desc:'Workers currently in Lebanon — compliance monitoring'},
+  {key:'Dashboard',                  page:'Dashboard',                  icon:'🏠',title:'Dashboard',                desc:'Main entry point for all modules'},
+  {key:'Documents_Manager',          page:'documents_manager',          icon:'🗂️',title:'Documents Manager',        desc:'Central document management hub'},
+  {key:'Local_Agencies_Manager',     page:'local_agencies_manager',     icon:'🏛️',title:'Local Agencies',           desc:'Manage local recruitment agencies'},
+  {key:'local_Agencies_Portal',      page:'local_agencies_portal',      icon:'🔗',title:'Local Agencies Portal',    desc:'Agency-facing portal view'},
+  {key:'Supplier_Portal',            page:'supplier_portal',            icon:'🛒',title:'Supplier Portal',          desc:'Supplier-facing portal view'},
+  {key:'Database_Reset_Manager',     page:'database_reset_manager',     icon:'🗑️',title:'Database Reset',           desc:'Clear specific tables or reset entire database'},
+  {key:'Cleanup_Unlinked_Employers', page:'cleanup_unlinked_employers', icon:'🧹',title:'Cleanup Unlinked',         desc:'Find and remove employers not linked to any agency'}
+];
+function toggleMainPreview() {
+  var grid = document.getElementById('modulesGridMainPreview');
+  var arrow = document.getElementById('mainPreviewArrow');
+  if (!grid || !arrow) return;
+  var isHidden = grid.style.display === 'none';
+  if (isHidden) {
+    grid.style.display = 'grid';
+    arrow.textContent = '▼';
+  } else {
+    grid.style.display = 'none';
+    arrow.textContent = '▶';
+  }
+}
+function toggleHiddenModules() {
+  var grid = document.getElementById('modulesGridHidden');
+  var arrow = document.getElementById('hiddenToggleArrow');
+  if (!grid || !arrow) return;
+  var isHidden = grid.style.display === 'none';
+  if (isHidden) {
+    grid.style.display = 'grid';
+    arrow.textContent = '▼';
+  } else {
+    grid.style.display = 'none';
+    arrow.textContent = '▶';
+  }
+}
+function toggleSection(headerId) {
+  var header = document.getElementById(headerId);
+  if (!header) return;
+  var content = header.nextElementSibling;
+  if (!content) return;
+  var arrow = header.querySelector('.toggle-arrow');
+  var isCollapsed = content.classList.contains('collapsed');
+  if (isCollapsed) {
+    content.classList.remove('collapsed');
+    if (arrow) arrow.textContent = '▼';
+    header.classList.add('expanded');
+  } else {
+    content.classList.add('collapsed');
+    if (arrow) arrow.textContent = '▶';
+    header.classList.remove('expanded');
+  }
+}
+async function renderModules() {
+  var statuses = await getModuleStatuses();
+  var gridVisible = document.getElementById('modulesGridVisible');
+  var gridHidden  = document.getElementById('modulesGridHidden');
+  var gridMainPreview = document.getElementById('modulesGridMainPreview');
+  gridVisible.innerHTML = '';
+  gridHidden.innerHTML = '';
+  if (gridMainPreview) gridMainPreview.innerHTML = '';
+  var countVisible = 0, countHidden = 0, countMainPreview = 0;
+
+  MODULES.forEach(function(m) {
+    var st = statuses[m.key]||{done:false,crucial:false,showOnMain:false};
+    var isProtected = PROTECTED_MODULES.indexOf(m.key) >= 0;
+    var cardCls = 'mod-card active' + (st.done?' status-done':st.crucial?' status-crucial':'');
+    var badgeTxt = st.done?'✅ 95% DONE':st.crucial?'🔴 REPAIR NEEDED':'ACTIVE';
+    var badgeCls = st.done?'mod-badge done-badge':st.crucial?'mod-badge crucial-badge':'mod-badge';
+    var div = document.createElement('div');
+    div.className = cardCls;
+    div.id = 'modcard-'+m.key;
+    div.onclick = function(e){
+  if(e.target.type==='checkbox'||e.target.closest('.mod-checks')) return;
+  openPage(m.page);
+};
+    var shieldHTML = isProtected ? '<span class="mod-shield" title="Protected from Database Reset">🛡️</span>' : '';
+    var checksHTML =
+      '<div class="mod-checks" onclick="event.stopPropagation()">'
+      +'<label class="mod-check-row check-done">'
+      +'<input type="checkbox" id="chk-done-'+m.key+'" '+(st.done?'checked':'')+' onchange="setModuleStatus(\''+m.key+'\',\'done\',this.checked)">'
+      +'✅ 95% Done'
+      +'</label>'
+      +'<label class="mod-check-row check-crucial">'
+      +'<input type="checkbox" class="crucial-chk" id="chk-crucial-'+m.key+'" '+(st.crucial?'checked':'')+' onchange="setModuleStatus(\''+m.key+'\',\'crucial\',this.checked)">'
+      +'🔴 Crucial Repair Needed'
+      +'</label>'
+      +'<label class="mod-check-row check-show">'
+      +'<input type="checkbox" class="show-chk" id="chk-show-'+m.key+'" '+(st.showOnMain?'checked':'')+' onchange="setModuleStatus(\''+m.key+'\',\'showOnMain\',this.checked)">'
+      +'🏠 Show on Main Dashboard'
+      +'</label>'
+      +'<label class="mod-check-row check-hide">'
+      +'<input type="checkbox" class="hide-chk" id="chk-hide-'+m.key+'" '+(st.hideFromAdmin?'checked':'')+' onchange="setModuleStatus(\''+m.key+'\',\'hideFromAdmin\',this.checked)">'
+      +'🙈 Hide from Admin Dashboard'
+      +'</label>'
+      +'</div>';
+    div.innerHTML =
+      '<div class="'+badgeCls+'">'+badgeTxt+'</div>'
+      +'<div class="mod-icon">'+m.icon+'</div>'
+      +'<div class="mod-title">'+m.title+' '+shieldHTML+'</div>'
+      +'<div class="mod-desc">'+m.desc+'</div>'
+      +checksHTML;
+
+    if (st.hideFromAdmin) {
+      gridHidden.appendChild(div);
+      countHidden++;
+    } else if (st.showOnMain) {
+      // Card is marked for Main Dashboard — goes to preview only, not Active Modules
+    } else {
+      gridVisible.appendChild(div);
+      countVisible++;
+    }
+
+    // Also clone into the Main Dashboard Preview if showOnMain is checked
+    if (st.showOnMain && gridMainPreview) {
+      var clone = div.cloneNode(true);
+      clone.id = 'modcard-preview-'+m.key;
+      clone.onclick = function(e){
+        if(e.target.type==='checkbox'||e.target.closest('.mod-checks')) return;
+        openPage(m.page);
+      };
+      gridMainPreview.appendChild(clone);
+      countMainPreview++;
+    }
+  });
+
+  document.getElementById('countVisible').textContent = countVisible;
+  document.getElementById('countHidden').textContent = countHidden;
+  var countPreviewEl = document.getElementById('countMainPreview');
+  if (countPreviewEl) countPreviewEl.textContent = countMainPreview;
+}
+function openInNewTab(url){
+  var a=document.createElement('a');
+  a.href=url; a.target='_blank'; a.rel='noopener noreferrer';
+  a.style.display='none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){ try{document.body.removeChild(a);}catch(e){} }, 100);
+}
+
+function openPage(page){ openInNewTab('https://mgsd2026.web.app/' + page + '.html'); }
+
+function openInAdmin(page, title){
+  document.getElementById('adminFrameTitle').textContent = title;
+  document.getElementById('adminFrame').src = page + '.html?adminEmbed=1&t=' + Date.now();
+  document.getElementById('adminFrameModal').classList.add('show');
+}
+
+function closeAdminFrame(){
+  document.getElementById('adminFrameModal').classList.remove('show');
+  document.getElementById('adminFrame').src = 'about:blank';
+}
+function closeAdminFrame(){
+  document.getElementById('adminFrameModal').classList.remove('show');
+  document.getElementById('adminFrame').src = 'about:blank';
+}
+
+var SEC_MODULES=[
+  {key:'workers',label:'👷 Workers Manager'},{key:'employers',label:'💼 Employers Manager'},
+  {key:'supplier_manager',label:'🏢 Suppliers Manager'},{key:'employer_documents',label:'📄 Employer Documents'},
+  {key:'nationalities',label:'🌍 Nationalities'},{key:'worker_documents',label:'📁 Worker Documents'},
+  {key:'worker_approval',label:'✅ Worker Approval'},{key:'processing_manager',label:'🔄 Processing'},
+  {key:'processing_costs',label:'💲 Processing Costs'},{key:'messaging',label:'💬 Messaging Manager'},
+  {key:'message_templates',label:'📝 Message Templates'},{key:'rules_review',label:'⚙️ Rules Review'},
+  {key:'accountant',label:'💰 Accountant'},{key:'reports',label:'📊 Reports & Analytics'},
+  {key:'reports_manager',label:'📈 Reports Manager'},
+  {key:'workers_in_lebanon',label:'🇱🇧 Workers in Lebanon'},
+  {key:'dashboard',label:'🏠 Dashboard'},{key:'documents_manager',label:'🗂️ Documents Manager'},
+  {key:'agencies',label:'🏛️ Local Agencies'},{key:'agencies_portal',label:'🔗 Local Agencies Portal'},
+  {key:'supplier_portal',label:'🛒 Supplier Portal'},{key:'database_reset',label:'🗑️ Database Reset'},
+  {key:'cleanup_unlinked',label:'🧹 Cleanup Unlinked'}
+];
+async function renderSecurity(){
+  var sec = (await CloudSettings.load('module_security')) || {};
+  var pws = (await CloudSettings.load('module_passwords')) || {};
+  var html='';
+  SEC_MODULES.forEach(function(m){
+    var locked=sec[m.key]===true;
+    var savedPw=pws[m.key]||'';
+    html+='<div class="sec-item"><div class="sec-top"><div class="sec-info"><div class="sec-name">'+m.label+'</div>'
+      +'<div class="sec-status'+(locked?' locked':'')+'" id="sec-status-'+m.key+'">'+(locked?'🔴 Password Required':'🟢 Open Access')+'</div></div>'
+      +'<label class="sw"><input type="checkbox" id="sec-chk-'+m.key+'" '+(locked?'checked':'')+' onchange="toggleLock(\''+m.key+'\')"><span class="sw-track"></span></label></div>'
+      +'<div class="sec-pw-row"><input type="text" id="sec-pw-'+m.key+'" placeholder="Module password..." value="'+savedPw+'">'
+      +'<button onclick="saveModulePw(\''+m.key+'\')">💾 Save</button></div></div>';
+  });
+  document.getElementById('securityGrid').innerHTML=html;
+}
+async function loadSecuritySettings(){
+  var pw = (await CloudSettings.load('security_password')) || DEFAULT_GLOBAL_PW;
+  var el=document.getElementById('globalPw'); if(el)el.value=pw;
+}
+async function toggleLock(key){
+  var chk=document.getElementById('sec-chk-'+key);
+  var sts=document.getElementById('sec-status-'+key);
+  var sec = (await CloudSettings.load('module_security')) || {};
+  sec[key]=chk.checked;
+  await CloudSettings.save('module_security', sec);
+  if(sts){sts.textContent=chk.checked?'🔴 Password Required':'🟢 Open Access';sts.className='sec-status'+(chk.checked?' locked':'');}
+  showToast(key+(chk.checked?' locked':' unlocked'),'success');
+}
+async function saveModulePw(key){
+  var input=document.getElementById('sec-pw-'+key);
+  var pw=input?input.value.trim():'';
+  if(!pw){showToast('Password cannot be empty','error');return;}
+  var pws = (await CloudSettings.load('module_passwords')) || {};
+  pws[key]=pw;
+  await CloudSettings.save('module_passwords', pws);
+  showToast(key+' password saved','success');
+}
+async function saveGlobalPw(){
+  var pw = document.getElementById('globalPw').value.trim();
+  if (!pw) { showToast('Password cannot be empty','error'); return; }
+  var ok = await showConfirm('Change master password to:\n\n  '+pw+'\n\nYou will need this password on your next login.\nYour "Remember Me" session will be cleared.\n\nContinue?');
+  if (!ok) { showToast('Password change cancelled','error'); return; }
+  await CloudSettings.save('security_password', pw);
+  localStorage.removeItem(REMEMBER_TOKEN_KEY);
+  showToast('Master password updated. Re-login required next visit.','success');
+}
+
+function scanUnlinked(){
+  var el=document.getElementById('cleanStatus');
+  el.style.display='block';el.style.color='var(--text2)';el.textContent='⏳ Scanning Firestore...';
+  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js').then(function(m){
+    return m.getDocs(m.collection(m.getFirestore(),'employers'));
+  }).then(function(snap){
+    var total=snap.size;var unlinked=0;
+    snap.forEach(function(d){var e=d.data();if(!e.AgencyID&&!e.AgencyCode)unlinked++;});
+    el.style.color=unlinked>0?'var(--red)':'var(--green)';
+    el.textContent=unlinked>0?'⚠️ Found '+unlinked+' unlinked employers out of '+total:'✅ All clean — no unlinked employers ('+total+' total)';
+  }).catch(function(e){
+    el.textContent='ℹ️ Employers collection not yet migrated to Firestore.';
+  });
+}
+var _confirmResolve=null;
+function showConfirm(text){return new Promise(function(resolve){_confirmResolve=resolve;document.getElementById('confirmText').textContent=text;document.getElementById('confirmModal').classList.add('show');});}
+function closeConfirm(val){document.getElementById('confirmModal').classList.remove('show');if(_confirmResolve){var r=_confirmResolve;_confirmResolve=null;r(val);}}
+async function cleanUnlinked(){var confirmed=await showConfirm('This will delete employers with no agency link.\n\nThis cannot be undone.\n\nContinue?');if(!confirmed)return;showToast('Cleanup not yet implemented — employers module migration pending','error');}
+
+var DEFAULT_SCRIPTS=[
+  {id:1,info:'💵 Accountant — Accounting and financial records',url:'accountant.html'},
+  {id:2,info:'🔧 Admin Dashboard — Settings, security, scripts & system tools',url:'Admin_Dashboard.html'},
+  {id:3,info:'🧹 Cleanup Unlinked Employers',url:'cleanup_unlinked_employers.html'},
+  {id:4,info:'🏠 Dashboard — Main entry point for all modules',url:'Dashboard.html'},
+  {id:5,info:'🗑️ Database Reset Manager — Clear tables or reset entire database',url:'database_reset_manager.html'},
+  {id:6,info:'📄 Employer Documents — View and manage employer document folders',url:'employer_documents.html'},
+  {id:7,info:'📊 Employer Report — View and save employer reports to Drive as PDF',url:'reports.html'},
+  {id:8,info:'💼 Employers Manager — Manage employer profiles and folders',url:'employers_manager.html'},
+  {id:9,info:'🏢 Local Agencies Manager — Manage local recruitment agencies',url:'local_agencies_manager.html'},
+  {id:10,info:'🌍 Nationalities Manager — Manage worker nationalities list',url:'nationalities.html'},
+  {id:11,info:'💬 Messaging Manager — Send WhatsApp messages to employers',url:'messaging_manager.html'},
+  {id:12,info:'📝 Message Templates — Manage WhatsApp message templates',url:'message_templates.html'},
+  {id:13,info:'⚙️ Rules Review — Review and modify auto-send rules',url:'rules_review.html'},
+  {id:14,info:'💰 Processing Costs — Track and manage processing costs',url:'processing_costs.html'},
+  {id:15,info:'⚙️ Processing Manager — Worker processing and employer assignments',url:'processing_manager.html'},
+  {id:16,info:'🏪 Supplier Manager — Manage suppliers and vendor records',url:'supplier_manager.html'},
+  {id:17,info:'🛒 Supplier Portal — Supplier-facing portal view',url:'supplier_portal.html'},
+  {id:18,info:'📁 Worker Documents — Manage and view worker documents',url:'worker_documents.html'},
+  {id:19,info:'👷 Workers Manager — Add, edit and manage all workers',url:'workers_manager.html'},
+  {id:20,info:'✅ Worker Approval — Review and approve worker applications',url:'worker_approval.html'}
+];
+async function loadScripts(){var s=await CloudSettings.load('admin_scripts');return s||DEFAULT_SCRIPTS;}
+async function saveScripts(arr){await CloudSettings.save('admin_scripts', arr);}
+async function renderScripts(){
+  var arr=await loadScripts();
+  arr.sort(function(a,b){return a.info.replace(/^[^\w]+/,'').toLowerCase().localeCompare(b.info.replace(/^[^\w]+/,'').toLowerCase());});
+  arr.forEach(function(s,i){s.id=i+1;});
+  window._scriptsCache=arr;
+  document.getElementById('scriptsBody').innerHTML=arr.map(function(s,i){
+    var short=s.url.length>55?s.url.substring(0,52)+'...':s.url;
+    return '<tr>'
+      +'<td style="font-weight:700;color:var(--accent);font-family:var(--mono)">'+s.id+'</td>'
+      +'<td><span id="si-'+i+'">'+s.info+'</span><input id="ii-'+i+'" value="'+s.info.replace(/"/g,'&quot;')+'" style="display:none;width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;font-family:var(--sans)"></td>'
+      +'<td class="url-cell"><span id="su-'+i+'" title="'+s.url+'">'+short+'</span><input id="ui-'+i+'" value="'+s.url.replace(/"/g,'&quot;')+'" style="display:none;width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:6px 8px;font-size:11px;font-family:var(--mono)"></td>'
+      +'<td style="text-align:center;white-space:nowrap">'
+      +'<button onclick="openScr('+i+')" class="btn btn-red btn-sm" style="margin-right:3px">▶</button>'
+      +'<button id="eb-'+i+'" onclick="editScr('+i+')" class="btn btn-sm" style="background:var(--orange);color:#000;margin-right:3px">✏️</button>'
+      +'<button onclick="delScr('+i+')" class="btn btn-sm" style="background:var(--surface2);color:var(--red);border:1px solid var(--border2)">🗑️</button>'
+      +'<button id="sb-'+i+'" onclick="saveScr('+i+')" class="btn btn-sm" style="display:none;background:var(--green);color:#000">💾</button>'
+      +'</td></tr>';
+  }).join('');
+}
+function openScr(i){var arr=window._scriptsCache||[];var url=arr[i].url;if(url.indexOf('http')===0)openInNewTab(url);else window.location.href=url;}function editScr(i){document.getElementById('si-'+i).style.display='none';document.getElementById('su-'+i).style.display='none';document.getElementById('ii-'+i).style.display='';document.getElementById('ui-'+i).style.display='';document.getElementById('eb-'+i).style.display='none';document.getElementById('sb-'+i).style.display='';}
+async function saveScr(i){var arr=window._scriptsCache||[];arr[i].info=document.getElementById('ii-'+i).value;arr[i].url=document.getElementById('ui-'+i).value;await saveScripts(arr);await renderScripts();}
+async function delScr(i){var arr=window._scriptsCache||[];var ok=await showConfirm('Delete script:\n'+arr[i].info+'\n\nContinue?');if(!ok)return;arr.splice(i,1);await saveScripts(arr);await renderScripts();}
+async function addScript(){var info=prompt('Description:');if(!info)return;var url=prompt('URL (e.g. my_page.html):','');if(!url)return;var arr=window._scriptsCache||[];arr.push({id:arr.length+1,info:info,url:url});await saveScripts(arr);await renderScripts();showToast('Script added','success');}
+
+async function switchTheme(t){
+  if(t==='crimson') document.documentElement.setAttribute('data-theme','crimson');
+  else document.documentElement.removeAttribute('data-theme');
+  if (window.CloudSettings) {
+    await CloudSettings.save('admin_theme', t);
+  }
+}
+(function(){
+  function applyTheme() {
+    if (!window.CloudSettings) { setTimeout(applyTheme, 300); return; }
+    CloudSettings.load('admin_theme').then(function(t){
+      var theme = t || 'default';
+      if (theme==='crimson') document.documentElement.setAttribute('data-theme','crimson');
+      else document.documentElement.removeAttribute('data-theme');
+      var s = document.getElementById('themeSelector');
+      if (s) s.value = theme;
+    });
+  }
+  applyTheme();
+})();
+
+function showToast(msg,type){var t=document.getElementById('toast');document.getElementById('toastIcon').textContent=type==='error'?'❌':'✅';document.getElementById('toastMsg').textContent=msg;t.className='toast '+(type||'')+' show';setTimeout(function(){t.classList.remove('show');},3000);}
+
+window.doLogin=doLogin;
+window.doLogout=doLogout;
+window.setModuleStatus=setModuleStatus;
+window.toggleLock=toggleLock;
+window.saveModulePw=saveModulePw;
+window.saveGlobalPw=saveGlobalPw;
+window.openPage=openPage;
+window.scanUnlinked=scanUnlinked;
+window.cleanUnlinked=cleanUnlinked;
+window.closeConfirm=closeConfirm;
+window.switchTheme=switchTheme;
+window.addScript=addScript;
+window.openScr=openScr;
+window.editScr=editScr;
+window.saveScr=saveScr;
+window.delScr=delScr;
+window.openInAdmin=openInAdmin;
+window.closeAdminFrame=closeAdminFrame;
+</script>
+
+</body>
+</html>

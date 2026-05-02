@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGSDB2026 - Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .dashboard-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .dashboard-header h1 { font-size: 42px; margin-bottom: 10px; font-weight: 700; }
+        .dashboard-header p  { font-size: 18px; opacity: 0.95; }
+        .dashboard-content   { padding: 50px 40px; }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 18px;
+            margin-bottom: 40px;
+        }
+        @media (max-width: 1200px) { .modules-grid { grid-template-columns: repeat(4, 1fr); } }
+        @media (max-width: 900px)  { .modules-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 600px)  { .modules-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        a.module-link { text-decoration: none; color: inherit; display: block; }
+
+        .module-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            padding: 20px 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .module-card:hover { transform: translateY(-10px); box-shadow: 0 15px 35px rgba(0,0,0,0.2); }
+        .module-card.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .module-card.locked { background: linear-gradient(135deg, #dc3545 0%, #6c1d2e 100%); color: white; }
+        .module-icon        { font-size: 36px; margin-bottom: 10px; }
+        .module-title       { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+        .module-description { font-size: 11px; opacity: 0.8; margin-bottom: 10px; }
+        .module-status      { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,0.3); }
+
+        .stats-section {
+            background: linear-gradient(135deg, #f0f2ff 0%, #f5f0ff 100%);
+            border-radius: 16px;
+            padding: 22px 24px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(102,126,234,0.12);
+        }
+        .stats-section h2 {
+            font-size: 13px; font-weight: 700; color: #667eea; margin-bottom: 14px;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+        .stat-card {
+            border-radius: 12px; padding: 14px 10px 12px;
+            text-align: center; position: relative; overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        .stat-card::before { content:''; position:absolute; top:-18px; right:-18px; width:55px; height:55px; border-radius:50%; background:rgba(255,255,255,0.15); }
+        .stat-card-1  { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .stat-card-2  { background: linear-gradient(135deg, #f093fb, #c471ed); }
+        .stat-card-3  { background: linear-gradient(135deg, #4facfe, #00c6fb); }
+        .stat-card-4  { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+        .stat-card-5  { background: linear-gradient(135deg, #fa709a, #fee140); }
+        .stat-card-6  { background: linear-gradient(135deg, #a18cd1, #fbc2eb); }
+        .stat-card-7  { background: linear-gradient(135deg, #f7971e, #ffd200); }
+        .stat-card-8  { background: linear-gradient(135deg, #11998e, #38ef7d); }
+        .stat-card-9  { background: linear-gradient(135deg, #ee0979, #ff6a00); }
+        .stat-card-10 { background: linear-gradient(135deg, #2193b0, #6dd5ed); }
+        .stat-card-11 { background: linear-gradient(135deg, #c94b4b, #4b134f); }
+        .stat-card-12 { background: linear-gradient(135deg, #544a7d, #ffd452); }
+        .stat-card-13 { background: linear-gradient(135deg, #1d976c, #93f9b9); }
+        .proc-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+        .stat-icon   { font-size: 20px; margin-bottom: 6px; display: block; }
+        .stat-number { font-size: 28px; font-weight: 800; color: white; margin-bottom: 3px; line-height: 1; text-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .stat-number.empty { font-size: 22px; opacity: 0.4; }
+        .stat-label  { font-size: 10px; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+
+        .pm-employer-card   { background: white; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); overflow: hidden; }
+        .pm-employer-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: white; }
+        .pm-employer-header h3 { font-size: 16px; }
+        .pm-employer-badge  { background: rgba(255,255,255,0.3); padding: 4px 12px; border-radius: 15px; font-size: 13px; font-weight: 600; }
+        .pm-workers-body    { padding: 15px 20px; }
+
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; border-top: 1px solid #e9ecef; }
+
+        .modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.show { display: flex; }
+        .login-modal {
+            background: white; border-radius: 16px; padding: 28px 30px 24px;
+            width: 320px; max-width: 90%;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.28);
+            text-align: center; position: relative;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .login-modal h2      { font-size: 18px; color: #333; margin-bottom: 5px; }
+        .login-modal p       { color: #999; font-size: 12px; margin-bottom: 18px; }
+        .login-modal .modal-icon { font-size: 36px; margin-bottom: 10px; }
+        .form-group          { margin-bottom: 14px; text-align: left; }
+        .form-group label    { display: block; font-size: 11px; font-weight: 700; color: #777; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input    { width: 100%; padding: 10px 13px; border: 2px solid #e8e8e8; border-radius: 9px; font-size: 14px; transition: border-color 0.3s; outline: none; }
+        .form-group input:focus { border-color: #667eea; }
+        .login-submit-btn    { width: 100%; padding: 11px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.3s; margin-top: 4px; letter-spacing: 0.5px; }
+        .login-submit-btn:hover { opacity: 0.88; transform: scale(1.02); }
+        .login-error         { color: #e74c3c; font-size: 12px; margin-top: 10px; display: none; background:#fff0f0; padding:7px 10px; border-radius:7px; border-left:3px solid #e74c3c; }
+        .modal-close         { position: absolute; top: 15px; right: 20px; font-size: 24px; color: #aaa; cursor: pointer; background: none; border: none; line-height: 1; }
+        .modal-close:hover   { color: #333; }
+
+        .admin-btn {
+            background:rgba(255,255,255,0.2);color:white;border:2px solid rgba(255,255,255,0.5);
+            padding:10px 24px;border-radius:30px;font-size:15px;font-weight:600;cursor:pointer;
+            display:flex;align-items:center;gap:8px;
+        }
+        .admin-btn:hover { background:rgba(255,255,255,0.3); }
+    </style>
+</head>
+<body>
+<div class="dashboard-container">
+
+    <div class="dashboard-header">
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:15px;">
+            <button onclick="window.open('Admin_Dashboard.html','_blank')" class="admin-btn">
+                <span>&#128272;</span> Admin Dashboard
+            </button>
+        </div>
+        <h1>&#127970; MGS - Massroua General Services</h1>
+        <p>Management System Dashboard</p>
+    </div>
+
+    <div class="modal-overlay" id="loginModal">
+        <div class="login-modal">
+            <button class="modal-close" onclick="closeLoginModal()">&times;</button>
+            <div class="modal-icon">&#128274;</div>
+            <h2 id="loginTitle">Access Required</h2>
+            <p id="loginDescription">Enter the password to continue</p>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="adminPassword" placeholder="Enter password" onkeydown="if(event.key==='Enter') adminLogin()">
+            </div>
+            <button class="login-submit-btn" onclick="adminLogin()">Unlock &amp; Enter</button>
+            <div class="login-error" id="loginError">&#10060; Invalid password</div>
+        </div>
+    </div>
+
+    <div class="dashboard-content">
+
+        <div class="stats-section">
+            <h2>📊 Quick Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card stat-card-1"><span class="stat-icon">🏗️</span><div class="stat-number" id="supplierCount">0</div><div class="stat-label">Suppliers</div></div>
+                <div class="stat-card stat-card-2"><span class="stat-icon">👷</span><div class="stat-number" id="workerCount">0</div><div class="stat-label">Workers</div></div>
+                <div class="stat-card stat-card-3"><span class="stat-icon">👔</span><div class="stat-number" id="employerCount">0</div><div class="stat-label">Employers</div></div>
+                <div class="stat-card stat-card-4"><span class="stat-icon">🏛️</span><div class="stat-number" id="agencyCount">0</div><div class="stat-label">Agencies</div></div>
+                <div class="stat-card stat-card-5"><span class="stat-icon">🌍</span><div class="stat-number" id="nationalityCount">0</div><div class="stat-label">Countries</div></div>
+                <div class="stat-card stat-card-6"><span class="stat-icon">✅</span><div class="stat-number" id="activeNationalityCount">0</div><div class="stat-label">Active</div></div>
+            </div>
+        </div>
+
+        <div class="stats-section" style="margin-top:30px;">
+            <h2>📊 Worker Processing Statistics</h2>
+            <div class="proc-stats-grid">
+                <div class="stat-card stat-card-1"><span class="stat-icon">⚙️</span><div class="stat-number" id="ps-processing">0</div><div class="stat-label">Processing</div></div>
+                <div class="stat-card stat-card-3"><span class="stat-icon">📋</span><div class="stat-number" id="ps-preapproval">0</div><div class="stat-label">Pre-Approval</div></div>
+                <div class="stat-card stat-card-7"><span class="stat-icon">🛂</span><div class="stat-number" id="ps-immigration">0</div><div class="stat-label">Immigration</div></div>
+                <div class="stat-card stat-card-8"><span class="stat-icon">⏳</span><div class="stat-number" id="ps-waitingvisa">0</div><div class="stat-label">Waiting Visa</div></div>
+                <div class="stat-card stat-card-10"><span class="stat-icon">🎫</span><div class="stat-number" id="ps-waitingticket">0</div><div class="stat-label">Waiting Ticket</div></div>
+                <div class="stat-card stat-card-9"><span class="stat-icon">❌</span><div class="stat-number" id="ps-cancelled">0</div><div class="stat-label">Cancelled</div></div>
+                <div class="stat-card stat-card-13"><span class="stat-icon">✈️</span><div class="stat-number" id="ps-arrived">0</div><div class="stat-label">Arrived</div></div>
+                <div class="stat-card stat-card-4"><span class="stat-icon">🏠</span><div class="stat-number" id="ps-local">0</div><div class="stat-label">Local</div></div>
+                <div class="stat-card stat-card-12"><span class="stat-icon">🔀</span><div class="stat-number" id="ps-moved">0</div><div class="stat-label">Moved</div></div>
+                <div class="stat-card stat-card-11"><span class="stat-icon">🚫</span><div class="stat-number" id="ps-unfit">0</div><div class="stat-label">Unfit</div></div>
+                <div class="stat-card stat-card-9"><span class="stat-icon">🏃</span><div class="stat-number" id="ps-runaway">0</div><div class="stat-label">RunAway</div></div>
+                <div class="stat-card stat-card-11"><span class="stat-icon">🛫</span><div class="stat-number" id="ps-senthome">0</div><div class="stat-label">Sent Home</div></div>
+            </div>
+        </div>
+
+        <div class="modules-grid" id="modulesGrid"></div>
+    </div>
+
+    <div class="footer">
+        <p>MGS - Massroua General Services &copy; 2026 | Management System v1.0</p>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+        authDomain: "mgsd2026.firebaseapp.com",
+        projectId: "mgsd2026",
+        storageBucket: "mgsd2026.firebasestorage.app",
+        messagingSenderId: "918582360831",
+        appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.loadAllFromFirestore = async function() {
+        const collections = ['workers','employers','local_agencies','suppliers','nationalities'];
+        const results = await Promise.all(collections.map(async (name) => {
+            try {
+                const snap = await getDocs(collection(db, name));
+                const rows = [];
+                snap.forEach(d => rows.push(d.data()));
+                return rows;
+            } catch(e) { return []; }
+        }));
+        window._cache = {
+            workers:       results[0],
+            employers:     results[1],
+            agencies:      results[2],
+            suppliers:     results[3],
+            nationalities: results[4]
+        };
+        updateStats();
+    };
+
+    window.loadModuleSettings = async function() {
+        try {
+            const s = await getDoc(doc(db, 'mgs_admin_settings', 'module_status'));
+            const secS = await getDoc(doc(db, 'mgs_admin_settings', 'module_security'));
+            const pwS = await getDoc(doc(db, 'mgs_admin_settings', 'module_passwords'));
+            return {
+                status: s.exists() ? s.data().value : {},
+                security: secS.exists() ? secS.data().value : {},
+                passwords: pwS.exists() ? pwS.data().value : {}
+            };
+        } catch(e) { return { status:{}, security:{}, passwords:{} }; }
+    };
+</script>
+
+<script>
+var ALL_MODULES = [
+    { id:'workers',            key:'Workers_Manager',            page:'workers_manager',            icon:'👷',title:'Workers Management',        desc:'Track workers, documents, and employment status' },
+    { id:'employers',          key:'Employers_Manager',          page:'employers_manager',          icon:'👔',title:'Employers Management',      desc:'Manage employer contracts and relationships' },
+    { id:'supplier_manager',   key:'Supplier_Manager_FINAL',     page:'supplier_manager',           icon:'🏢',title:'Suppliers Management',      desc:'Manage supplier information, contacts, and details' },
+    { id:'agencies',           key:'Local_Agencies_Manager',     page:'local_agencies_manager',     icon:'🏛️',title:'Local Agencies',            desc:'Track local agency partnerships' },
+    { id:'processing_manager', key:'Processing_Manager',         page:'processing_manager',         icon:'🔄',title:'Processing',                desc:'Track workers being processed for employers' },
+    { id:'worker_approval',    key:'Worker_Approval',            page:'worker_approval',            icon:'✅',title:'Worker Approval',           desc:'Review and approve worker applications' },
+    { id:'nationalities',      key:'Nationalities_Manager',      page:'nationalities',              icon:'🌍',title:'Nationalities',             desc:'Manage countries and nationalities database' },
+    { id:'processing_costs',   key:'Processing_Costs',           page:'processing_costs',           icon:'💲',title:'Processing Costs',          desc:'Track and manage processing costs' },
+    { id:'messaging',          key:'Messaging_Manager',          page:'messaging_manager',          icon:'💬',title:'Messaging Manager',         desc:'Send WhatsApp messages to employers' },
+    { id:'message_templates',  key:'Message_Templates',          page:'message_templates',          icon:'📝',title:'Message Templates',         desc:'Create and manage WhatsApp message templates' },
+    { id:'rules_review',       key:'Rules_Review',               page:'rules_review',               icon:'⚙️',title:'Rules Review',              desc:'Review and modify auto-send rule configurations' },
+    { id:'accountant',         key:'Accountant',                 page:'accountant',                 icon:'💰',title:'Accountant',                desc:'Invoicing and financial management' },
+    { id:'reports',            key:'Reports',                    page:'reports',                    icon:'📊',title:'Reports & Analytics',       desc:'Generate reports and view analytics' },
+    { id:'workers_in_lebanon', key:'Workers_In_Lebanon',         page:'workers_in_lebanon',         icon:'🇱🇧',title:'Workers in Lebanon',        desc:'Workers currently in Lebanon — compliance monitoring' },
+    { id:'reports_manager',    key:'Reports_Manager',            page:'reports_manager',            icon:'📈',title:'Reports Manager',           desc:'Manage and configure system reports' },
+    { id:'documents_manager',  key:'Documents_Manager',          page:'documents_manager',          icon:'📋',title:'Documents Manager',         desc:'Central document management hub' },
+    { id:'agencies_portal',    key:'local_Agencies_Portal',      page:'local_agencies_portal',      icon:'🌐',title:'Local Agencies Portal',     desc:'Portal view for local agencies' },
+    { id:'supplier_portal',    key:'Supplier_Portal',            page:'supplier_portal',            icon:'🛒',title:'Supplier Portal',           desc:'Supplier-facing portal view' },
+    { id:'employer_documents', key:'Employer_Documents',         page:'employer_documents',         icon:'📋',title:'Employer Documents',        desc:'Manage employer required documents database', locked:true },
+    { id:'worker_documents',   key:'Worker_Documents',           page:'worker_documents',           icon:'📋',title:'Worker Documents',          desc:'Manage worker required documents database', locked:true }
+];
+
+var _moduleSettings = { status:{}, security:{}, passwords:{} };
+var _cache = { suppliers:[], workers:[], employers:[], agencies:[], nationalities:[] };
+
+async function initDashboard() {
+    if (window.loadModuleSettings) _moduleSettings = await window.loadModuleSettings();
+    renderModules();
+    if (window.loadAllFromFirestore) window.loadAllFromFirestore();
+}
+
+function renderModules() {
+    var grid = document.getElementById('modulesGrid');
+    var html = '';
+    ALL_MODULES.forEach(function(m) {
+        var st = _moduleSettings.status[m.key] || {};
+        // Default: show. Hide only if explicitly false
+        if (st.showOnMain !== true) return;
+        var sec = _moduleSettings.security[m.id] === true;
+        var isLocked = m.locked === true || sec;
+        var cls = 'module-card ' + (isLocked ? 'locked' : 'active');
+        var statusTxt = isLocked ? '&#128272; Password Required' : '&#10003; Active';
+        html += '<div data-module-id="'+m.id+'" data-page="'+m.page+'" data-title="'+m.title+'" '
+             +  'class="'+cls+'" onclick="goToModule(this)">'
+             +  '<div class="module-icon">'+m.icon+'</div>'
+             +  '<div class="module-title">'+m.title+'</div>'
+             +  '<div class="module-description">'+m.desc+'</div>'
+             +  '<div class="module-status">'+statusTxt+'</div>'
+             +  '</div>';
+    });
+    grid.innerHTML = html;
+}
+
+function updateStats() {
+    if (window._cache) _cache = window._cache;
+    var suppliers     = _cache.suppliers;
+    var workers       = _cache.workers;
+    var employers     = _cache.employers;
+    var agencies      = _cache.agencies;
+    var nationalities = _cache.nationalities;
+    var activeNats    = nationalities.filter(function(n){ return n.Active; });
+    document.getElementById('supplierCount').textContent          = suppliers.length;
+    document.getElementById('workerCount').textContent            = workers.length;
+    document.getElementById('employerCount').textContent          = employers.length;
+    document.getElementById('agencyCount').textContent            = agencies.length;
+    document.getElementById('nationalityCount').textContent       = nationalities.length;
+    document.getElementById('activeNationalityCount').textContent = activeNats.length;
+
+    var procWorkers = workers.filter(function(w){ return w.Processing === 'Yes' || w.Processing === true || w.Processing === 'yes'; });
+    var counts = { preapproval:0, immigration:0, waitingvisa:0, waitingticket:0, cancelled:0, arrived:0, local:0, moved:0, unfit:0, runaway:0, senthome:0 };
+    procWorkers.forEach(function(w) {
+        var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
+        var isTerminal = ['cancelled','unfit','runaway','senthome'].some(function(o){return outs.indexOf(o) >= 0;});
+        if (outs.indexOf('cancelled') >= 0) counts.cancelled++;
+        if (outs.indexOf('unfit')     >= 0) counts.unfit++;
+        if (outs.indexOf('runaway')   >= 0) counts.runaway++;
+        if (outs.indexOf('senthome')  >= 0) counts.senthome++;
+        if (isTerminal) return;
+        if (outs.indexOf('arrived')      >= 0)                                       { counts.arrived++;       return; }
+        if (outs.indexOf('waitingticket')>= 0 && outs.indexOf('arrived')      < 0)  { counts.waitingticket++; return; }
+        if (outs.indexOf('waitingvisa')  >= 0 && outs.indexOf('waitingticket')< 0)  { counts.waitingvisa++;   return; }
+        if (outs.indexOf('immigration')  >= 0 && outs.indexOf('waitingvisa')  < 0)  { counts.immigration++;   return; }
+        if (outs.indexOf('preapproval')  >= 0 && outs.indexOf('immigration')  < 0)  { counts.preapproval++;   return; }
+        if (outs.indexOf('local') >= 0) counts.local++;
+        if (outs.indexOf('moved') >= 0) counts.moved++;
+    });
+    document.getElementById('ps-processing').textContent = procWorkers.length;
+    setStatVal('ps-preapproval',   counts.preapproval);
+    setStatVal('ps-immigration',   counts.immigration);
+    setStatVal('ps-waitingvisa',   counts.waitingvisa);
+    setStatVal('ps-waitingticket', counts.waitingticket);
+    setStatVal('ps-cancelled',     counts.cancelled);
+    setStatVal('ps-arrived',       counts.arrived);
+    setStatVal('ps-local',         counts.local);
+    setStatVal('ps-moved',         counts.moved);
+    setStatVal('ps-unfit',         counts.unfit);
+    setStatVal('ps-runaway',       counts.runaway);
+    setStatVal('ps-senthome',      counts.senthome);
+}
+
+function setStatVal(id, val) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (val === 0) { el.textContent = '—'; el.classList.add('empty'); }
+    else           { el.textContent = val; el.classList.remove('empty'); }
+}
+
+function goToModule(card) {
+    var moduleId = card.getAttribute('data-module-id');
+    var page     = card.getAttribute('data-page');
+    var title    = card.getAttribute('data-title');
+    var isLocked = card.classList.contains('locked');
+
+    if (isLocked) {
+        openModuleLogin(title, page, moduleId);
+    } else {
+        navigateTo(page);
+    }
+}
+
+function navigateTo(page) {
+    window.open(page + '.html', '_blank');
+}
+
+function openModuleLogin(title, page, moduleKey) {
+    document.getElementById('loginTitle').textContent       = title || 'Access Required';
+    document.getElementById('loginDescription').textContent = 'Enter password to access this module';
+    document.getElementById('adminPassword').value          = '';
+    document.getElementById('loginError').style.display     = 'none';
+    document.getElementById('loginModal').setAttribute('data-target',     page      || '');
+    document.getElementById('loginModal').setAttribute('data-module-key', moduleKey || '');
+    document.getElementById('loginModal').classList.add('show');
+    setTimeout(function(){ document.getElementById('adminPassword').focus(); }, 200);
+}
+
+function closeLoginModal() {
+    document.getElementById('loginModal').classList.remove('show');
+}
+
+document.getElementById('loginModal').addEventListener('click', function(e) {
+    if (e.target === this) closeLoginModal();
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeLoginModal();
+});
+
+function adminLogin() {
+    var password  = document.getElementById('adminPassword').value;
+    var moduleKey = document.getElementById('loginModal').getAttribute('data-module-key') || '';
+    var target    = document.getElementById('loginModal').getAttribute('data-target')     || '';
+
+    var globalPw  = 'masr3434';
+    var modulePw  = (_moduleSettings.passwords && _moduleSettings.passwords[moduleKey]) ? _moduleSettings.passwords[moduleKey] : globalPw;
+
+    if (password === modulePw || password === globalPw) {
+        closeLoginModal();
+        navigateTo(target);
+    } else {
+        document.getElementById('loginError').style.display = 'block';
+        document.getElementById('adminPassword').value      = '';
+        document.getElementById('adminPassword').focus();
+    }
+}
+
+window.goToModule = goToModule;
+window.navigateTo = navigateTo;
+window.openModuleLogin = openModuleLogin;
+window.closeLoginModal = closeLoginModal;
+window.adminLogin = adminLogin;
+
+function tryInit() {
+    if (typeof window.loadModuleSettings === 'function') {
+        initDashboard();
+    } else {
+        setTimeout(tryInit, 100);
+    }
+}
+tryInit();
+</script>
+</body>
+</html>

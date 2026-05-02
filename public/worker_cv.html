@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Worker CV — MGS Local Agency Portal</title>
+<link rel="icon" href="data:,">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    font-family: 'Tajawal', 'Segoe UI', sans-serif;
+    background: #e2e8f0;
+    color: #1e293b;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+/* ====== TOOLBAR ====== */
+.toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: linear-gradient(135deg, #064e3b, #065f46);
+    color: white;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    flex-wrap: wrap;
+}
+.toolbar h1 {
+    font-size: 16px;
+    font-weight: 700;
+    flex: 1;
+    min-width: 200px;
+}
+.toolbar .agency-tag {
+    font-size: 12px;
+    color: #6ee7b7;
+    font-weight: 500;
+    margin-top: 2px;
+}
+.tb-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tb-btn {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.25);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Tajawal', sans-serif;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.tb-btn:hover { background: rgba(255,255,255,0.25); }
+.tb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.tb-btn.primary { background: #fbbf24; color: #1e293b; border-color: #f59e0b; font-weight: 800; }
+.tb-btn.primary:hover { background: #f59e0b; color: white; }
+.tb-btn.save { background: #3b82f6; color: white; border-color: #2563eb; }
+.tb-btn.save:hover { background: #2563eb; }
+.tb-counter {
+    font-size: 12px;
+    font-weight: 800;
+    background: rgba(0,0,0,0.25);
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: #6ee7b7;
+    white-space: nowrap;
+}
+
+/* ====== A4 PAGE ====== */
+.cv-stage {
+    padding: 24px 16px 40px;
+    display: flex;
+    justify-content: center;
+}
+.cv-page {
+    width: 210mm;
+    height: 297mm;
+    background: white;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    padding: 12mm 13mm 10mm;
+    color: #1e293b;
+    display: flex;
+    flex-direction: column;
+    font-size: 10.5pt;
+    line-height: 1.35;
+    overflow: hidden;
+}
+
+.cv-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 3px solid #064e3b;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+}
+.cv-header .ag-name {
+    font-size: 17pt;
+    font-weight: 800;
+    color: #064e3b;
+    line-height: 1.1;
+}
+.cv-header .ag-meta {
+    font-size: 9pt;
+    color: #64748b;
+    margin-top: 2px;
+}
+.cv-header .ag-badge {
+    width: 46px; height: 46px;
+    background: linear-gradient(135deg, #064e3b, #065f46);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.cv-top {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 14px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+}
+.cv-photo {
+    width: 100px; height: 130px;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 9pt;
+}
+.cv-photo img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.cv-identity .worker-name {
+    font-size: 16pt;
+    font-weight: 800;
+    color: #064e3b;
+    line-height: 1.1;
+}
+.cv-identity .worker-name .ar {
+    display: block;
+    font-size: 11pt;
+    color: #475569;
+    font-weight: 600;
+    margin-top: 2px;
+    direction: rtl;
+}
+.cv-identity .worker-code {
+    display: inline-block;
+    margin-top: 5px;
+    background: #ecfdf5;
+    color: #065f46;
+    padding: 2px 9px;
+    border-radius: 5px;
+    font-size: 9.5pt;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+}
+.cv-identity table { width: 100%; margin-top: 7px; border-collapse: collapse; }
+.cv-identity table td { padding: 2px 0; font-size: 9.5pt; vertical-align: top; }
+.cv-identity table td:first-child { color: #64748b; font-weight: 500; width: 38%; }
+.cv-identity table td:last-child { font-weight: 600; color: #1e293b; }
+
+.cv-section { margin-bottom: 8px; flex-shrink: 0; }
+.cv-section-title {
+    font-size: 8.5pt;
+    font-weight: 800;
+    color: #064e3b;
+    text-transform: uppercase;
+    letter-spacing: 1.3px;
+    padding-bottom: 3px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid #cbd5e1;
+}
+.cv-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 16px; }
+.cv-field { font-size: 9.5pt; padding: 1px 0; }
+.cv-field .lbl { color: #64748b; font-weight: 500; font-size: 8.5pt; display: block; }
+.cv-field .val { font-weight: 600; color: #1e293b; }
+.cv-field .val.mono { font-family: 'Courier New', monospace; }
+
+.cv-passport-block { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin-top: 4px; }
+.cv-passport-img {
+    flex: 1 1 auto; min-height: 0;
+    background: #f1f5f9;
+    border: 1px dashed #94a3b8;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 9.5pt;
+}
+.cv-passport-img img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+
+.cv-footer {
+    margin-top: 6px;
+    padding-top: 5px;
+    border-top: 1px solid #cbd5e1;
+    display: flex;
+    justify-content: space-between;
+    font-size: 7.5pt;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.empty-state {
+    background: white;
+    padding: 60px 30px;
+    border-radius: 14px;
+    text-align: center;
+    color: #64748b;
+    margin: 30px auto;
+    max-width: 480px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+}
+.empty-state .ei { font-size: 56px; margin-bottom: 14px; }
+.empty-state h3 { font-size: 18px; color: #1e293b; margin-bottom: 8px; font-weight: 700; }
+.empty-state p { font-size: 13px; }
+.empty-state a {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.save-overlay {
+    position: fixed; inset: 0;
+    background: rgba(6, 78, 59, 0.92);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: white;
+    gap: 16px;
+}
+.save-overlay.show { display: flex; }
+.save-overlay .spinner {
+    width: 48px; height: 48px;
+    border: 4px solid rgba(255,255,255,0.2);
+    border-top: 4px solid white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+.save-overlay h3 { font-size: 18px; font-weight: 700; }
+.save-overlay p { font-size: 13px; opacity: 0.85; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media print {
+    @page { size: A4; margin: 0; }
+    html, body { background: white; }
+    .toolbar, .save-overlay { display: none !important; }
+    .cv-stage { padding: 0 !important; display: block !important; }
+    .cv-page {
+        box-shadow: none !important;
+        margin: 0 !important;
+        page-break-after: always !important;
+        break-after: page;
+        width: 210mm !important;
+        height: 297mm !important;
+    }
+    .cv-page:last-child {
+        page-break-after: auto !important;
+        break-after: auto;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar" id="toolbar">
+    <div>
+        <h1>📄 Worker CV Browser</h1>
+        <div class="agency-tag" id="agencyTag">Loading agency…</div>
+    </div>
+    <div class="tb-controls">
+        <button class="tb-btn" id="btnPrev" onclick="navCV(-1)">◀ Prev</button>
+        <span class="tb-counter" id="cvCounter">– / –</span>
+        <button class="tb-btn" id="btnNext" onclick="navCV(1)">Next ▶</button>
+        <button class="tb-btn primary" onclick="window.print()">🖨️ Print this</button>
+        <button class="tb-btn primary" onclick="printAllCVs()">📚 Print ALL</button>
+        <button class="tb-btn save" onclick="saveCurrentPDF()">💾 Save this PDF</button>
+        <button class="tb-btn save" onclick="saveAllPDFs()">💾 Save ALL (ZIP)</button>
+        <button class="tb-btn" onclick="window.location.href='local_agencies_portal.html'">🚪 Back</button>
+    </div>
+</div>
+
+<div class="cv-stage" id="cvStage">
+    <div class="empty-state">
+        <div class="ei">⏳</div>
+        <h3>Loading…</h3>
+        <p>Connecting to Firestore.</p>
+    </div>
+</div>
+
+<div class="save-overlay" id="saveOverlay">
+    <div class="spinner"></div>
+    <h3 id="saveTitle">Saving PDF…</h3>
+    <p id="saveDetail">Please wait</p>
+</div>
+
+<!-- ============== FIREBASE SDK ============== -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+    authDomain: "mgsd2026.firebaseapp.com",
+    projectId: "mgsd2026",
+    storageBucket: "mgsd2026.firebasestorage.app",
+    messagingSenderId: "918582360831",
+    appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+window._fbLoadAll = async function(coll){
+    try {
+        const snap = await getDocs(collection(db, coll));
+        const rows = [];
+        snap.forEach(d => rows.push(d.data()));
+        return rows;
+    } catch(e) { console.error('Firestore load error:', coll, e); return []; }
+};
+
+console.log('✅ Firebase Firestore ready (Worker CV)');
+</script>
+
+<!-- ============== LIBRARY LOADERS ============== -->
+<script>
+var _html2pdfPromise = null;
+function ensureHtml2Pdf(){
+    if (window.html2pdf) return Promise.resolve(window.html2pdf);
+    if (_html2pdfPromise) return _html2pdfPromise;
+    _html2pdfPromise = new Promise(function(resolve, reject){
+        var s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        s.onload = function(){ resolve(window.html2pdf); };
+        s.onerror = function(){ reject(new Error('Failed to load html2pdf')); };
+        document.head.appendChild(s);
+    });
+    return _html2pdfPromise;
+}
+
+var _jszipPromise = null;
+function ensureJSZip(){
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    if (_jszipPromise) return _jszipPromise;
+    _jszipPromise = new Promise(function(resolve, reject){
+        var s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+        s.onload = function(){ resolve(window.JSZip); };
+        s.onerror = function(){ reject(new Error('Failed to load JSZip')); };
+        document.head.appendChild(s);
+    });
+    return _jszipPromise;
+}
+</script>
+
+<!-- ============== CV LOGIC ============== -->
+<script>
+var _allWorkers = [];
+var _currentIndex = 0;
+var _agency = null;
+
+async function init(){
+    var params = new URLSearchParams(window.location.search);
+    var agencyCode = (params.get('agency') || '').trim().toUpperCase();
+    if (!agencyCode) {
+        showEmptyState('🔒', 'No agency specified',
+            'Please open this page from the Local Agency Portal.',
+            'local_agencies_portal.html', '🚪 Go to Portal');
+        return;
+    }
+    await waitForFirebase();
+
+    var allAgencies = await window._fbLoadAll('Local_Agencies');
+    _agency = (allAgencies || []).find(function(a){
+        return String(a.AgencyCode || a.LAgencyCode || '').toUpperCase() === agencyCode;
+    });
+    if (!_agency) {
+        showEmptyState('❌', 'Agency not found',
+            'The agency code "' + agencyCode + '" does not exist.',
+            'local_agencies_portal.html', '🚪 Go to Portal');
+        return;
+    }
+
+    var agName = _agency.AgencyName || _agency.LAgencyName || _agency.AgencyCode || 'Agency';
+    document.getElementById('agencyTag').textContent = '🏢 ' + agName;
+
+    var allWorkers = await window._fbLoadAll('Workers');
+    _allWorkers = (allWorkers || []).filter(function(w){
+        var accepted = w.AcceptedByAdmin === true || w.AcceptedByAdmin === 'true';
+        var notRefused = !(w.RefusedByAdmin === true || w.RefusedByAdmin === 'true');
+        var notArchived = !(w.WorkerArchived === true || w.WorkerArchived === 'true');
+        var stage = String(w.ProcessingStage || '').toLowerCase().trim();
+        var availableStages = ['', 'pending', 'available', 'accepted'];
+        var isAvailable = availableStages.indexOf(stage) !== -1;
+        return accepted && notRefused && notArchived && isAvailable;
+    });
+
+    if (_allWorkers.length === 0) {
+        showEmptyState('📭', 'No workers to show',
+            'There are currently no accepted, available workers.',
+            'local_agencies_portal.html', '🚪 Back to Portal');
+        return;
+    }
+
+    _currentIndex = 0;
+    renderCurrentCV();
+}
+
+function waitForFirebase(){
+    return new Promise(function(resolve){
+        var t = setInterval(function(){
+            if (typeof window._fbLoadAll === 'function') { clearInterval(t); resolve(); }
+        }, 50);
+    });
+}
+
+function navCV(dir){
+    if (_allWorkers.length === 0) return;
+    _currentIndex = Math.max(0, Math.min(_allWorkers.length - 1, _currentIndex + dir));
+    renderCurrentCV();
+}
+
+function updateNavButtons(){
+    document.getElementById('btnPrev').disabled = _currentIndex <= 0;
+    document.getElementById('btnNext').disabled = _currentIndex >= _allWorkers.length - 1;
+    document.getElementById('cvCounter').textContent = (_currentIndex + 1) + ' / ' + _allWorkers.length;
+}
+
+document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowLeft')  navCV(-1);
+    if (e.key === 'ArrowRight') navCV(1);
+});
+
+function renderCurrentCV(){
+    var stage = document.getElementById('cvStage');
+    if (!_allWorkers[_currentIndex]) return;
+    stage.innerHTML = buildCVHTML(_allWorkers[_currentIndex]);
+    updateNavButtons();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function printAllCVs(){
+    if (_allWorkers.length === 0) { alert('No workers to print.'); return; }
+    if (!confirm('🖨️ Print ALL ' + _allWorkers.length + ' worker CVs?\n\nOne A4 page per worker.')) return;
+    var stage = document.getElementById('cvStage');
+    stage.innerHTML = _allWorkers.map(buildCVHTML).join('');
+    setTimeout(function(){
+        window.print();
+        setTimeout(function(){ renderCurrentCV(); }, 300);
+    }, 250);
+}
+
+// =========== SAVE PDF (single) ===========
+async function saveCurrentPDF(){
+    if (_allWorkers.length === 0) { alert('No worker to save.'); return; }
+    var w = _allWorkers[_currentIndex];
+    showSaveOverlay('Saving PDF…', getWorkerCode(w));
+    try {
+        await ensureHtml2Pdf();
+        await savePDFForWorker(w);
+        hideSaveOverlay();
+    } catch(e) {
+        hideSaveOverlay();
+        alert('❌ Save failed: ' + e.message);
+    }
+}
+
+async function savePDFForWorker(w){
+    var tmp = document.createElement('div');
+    tmp.style.cssText = 'position:absolute;left:-9999px;top:0;width:210mm;';
+    tmp.innerHTML = buildCVHTML(w);
+    document.body.appendChild(tmp);
+
+    var code = getWorkerCode(w);
+    var name = (w.WFullName || w.WorkerFirstName || 'WORKER').replace(/[^a-zA-Z0-9 ]/g, '').trim();
+    var filename = code + '-' + name + '.pdf';
+
+    var opt = {
+        margin: 0,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: false, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all'] }
+    };
+
+    try {
+        await waitForImages(tmp);
+        await html2pdf().set(opt).from(tmp.firstElementChild).save();
+    } finally {
+        document.body.removeChild(tmp);
+    }
+}
+
+// =========== SAVE ALL AS ZIP ===========
+async function saveAllPDFs(){
+    if (_allWorkers.length === 0) { alert('No workers to save.'); return; }
+    if (!confirm('💾 Save ALL ' + _allWorkers.length + ' worker CVs in ONE zip file?\n\nYou will get a single download containing ' + _allWorkers.length + ' PDFs.')) return;
+
+    showSaveOverlay('Building ZIP archive…', 'Loading libraries…');
+    try {
+        await ensureHtml2Pdf();
+        var JSZip = await ensureJSZip();
+        var zip = new JSZip();
+
+        for (var i = 0; i < _allWorkers.length; i++) {
+            var w = _allWorkers[i];
+            updateSaveOverlay('Generating PDF ' + (i+1) + ' / ' + _allWorkers.length, getWorkerCode(w));
+            var pdfBlob = await generatePDFBlobForWorker(w);
+            var code = getWorkerCode(w);
+            var name = (w.WFullName || w.WorkerFirstName || 'WORKER').replace(/[^a-zA-Z0-9 ]/g, '').trim();
+            var filename = code + '-' + name + '.pdf';
+            zip.file(filename, pdfBlob);
+        }
+
+        updateSaveOverlay('Compressing ZIP…', 'Almost done');
+        var zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+
+        var ag = _agency || {};
+        var agCode = String(ag.AgencyCode || ag.LAgencyCode || 'Agency');
+        var dateStr = new Date().toISOString().split('T')[0];
+        var zipName = agCode + '_Worker_CVs_' + dateStr + '.zip';
+
+        var url = URL.createObjectURL(zipBlob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = zipName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+
+        hideSaveOverlay();
+        alert('✅ Downloaded: ' + zipName + '\n\nContains ' + _allWorkers.length + ' worker PDFs.');
+    } catch(e) {
+        hideSaveOverlay();
+        alert('❌ Save failed: ' + e.message);
+    }
+}
+
+async function generatePDFBlobForWorker(w){
+    var tmp = document.createElement('div');
+    tmp.style.cssText = 'position:absolute;left:-9999px;top:0;width:210mm;';
+    tmp.innerHTML = buildCVHTML(w);
+    document.body.appendChild(tmp);
+
+    var opt = {
+        margin: 0,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: false, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all'] }
+    };
+
+    try {
+        await waitForImages(tmp);
+        var blob = await html2pdf().set(opt).from(tmp.firstElementChild).output('blob');
+        return blob;
+    } finally {
+        document.body.removeChild(tmp);
+    }
+}
+
+function waitForImages(container){
+    return new Promise(function(resolve){
+        var imgs = container.getElementsByTagName('img');
+        if (imgs.length === 0) return resolve();
+        var loaded = 0;
+        var total = imgs.length;
+        var done = function(){ loaded++; if (loaded >= total) resolve(); };
+        setTimeout(function(){ resolve(); }, 5000);
+        for (var i = 0; i < imgs.length; i++) {
+            if (imgs[i].complete) { done(); }
+            else {
+                imgs[i].addEventListener('load', done);
+                imgs[i].addEventListener('error', done);
+            }
+        }
+    });
+}
+
+function showSaveOverlay(title, detail){
+    var ov = document.getElementById('saveOverlay');
+    document.getElementById('saveTitle').textContent = title;
+    document.getElementById('saveDetail').textContent = detail || '';
+    ov.classList.add('show');
+}
+
+function updateSaveOverlay(title, detail){
+    document.getElementById('saveTitle').textContent = title;
+    document.getElementById('saveDetail').textContent = detail || '';
+}
+
+function hideSaveOverlay(){
+    document.getElementById('saveOverlay').classList.remove('show');
+}
+
+function getWorkerCode(w){
+    return w.WorkerCode ||
+           (w.SupplierCode && w.WorkerID
+              ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0')
+              : 'ID-' + (w.WorkerID || '?'));
+}
+
+function buildCVHTML(w){
+    var ag = _agency || {};
+    var agName    = ag.AgencyName || ag.LAgencyName || ag.AgencyCode || 'Agency';
+    var agLicense = ag.LicenseNumber || '';
+    var agCity    = ag.City || '';
+    var agCountry = ag.Country || 'Lebanon';
+    var agMeta    = [
+        agLicense ? 'License ' + agLicense : '',
+        [agCity, agCountry].filter(Boolean).join(', ')
+    ].filter(Boolean).join(' • ');
+
+    var workerCode = getWorkerCode(w);
+
+    var fullName = w.WFullName || (
+        [w.WorkerFirstName, w.WorkerMiddleName, w.WorkerLastName]
+            .filter(Boolean).join(' ').trim()
+    ) || 'Unnamed Worker';
+
+    var arabicName = w.ArabicFullName || (
+        [w.ArabicName, w.FatherName, w.FamilyName]
+            .filter(Boolean).join(' ').trim()
+    ) || '';
+
+    var photoURL = w.WorkerImage || w.PhotoURL || w.WorkerPhoto || w.PhotoPath || '';
+    var photoHTML = photoURL
+        ? '<img src="' + escapeAttr(photoURL) + '" alt="Photo" crossorigin="anonymous" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<span>📷 Photo unavailable</span>\';">'
+        : '<span>📷 No photo</span>';
+
+    var docType = String(w.DocumentType || 'passport').toLowerCase();
+    var scanRaw = '';
+    if (docType === 'id') {
+        scanRaw = w.IDFileURL || w.IDScanPath || w.PassportFileURL || w.PassportScanPath || '';
+    } else {
+        scanRaw = w.PassportFileURL || w.PassportScanPath || w.IDFileURL || w.IDScanPath || '';
+    }
+    var scanLabel = docType === 'id' ? 'ID' : 'Passport';
+    var scanURL = '';
+    if (scanRaw) {
+        if (String(scanRaw).indexOf('http') === 0) scanURL = scanRaw;
+        else {
+            var bucket = 'mgsd2026.firebasestorage.app';
+            scanURL = 'https://firebasestorage.googleapis.com/v0/b/' + bucket + '/o/' + encodeURIComponent(scanRaw) + '?alt=media';
+        }
+    }
+    var passportHTML = scanURL
+        ? '<img src="' + escapeAttr(scanURL) + '" alt="' + scanLabel + '" crossorigin="anonymous" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<span>📘 ' + scanLabel + ' scan unavailable</span>\';">'
+        : '<span>📘 No ' + scanLabel.toLowerCase() + ' scan uploaded</span>';
+
+    var age = '';
+    if (w.DateOfBirth) {
+        try {
+            var dob = new Date(w.DateOfBirth);
+            if (!isNaN(dob.getTime())) {
+                var today = new Date();
+                var years = today.getFullYear() - dob.getFullYear();
+                var m = today.getMonth() - dob.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) years--;
+                age = years + ' yrs';
+            }
+        } catch(e) {}
+    }
+    var dobDisplay = w.DateOfBirth
+        ? formatDate(w.DateOfBirth) + (age ? ' · ' + age : '')
+        : '—';
+
+    return '<div class="cv-page">' +
+        '<div class="cv-header">' +
+            '<div>' +
+                '<div class="ag-name">' + escapeHTML(agName) + '</div>' +
+                '<div class="ag-meta">' + escapeHTML(agMeta) + '</div>' +
+            '</div>' +
+            '<div class="ag-badge">★</div>' +
+        '</div>' +
+        '<div class="cv-top">' +
+            '<div class="cv-photo">' + photoHTML + '</div>' +
+            '<div class="cv-identity">' +
+                '<div class="worker-name">' + escapeHTML(fullName) +
+                    (arabicName ? '<span class="ar">' + escapeHTML(arabicName) + '</span>' : '') +
+                '</div>' +
+                '<span class="worker-code">' + escapeHTML(workerCode) + '</span>' +
+                '<table>' +
+                    fieldRow('Nationality', w.Nationality) +
+                    fieldRow('Date of birth', dobDisplay) +
+                    fieldRow('Gender', w.Gender) +
+                    fieldRow('Contact', w.ContactNumber) +
+                '</table>' +
+            '</div>' +
+        '</div>' +
+        '<div class="cv-section">' +
+            '<div class="cv-section-title">Document Information</div>' +
+            '<div class="cv-grid-2">' +
+                fieldBlock('Document type', w.DocumentType ? capitalize(w.DocumentType) : '—') +
+                fieldBlock('Document number', w.PassportNumber || w.IDNumber || '—', true) +
+                fieldBlock('Issue date', formatDate(w.PassportIssueDate || w.IDIssueDate)) +
+                fieldBlock('Expiry date', formatDate(w.PassportExpiryDate || w.IDExpiryDate)) +
+            '</div>' +
+        '</div>' +
+        '<div class="cv-section cv-passport-block">' +
+            '<div class="cv-section-title">' + scanLabel + ' Scan</div>' +
+            '<div class="cv-passport-img">' + passportHTML + '</div>' +
+        '</div>' +
+        '<div class="cv-footer">' +
+            '<span>Generated ' + formatToday() + ' · ' + escapeHTML(agName) + '</span>' +
+            '<span>' + escapeHTML(workerCode) + '</span>' +
+        '</div>' +
+    '</div>';
+}
+
+function fieldRow(label, val){
+    return '<tr><td>' + escapeHTML(label) + '</td><td>' + escapeHTML(val || '—') + '</td></tr>';
+}
+
+function fieldBlock(label, val, mono){
+    var cls = mono ? 'val mono' : 'val';
+    return '<div class="cv-field"><span class="lbl">' + escapeHTML(label) + '</span>' +
+           '<span class="' + cls + '">' + escapeHTML(val || '—') + '</span></div>';
+}
+
+function formatDate(d){
+    if (!d) return '—';
+    try {
+        var dt = new Date(d);
+        if (isNaN(dt.getTime())) return String(d);
+        var dd = String(dt.getDate()).padStart(2,'0');
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return dd + ' ' + months[dt.getMonth()] + ' ' + dt.getFullYear();
+    } catch(e) { return String(d); }
+}
+
+function formatToday(){
+    var d = new Date();
+    return String(d.getDate()).padStart(2,'0') + '/' +
+           String(d.getMonth()+1).padStart(2,'0') + '/' +
+           d.getFullYear();
+}
+
+function capitalize(s){
+    if (!s) return '';
+    return String(s).charAt(0).toUpperCase() + String(s).slice(1).toLowerCase();
+}
+
+function escapeHTML(s){
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function escapeAttr(s){
+    if (!s) return '';
+    return String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function showEmptyState(icon, title, msg, link, linkLabel){
+    var html = '<div class="empty-state"><div class="ei">' + icon + '</div>' +
+        '<h3>' + escapeHTML(title) + '</h3>' +
+        '<p>' + escapeHTML(msg) + '</p>';
+    if (link) html += '<a href="' + escapeAttr(link) + '">' + escapeHTML(linkLabel) + '</a>';
+    html += '</div>';
+    document.getElementById('cvStage').innerHTML = html;
+    document.getElementById('cvCounter').textContent = '– / –';
+    document.getElementById('btnPrev').disabled = true;
+    document.getElementById('btnNext').disabled = true;
+}
+
+init();
+</script>
+
+</body>
+</html>

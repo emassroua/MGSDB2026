@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGS — Create Employer Storage Folders (One-Time)</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📁</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 12px 50px rgba(0,0,0,0.25);
+            width: 100%;
+            max-width: 760px;
+            overflow: hidden;
+        }
+        .head {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 24px 30px;
+        }
+        .head h1 { font-size: 22px; margin-bottom: 6px; }
+        .head p { font-size: 13px; opacity: 0.95; }
+        .body { padding: 26px 30px; }
+
+        .warn {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 20px;
+            color: #856404;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+        .warn strong { display: block; margin-bottom: 4px; font-size: 14px; }
+
+        .status {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 18px;
+            border-left: 4px solid #6c757d;
+        }
+        .status .label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #6c757d;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .status .value {
+            font-size: 15px;
+            color: #212529;
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        .bar-wrap {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 28px;
+            overflow: hidden;
+            margin: 18px 0 8px;
+        }
+        .bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .counts {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 16px 0;
+        }
+        .count {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .count .n { font-size: 22px; font-weight: 700; color: #4facfe; }
+        .count .l { font-size: 11px; color: #6c757d; text-transform: uppercase; font-weight: 600; letter-spacing: 0.3px; }
+
+        .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+        .btn {
+            flex: 1;
+            min-width: 140px;
+            padding: 12px 18px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: linear-gradient(135deg, #4facfe, #00f2fe); color: white; }
+        .btn-primary:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+        .btn-check { background: #17a2b8; color: white; }
+        .btn-check:hover:not(:disabled) { background: #138496; }
+
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 18px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            display: none;
+        }
+        .log.visible { display: block; }
+        .log .l-info { color: #9cdcfe; }
+        .log .l-ok   { color: #4ec9b0; }
+        .log .l-warn { color: #ce9178; }
+        .log .l-err  { color: #f48771; }
+        .log .t { color: #808080; }
+
+        .preview-box {
+            background: #e7f5ff;
+            border: 2px solid #4facfe;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-top: 14px;
+            display: none;
+        }
+        .preview-box h4 { color: #004085; font-size: 13px; margin-bottom: 10px; }
+        .preview-box .row { font-family: monospace; font-size: 11px; padding: 5px 0; border-bottom: 1px dashed #b3d9ff; }
+        .preview-box .row:last-child { border-bottom: none; }
+        .preview-box .row strong { color: #004085; }
+
+        .done {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border-radius: 8px;
+            padding: 18px 20px;
+            margin-top: 18px;
+            text-align: center;
+            display: none;
+        }
+        .done.visible { display: block; }
+        .done .icon { font-size: 38px; margin-bottom: 8px; }
+        .done h3 { font-size: 18px; margin-bottom: 4px; }
+        .done p { font-size: 13px; opacity: 0.95; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="head">
+        <h1>📁 Create Employer Storage Folders</h1>
+        <p>One-time: creates 1354 folders in Firebase Storage matching Drive naming</p>
+    </div>
+
+    <div class="body">
+
+        <div class="warn">
+            <strong>⚠️ What this does</strong>
+            Reads all employers from Firestore. For each one, uploads a tiny invisible file (<code>.placeholder</code>, ~40 bytes) to create the folder structure in Firebase Storage. Safe to re-run — each file gets overwritten identically.
+            <br><br>
+            <strong>Folder pattern:</strong> <code>employers/MGSC(1354) - Nouhad Joseph Makdessi - 2026-04-23/.placeholder</code>
+        </div>
+
+        <div class="status" id="cloudStatus">
+            <div class="label">🔥 Firebase</div>
+            <div class="value" id="cloudStatusText">Initializing...</div>
+        </div>
+
+        <div class="btns">
+            <button class="btn btn-check" id="btnCheck" onclick="doCheck()" disabled>
+                👀 1. Load Employers & Preview
+            </button>
+            <button class="btn btn-primary" id="btnCreate" onclick="doCreate()" disabled>
+                📁 2. Create All Folders
+            </button>
+        </div>
+
+        <div class="preview-box" id="previewBox">
+            <h4>📋 Sample folder names (first 5):</h4>
+            <div id="previewContent"></div>
+        </div>
+
+        <div class="bar-wrap" id="barWrap" style="display:none;">
+            <div class="bar" id="bar">0%</div>
+        </div>
+
+        <div class="counts" id="countsWrap" style="display:none;">
+            <div class="count"><div class="n" id="cTotal">0</div><div class="l">Total</div></div>
+            <div class="count"><div class="n" id="cDone" style="color:#28a745;">0</div><div class="l">Created</div></div>
+            <div class="count"><div class="n" id="cErr" style="color:#dc3545;">0</div><div class="l">Errors</div></div>
+        </div>
+
+        <div class="done" id="doneBox">
+            <div class="icon">✅</div>
+            <h3 id="doneTitle">All Folders Created!</h3>
+            <p id="doneMsg">You can now delete this file.</p>
+        </div>
+
+        <div class="log" id="log"></div>
+
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- FIREBASE INIT                                                -->
+<!-- ============================================================ -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+        authDomain: "mgsd2026.firebaseapp.com",
+        projectId: "mgsd2026",
+        storageBucket: "mgsd2026.firebasestorage.app",
+        messagingSenderId: "918582360831",
+        appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+    const storage = getStorage(app);
+
+    window._fb = { db, storage, collection, getDocs, ref, uploadString };
+    window.dispatchEvent(new Event('firebase-ready'));
+    console.log('🔥 Firebase initialized for folder creation');
+</script>
+
+<!-- ============================================================ -->
+<!-- FOLDER CREATION LOGIC                                        -->
+<!-- ============================================================ -->
+<script>
+    // Today's date — hard-coded for all folders (matches original migration-day choice)
+    const MIGRATION_DATE = '2026-04-23';
+
+    // Concurrency: how many uploads in parallel
+    const CONCURRENCY = 10;
+
+    // Placeholder file content (just an invisible marker)
+    const PLACEHOLDER_CONTENT = 'MGSDB2026 folder marker - created ' + new Date().toISOString();
+    const PLACEHOLDER_NAME    = '.placeholder';
+
+    let fb = null;
+    let employers = [];
+
+    // ── Log helpers ─────────────────────────────────────────────
+    function logLine(cls, text) {
+        const box = document.getElementById('log');
+        box.classList.add('visible');
+        const line = document.createElement('div');
+        const ts = new Date().toLocaleTimeString();
+        line.innerHTML = '<span class="t">[' + ts + ']</span> <span class="' + cls + '">' + text + '</span>';
+        box.appendChild(line);
+        box.scrollTop = box.scrollHeight;
+    }
+    const logInfo = (t) => logLine('l-info', t);
+    const logOk   = (t) => logLine('l-ok',   t);
+    const logWarn = (t) => logLine('l-warn', t);
+    const logErr  = (t) => logLine('l-err',  t);
+
+    // ── Wait for Firebase ───────────────────────────────────────
+    function waitForFirebase() {
+        return new Promise((resolve) => {
+            if (window._fb) return resolve(window._fb);
+            window.addEventListener('firebase-ready', () => resolve(window._fb), { once: true });
+        });
+    }
+
+    // ── UI helpers ──────────────────────────────────────────────
+    function setStatus(msg, ok) {
+        const s = document.getElementById('cloudStatus');
+        document.getElementById('cloudStatusText').textContent = msg;
+        s.style.borderLeftColor = ok === true ? '#28a745' : ok === false ? '#dc3545' : '#6c757d';
+    }
+    function setBar(pct) {
+        document.getElementById('barWrap').style.display = 'block';
+        const bar = document.getElementById('bar');
+        bar.style.width = pct + '%';
+        bar.textContent = Math.round(pct) + '%';
+    }
+    function setCount(id, n) { document.getElementById(id).textContent = n; }
+
+    // ── Folder name builder ─────────────────────────────────────
+    // Pattern: MGSC(1354) - Nouhad Joseph Makdessi - 2026-04-23
+    // Sanitize: remove characters Firebase Storage rejects: # [ ] * ? /
+    function buildFolderName(emp) {
+        const agency  = (emp.AgencyCode || 'MGS').toString().trim();
+        const id      = (emp.EmployerID || '').toString().trim();
+        const rawName = (emp.EFN || emp.EmployerName || 'Unknown').toString().trim();
+        const safeName = rawName.replace(/[#\[\]\*\?\/\\]/g, '').replace(/\s+/g, ' ');
+        return agency + '(' + id + ') - ' + safeName + ' - ' + MIGRATION_DATE;
+    }
+
+    // ── Init ────────────────────────────────────────────────────
+    (async function init() {
+        try {
+            fb = await waitForFirebase();
+            setStatus('✅ Connected to Firestore + Storage (project: mgsd2026)', true);
+            document.getElementById('btnCheck').disabled = false;
+            logOk('Firebase ready. Click "Load Employers & Preview" to begin.');
+        } catch (e) {
+            setStatus('❌ Firebase init failed: ' + e.message, false);
+            logErr(e.message);
+        }
+    })();
+
+    // ── Step 1: Load & Preview ──────────────────────────────────
+    window.doCheck = async function() {
+        const btn = document.getElementById('btnCheck');
+        btn.disabled = true;
+        btn.textContent = '⏳ Loading...';
+        try {
+            logInfo('Loading employers from Firestore...');
+            const snap = await fb.getDocs(fb.collection(fb.db, 'employers'));
+            employers = [];
+            snap.forEach(d => employers.push(d.data()));
+            logOk('Loaded ' + employers.length + ' employer(s) from Firestore.');
+
+            // Preview first 5
+            const preview = employers.slice(0, 5);
+            const pv = document.getElementById('previewContent');
+            pv.innerHTML = '';
+            preview.forEach((e, i) => {
+                const folder = buildFolderName(e);
+                const div = document.createElement('div');
+                div.className = 'row';
+                div.innerHTML = '<strong>#' + (i + 1) + '</strong> ' + folder;
+                pv.appendChild(div);
+            });
+            document.getElementById('previewBox').style.display = 'block';
+
+            // Validate
+            const missingId = employers.filter(e => !e.EmployerID).length;
+            if (missingId > 0) {
+                logWarn('⚠️ ' + missingId + ' employer(s) missing EmployerID — will be SKIPPED.');
+            }
+
+            document.getElementById('countsWrap').style.display = 'grid';
+            setCount('cTotal', employers.length);
+            setCount('cDone', 0);
+            setCount('cErr', 0);
+
+            document.getElementById('btnCreate').disabled = employers.length === 0;
+            btn.textContent = '✅ Review the preview, then click Create';
+            btn.disabled = false;
+        } catch (e) {
+            logErr('Load failed: ' + e.message);
+            btn.textContent = '👀 1. Load Employers & Preview';
+            btn.disabled = false;
+        }
+    };
+
+    // ── Step 2: Create folders ──────────────────────────────────
+    window.doCreate = async function() {
+        const btnC = document.getElementById('btnCreate');
+        const btnL = document.getElementById('btnCheck');
+
+        if (!employers.length) { logErr('No employers loaded. Run step 1 first.'); return; }
+        if (!confirm('Create ' + employers.length + ' folder(s) in Firebase Storage?\n\nEach folder will contain a tiny placeholder file (~40 bytes).\n\nSafe to re-run.\n\nContinue?')) return;
+
+        btnC.disabled = true;
+        btnL.disabled = true;
+        btnC.textContent = '⏳ Creating folders...';
+        logInfo('Starting folder creation (concurrency: ' + CONCURRENCY + ')...');
+
+        let done = 0, err = 0;
+        const total = employers.length;
+        let queueIdx = 0;
+
+        // Worker function — pulls next employer from queue
+        async function worker(workerId) {
+            while (true) {
+                const myIdx = queueIdx++;
+                if (myIdx >= total) return;
+                const emp = employers[myIdx];
+
+                try {
+                    if (!emp.EmployerID) { err++; continue; }
+
+                    const folderName = buildFolderName(emp);
+                    const path = 'employers/' + folderName + '/' + PLACEHOLDER_NAME;
+                    const fileRef = fb.ref(fb.storage, path);
+
+                    await fb.uploadString(fileRef, PLACEHOLDER_CONTENT, 'raw', {
+                        contentType: 'text/plain',
+                        customMetadata: {
+                            employerId: String(emp.EmployerID),
+                            createdBy:  'migration-tool',
+                            createdAt:  new Date().toISOString()
+                        }
+                    });
+                    done++;
+
+                    // Log every 50th folder + first + last
+                    if (done % 50 === 0 || done === 1 || done === total - err) {
+                        logOk('Created ' + done + ' / ' + total + ' — latest: ' + folderName);
+                    }
+                } catch (e) {
+                    err++;
+                    logErr('Failed for EmployerID ' + emp.EmployerID + ': ' + e.message);
+                }
+
+                // Update UI
+                setCount('cDone', done);
+                setCount('cErr', err);
+                setBar(((done + err) / total) * 100);
+            }
+        }
+
+        // Launch N concurrent workers
+        const workers = [];
+        for (let w = 0; w < CONCURRENCY; w++) workers.push(worker(w));
+        await Promise.all(workers);
+
+        // Done
+        btnC.textContent = '✅ Creation Finished';
+        if (err === 0) {
+            logOk('🎉 All ' + done + ' folders created successfully.');
+            document.getElementById('doneTitle').textContent = '✅ All Folders Created!';
+            document.getElementById('doneMsg').innerHTML =
+                'Created <strong>' + done + '</strong> folders in Firebase Storage.<br>' +
+                'Go to Firebase Console → Storage → you should see them under <code>employers/</code>.<br><br>' +
+                'You can now delete this file.';
+        } else {
+            logWarn('⚠️ Finished with ' + err + ' error(s).');
+            document.getElementById('doneTitle').textContent = '⚠️ Finished with Errors';
+            document.getElementById('doneMsg').innerHTML =
+                '<strong>' + done + '</strong> created, <strong>' + err + '</strong> failed. Review the log above.';
+            document.getElementById('doneBox').style.background = 'linear-gradient(135deg, #ffc107, #fd7e14)';
+        }
+        document.getElementById('doneBox').classList.add('visible');
+    };
+</script>
+
+</body>
+</html>

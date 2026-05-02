@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGS - Nationalities Section</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            padding: 20px; min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px; margin: 0 auto;
+            display: grid; grid-template-columns: 320px 1fr;
+            gap: 20px; height: calc(100vh - 40px);
+        }
+        .nav-panel {
+            background: white; border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 20px; overflow-y: auto;
+            display: flex; flex-direction: column;
+        }
+        .nav-header {
+            padding: 15px;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white; border-radius: 8px; margin-bottom: 20px;
+        }
+        .nav-header h2 { font-size: 18px; margin-bottom: 5px; }
+        .nav-header p { font-size: 12px; opacity: 0.9; }
+        .search-box { padding: 8px 12px; border: 1px solid #ced4da; border-radius: 5px; font-size: 14px; width: 100%; margin-bottom: 15px; }
+        .record-list { list-style: none; flex: 1 1 auto; overflow-y: auto; min-height: 200px; }
+        .record-item { padding: 12px 15px; margin-bottom: 8px; background: #f8f9fa; border-radius: 6px; cursor: pointer; transition: all 0.3s; border-left: 3px solid transparent; }
+        .record-item:hover { background: #e9ecef; border-left-color: #11998e; }
+        .record-item.active { background: #e7fff5; border-left-color: #11998e; font-weight: 600; }
+        .record-item .id { color: #11998e; font-weight: 600; font-size: 12px; }
+        .record-item .name { color: #212529; font-size: 14px; margin-top: 3px; }
+        .nav-buttons { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .pagination-controls { background: #f8f9fa; padding: 10px; border-radius: 6px; margin-bottom: 10px; }
+        .pagination-controls label { font-size: 12px; color: #666; margin-right: 5px; }
+        .pagination-controls select { padding: 5px; border: 1px solid #ced4da; border-radius: 4px; font-size: 12px; }
+        .pagination-info { font-size: 11px; color: #666; text-align: center; margin-top: 5px; }
+        .page-buttons { display: flex; gap: 5px; margin-top: 8px; }
+        .page-btn { flex: 1; padding: 6px; font-size: 11px; border: 1px solid #11998e; background: white; color: #11998e; border-radius: 4px; cursor: pointer; font-weight: 600; }
+        .page-btn:hover:not(:disabled) { background: #11998e; color: white; }
+        .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .form-panel { background: white; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        .form-header { padding: 20px 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border-radius: 10px 10px 0 0; }
+        .form-header h1 { font-size: 24px; margin-bottom: 5px; }
+        .form-header p { opacity: 0.9; font-size: 14px; }
+        .form-toolbar { padding: 15px 30px; background: #f8f9fa; border-bottom: 2px solid #e9ecef; display: flex; gap: 10px; flex-wrap: wrap; }
+        .form-content { flex: 1; overflow-y: auto; padding: 30px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 800px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group.full-width { grid-column: 1 / -1; }
+        label { font-weight: 600; color: #495057; margin-bottom: 8px; font-size: 14px; }
+        input[type="text"], input[type="number"] { padding: 10px 12px; border: 1px solid #ced4da; border-radius: 6px; font-size: 14px; font-family: inherit; transition: all 0.3s; }
+        input:focus { outline: none; border-color: #11998e; box-shadow: 0 0 0 3px rgba(17, 153, 142, 0.1); }
+        input:disabled, input[readonly] { background: #e9ecef; cursor: not-allowed; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-primary { background: #11998e; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-light { background: white; color: #495057; border: 1px solid #ced4da; }
+        .btn-info { background: #17a2b8; color: white; }
+        .required { color: #dc3545; }
+        .status-bar { padding: 15px 30px; background: #f8f9fa; border-top: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; }
+        .status-text { color: #6c757d; font-size: 13px; }
+        .status-text.success { color: #28a745; font-weight: 600; }
+        .status-text.error { color: #dc3545; font-weight: 600; }
+        .record-counter { background: #11998e; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .info-box { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 12px 15px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; }
+        .info-box strong { display: block; margin-bottom: 3px; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); overflow: auto; }
+        .modal-content { background: white; margin: 50px auto; padding: 0; border-radius: 10px; width: 90%; max-width: 1000px; max-height: 80vh; display: flex; flex-direction: column; }
+        .modal-header { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 20px 30px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center; }
+        .close { color: white; font-size: 35px; font-weight: bold; cursor: pointer; line-height: 20px; }
+        .close:hover { opacity: 0.7; }
+        .modal-body { padding: 30px; overflow-y: auto; flex: 1; }
+        .country-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+        .country-item { padding: 12px 15px; background: #f8f9fa; border-radius: 6px; cursor: pointer; transition: all 0.3s; border: 2px solid transparent; display: flex; justify-content: space-between; align-items: center; }
+        .country-item:hover { background: #e9ecef; border-color: #11998e; }
+        .country-item.active { background: #d4edda; border-color: #28a745; }
+        .country-name { font-weight: 600; font-size: 14px; }
+        .country-check { color: #28a745; font-size: 18px; }
+        .modal-footer { padding: 20px 30px; background: #f8f9fa; border-top: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; }
+        .filter-box { margin-bottom: 20px; }
+        .filter-box input { width: 100%; padding: 10px 15px; border: 2px solid #11998e; border-radius: 6px; font-size: 14px; }
+        .active-badge { background: #28a745; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; margin-left: 5px; }
+        .inactive-badge { background: #dc3545; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; margin-left: 5px; }
+        .filter-btn { padding: 8px 16px; border: 2px solid white; background: rgba(255, 255, 255, 0.2); color: white; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.3s; }
+        .filter-btn:hover { background: rgba(255, 255, 255, 0.3); }
+        .filter-btn.active { background: white; color: #11998e; border-color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-panel">
+            <div class="nav-header">
+                <h2>🌍 Nationalities Section</h2>
+                <p>MGS - Massroua General Services</p>
+            </div>
+            <div class="info-box">
+                <strong>✅ Auto-Save Active!</strong>
+                All changes save automatically. No records can be deleted.
+            </div>
+            <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search...">
+            <div class="pagination-controls">
+                <label>Show per page:</label>
+                <select id="pageSize" onchange="changePageSize()">
+                    <option value="50">50 records</option>
+                    <option value="100" selected>100 records</option>
+                    <option value="500">500 records</option>
+                    <option value="1000">1000 records</option>
+                    <option value="all">All records</option>
+                </select>
+                <div class="page-buttons">
+                    <button class="page-btn" id="prevBtn" onclick="previousPage()">◄ Prev</button>
+                    <button class="page-btn" id="nextBtn" onclick="nextPage()">Next ►</button>
+                </div>
+                <div class="pagination-info" id="pageInfo">Page 1 of 1</div>
+            </div>
+            <ul class="record-list" id="recordList"></ul>
+            <div class="nav-buttons">
+                <button class="btn btn-success" onclick="newNationality()">➕ New Nationality</button>
+                <button class="btn btn-light" onclick="loadNationalities()">🔄 Refresh</button>
+                <button class="btn btn-info" onclick="exportData()">📥 Export</button>
+                <button class="btn btn-secondary" onclick="importData()">📤 Import</button>
+                <button class="btn btn-primary" onclick="window.location.href='Dashboard.html'" style="margin-top: 10px;">🏠 Dashboard</button>
+            </div>
+        </div>
+        <div class="form-panel">
+            <div class="form-header">
+                <h1>🌍 Nationality Management</h1>
+                <p>Add, Edit, Enable/Disable — No records can be deleted</p>
+            </div>
+            <div class="form-toolbar">
+                <button class="btn btn-success" onclick="saveNationality()">💾 Save</button>
+                <button class="btn btn-primary" onclick="newNationality()">➕ New</button>
+                <button class="btn btn-secondary" onclick="clearForm()">🔄 Clear</button>
+                <button class="btn btn-info" onclick="showCountryBrowser()">🌍 Browse All Countries</button>
+                <button class="btn btn-info" onclick="showDatasheetView()">📊 Datasheet View</button>
+                <button class="btn btn-light" onclick="window.location.href='Dashboard.html'" style="margin-left: auto;">🏠 Dashboard</button>
+            </div>
+            <div class="form-content">
+                <form id="nationalityForm" onsubmit="return false;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>ID</label>
+                            <input type="number" id="NationalityID" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-weight: 600;">Status</label>
+                            <div style="display: flex; align-items: center; gap: 10px; padding: 10px 0;">
+                                <input type="checkbox" id="Active" style="width: 20px; height: 20px; cursor: pointer;">
+                                <label for="Active" style="margin: 0; cursor: pointer; font-weight: 600; color: #11998e;">✅ Active</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Country <span class="required">*</span></label>
+                            <input type="text" id="Country" required placeholder="e.g., Ethiopia">
+                        </div>
+                        <div class="form-group">
+                            <label>Nationality <span class="required">*</span></label>
+                            <input type="text" id="Nationality" required placeholder="e.g., Ethiopian">
+                        </div>
+                        <div class="form-group">
+                            <label>الدولة (Arabic Country)</label>
+                            <input type="text" id="CountryAr" placeholder="مثال: إثيوبيا" style="direction: rtl; font-family: 'Arial', 'Tahoma', sans-serif;">
+                        </div>
+                        <div class="form-group">
+                            <label>الجنسية (Arabic Nationality)</label>
+                            <input type="text" id="NationalityAr" placeholder="مثال: إثيوبي" style="direction: rtl; font-family: 'Arial', 'Tahoma', sans-serif;">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="status-bar">
+                <span class="status-text" id="statusText">Ready</span>
+                <span class="record-counter" id="recordCounter">0 Nationalities</span>
+            </div>
+        </div>
+    </div>
+    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="handleImport(event)">
+    <!-- Country Browser Modal -->
+    <div id="countryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2>🌍 Browse and Select Countries</h2>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button class="filter-btn active" id="filterAll" onclick="setCountryFilter('all')">📋 All Countries</button>
+                        <button class="filter-btn" id="filterActive" onclick="setCountryFilter('active')">✅ Active Only</button>
+                        <button class="filter-btn" id="filterInactive" onclick="setCountryFilter('inactive')">❌ Inactive Only</button>
+                    </div>
+                </div>
+                <span class="close" onclick="closeCountryBrowser()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="filter-box">
+                    <input type="text" id="countryFilter" placeholder="🔍 Search countries..." onkeyup="filterCountries()">
+                </div>
+                <div id="countryGrid" class="country-grid"></div>
+            </div>
+            <div class="modal-footer">
+                <span id="selectedCount" style="color: #6c757d; font-size: 14px;">0 countries selected as active</span>
+                <button class="btn btn-success" onclick="closeCountryBrowser()">✓ Done</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, collection, doc, getDoc, setDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+            authDomain: "mgsd2026.firebaseapp.com",
+            projectId: "mgsd2026",
+            storageBucket: "mgsd2026.firebasestorage.app",
+            messagingSenderId: "918582360831",
+            appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // CloudDB → Firestore bridge (replaces google.script.run)
+        window.CloudDB = {
+            ready: true,
+            loadSheet: async function(sheetName) {
+                try {
+                    const snap = await getDocs(query(collection(db, sheetName), orderBy("NationalityID")));
+                    const rows = [];
+                    snap.forEach(d => rows.push(d.data()));
+                    return rows;
+                } catch(e) { console.error('loadSheet error:', e); return []; }
+            },
+            saveRow: async function(sheetName, row) {
+                try {
+                    const id = String(row.NationalityID || row.id);
+                    await setDoc(doc(db, sheetName, id), row);
+                    return { success: true };
+                } catch(e) { console.error('saveRow error:', e); return null; }
+            },
+            deleteRow: async function(sheetName, id) {
+                // Disabled — matches original design
+                return { success: false, error: 'Delete disabled' };
+            },
+            post: function(d) {
+                if (d.action === 'getAll') return CloudDB.loadSheet(d.sheet);
+                if (d.action === 'saveRow') return CloudDB.saveRow(d.sheet, d.data||d.row);
+                if (d.action === 'deleteRow') return CloudDB.deleteRow(d.sheet, d.id);
+                return Promise.resolve(null);
+            },
+            get: function(p) { return CloudDB.loadSheet(p.sheet); }
+        };
+    </script>
+
+    <script>
+        let nationalities = [];
+        const allCountries = [
+            {name: "Afghanistan", nationality: "Afghan", nameAr: "أفغانستان", nationalityAr: "أفغاني"},
+            {name: "Albania", nationality: "Albanian", nameAr: "ألبانيا", nationalityAr: "ألباني"},
+            {name: "Algeria", nationality: "Algerian", nameAr: "الجزائر", nationalityAr: "جزائري"},
+            {name: "Ethiopia", nationality: "Ethiopian", nameAr: "إثيوبيا", nationalityAr: "إثيوبي"},
+            {name: "Kenya", nationality: "Kenyan", nameAr: "كينيا", nationalityAr: "كيني"},
+            {name: "Lebanon", nationality: "Lebanese", nameAr: "لبنان", nationalityAr: "لبناني"},
+            {name: "Nepal", nationality: "Nepali", nameAr: "نيبال", nationalityAr: "نيبالي"},
+            {name: "Philippines", nationality: "Filipino", nameAr: "الفلبين", nationalityAr: "فلبيني"},
+            {name: "Uganda", nationality: "Ugandan", nameAr: "أوغندا", nationalityAr: "أوغندي"}
+        ];
+        
+        let currentNationality = null;
+        let filteredNationalities = [];
+        let currentPage = 1;
+        let pageSize = 100;
+        let countryFilter = 'all';
+        
+        async function init() {
+            const tryLoad = () => {
+                if (window.CloudDB && window.CloudDB.ready) {
+                    CloudDB.loadSheet('nationalities').then(function(cloudData) {
+                        if (cloudData && cloudData.length > 0) {
+                            nationalities = cloudData;
+                            loadNationalities();
+                            console.log('☁️ Nationalities from Firestore:', nationalities.length);
+                        } else {
+                            loadNationalities();
+                        }
+                    });
+                } else {
+                    setTimeout(tryLoad, 100);
+                }
+            };
+            tryLoad();
+        }
+        
+        function saveToStorage() {
+            if (currentNationality) {
+                CloudDB.saveRow('nationalities', currentNationality).catch(function(){});
+            }
+        }
+        
+        function loadNationalities() {
+            renderList();
+            updateCounter();
+            if (nationalities.length > 0 && !currentNationality) selectNationality(nationalities[0]);
+        }
+        
+        function renderList() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            filteredNationalities = nationalities.filter(n => {
+                if (!searchTerm) return true;
+                return [n.NationalityID, n.Country, n.Nationality].join(' ').toLowerCase().includes(searchTerm);
+            });
+            const list = document.getElementById('recordList');
+            list.innerHTML = '';
+            const totalPages = pageSize === 'all' ? 1 : Math.ceil(filteredNationalities.length / pageSize);
+            if (currentPage > totalPages) currentPage = totalPages || 1;
+            let displayItems;
+            if (pageSize === 'all') { displayItems = filteredNationalities; }
+            else {
+                const startIndex = (currentPage - 1) * pageSize;
+                displayItems = filteredNationalities.slice(startIndex, startIndex + parseInt(pageSize));
+            }
+            displayItems.forEach(nat => {
+                const li = document.createElement('li');
+                li.className = 'record-item';
+                if (currentNationality && currentNationality.NationalityID === nat.NationalityID) li.classList.add('active');
+                li.innerHTML = '<div class="id">ID: ' + nat.NationalityID + '</div><div class="name">' + nat.Country + ' - ' + nat.Nationality + (nat.Active ? ' <span class="active-badge">ACTIVE</span>' : ' <span class="inactive-badge">INACTIVE</span>') + '</div>';
+                li.onclick = () => selectNationality(nat);
+                list.appendChild(li);
+            });
+            updatePaginationInfo();
+        }
+        
+        function selectNationality(nat) {
+            currentNationality = nat;
+            document.getElementById('NationalityID').value = nat.NationalityID;
+            document.getElementById('Country').value = nat.Country || '';
+            document.getElementById('Nationality').value = nat.Nationality || '';
+            document.getElementById('CountryAr').value = nat.CountryAr || '';
+            document.getElementById('NationalityAr').value = nat.NationalityAr || '';
+            document.getElementById('Active').checked = nat.Active || false;
+            renderList();
+            setStatus('Loaded: ' + nat.Country);
+        }
+        
+        function newNationality() {
+            currentNationality = null;
+            const maxId = nationalities.length > 0 ? Math.max(...nationalities.map(n => parseInt(n.NationalityID) || 0)) : 0;
+            clearForm();
+            document.getElementById('NationalityID').value = maxId + 1;
+            document.getElementById('Country').focus();
+            renderList();
+            setStatus('New nationality - Fill form and click Save. ID: ' + (maxId + 1));
+        }
+        
+        function saveNationality() {
+            const id = document.getElementById('NationalityID').value;
+            const country = document.getElementById('Country').value.trim();
+            const nationality = document.getElementById('Nationality').value.trim();
+            if (!id) { alert('Nationality ID is missing!'); return; }
+            if (!country || !nationality) { alert('Country and Nationality are required!'); return; }
+            const duplicateCountry = nationalities.find(n => n.Country.toLowerCase() === country.toLowerCase() && parseInt(n.NationalityID) !== parseInt(id));
+            if (duplicateCountry) { alert('Country "' + country + '" already exists!'); document.getElementById('Country').focus(); return; }
+            const nat = {
+                NationalityID: parseInt(id), Country: country, Nationality: nationality,
+                CountryAr: document.getElementById('CountryAr').value,
+                NationalityAr: document.getElementById('NationalityAr').value,
+                Active: document.getElementById('Active').checked
+            };
+            const index = nationalities.findIndex(n => parseInt(n.NationalityID) === nat.NationalityID);
+            if (index >= 0) { nationalities[index] = nat; setStatus('✅ Nationality updated!', true); }
+            else { nationalities.push(nat); setStatus('✅ Nationality added!', true); }
+            currentNationality = nat;
+            saveToStorage();
+            loadNationalities();
+        }
+        
+        function deleteNationality() {
+            alert('🚫 Delete is disabled.\n\nUse the "Active" checkbox to disable a nationality.\nInactive nationalities will not appear in dropdowns.');
+        }
+        
+        function clearForm() {
+            document.getElementById('nationalityForm').reset();
+            document.getElementById('NationalityID').value = '';
+            currentNationality = null;
+            renderList();
+        }
+        function updateCounter() { document.getElementById('recordCounter').textContent = nationalities.length + ' Nationalities'; }
+        function updatePaginationInfo() {
+            const totalPages = pageSize === 'all' ? 1 : Math.ceil(filteredNationalities.length / pageSize);
+            const startRecord = pageSize === 'all' ? 1 : ((currentPage - 1) * parseInt(pageSize)) + 1;
+            const endRecord = pageSize === 'all' ? filteredNationalities.length : Math.min(currentPage * parseInt(pageSize), filteredNationalities.length);
+            document.getElementById('pageInfo').textContent = pageSize === 'all' ? 'Showing all ' + filteredNationalities.length + ' records' : 'Page ' + currentPage + ' of ' + totalPages + ' (' + startRecord + '-' + endRecord + ' of ' + filteredNationalities.length + ')';
+            document.getElementById('prevBtn').disabled = currentPage <= 1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+        }
+        function changePageSize() { pageSize = document.getElementById('pageSize').value === 'all' ? 'all' : parseInt(document.getElementById('pageSize').value); currentPage = 1; renderList(); }
+        function previousPage() { if (currentPage > 1) { currentPage--; renderList(); } }
+        function nextPage() { const tp = Math.ceil(filteredNationalities.length / pageSize); if (currentPage < tp) { currentPage++; renderList(); } }
+        function setStatus(message, success) {
+            const st = document.getElementById('statusText');
+            st.textContent = message;
+            st.className = 'status-text' + (success ? ' success' : '');
+            setTimeout(() => { st.textContent = 'Ready'; st.className = 'status-text'; }, 3000);
+        }
+        function exportData() {
+            const blob = new Blob([JSON.stringify(nationalities, null, 2)], {type: 'application/json'});
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'nationalities_backup_' + new Date().toISOString().split('T')[0] + '.json';
+            link.click();
+            setStatus('✅ Backup exported!', true);
+        }
+        function importData() { document.getElementById('importFile').click(); }
+        function handleImport(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try { const imported = JSON.parse(e.target.result); if (Array.isArray(imported)) { nationalities = imported; imported.forEach(n => CloudDB.saveRow('nationalities', n)); loadNationalities(); setStatus('✅ Imported!', true); } else { alert('Invalid file!'); } } catch(err) { alert('Error reading file!'); }
+            };
+            reader.readAsText(file);
+        }
+        document.getElementById('searchBox').addEventListener('input', renderList);
+        
+        function showCountryBrowser() { document.getElementById('countryModal').style.display = 'block'; countryFilter = 'all'; updateFilterButtons(); renderCountryGrid(); updateSelectedCount(); }
+        function setCountryFilter(f) { countryFilter = f; updateFilterButtons(); renderCountryGrid(); }
+        function updateFilterButtons() {
+            ['filterAll','filterActive','filterInactive'].forEach(id => document.getElementById(id).classList.remove('active'));
+            document.getElementById(countryFilter === 'active' ? 'filterActive' : countryFilter === 'inactive' ? 'filterInactive' : 'filterAll').classList.add('active');
+        }
+        function closeCountryBrowser() { document.getElementById('countryModal').style.display = 'none'; loadNationalities(); }
+        function renderCountryGrid() {
+            const grid = document.getElementById('countryGrid');
+            const ft = document.getElementById('countryFilter').value.toLowerCase();
+            grid.innerHTML = '';
+            let count = 0;
+            allCountries.forEach(country => {
+                if (ft && !country.name.toLowerCase().includes(ft) && !country.nationality.toLowerCase().includes(ft)) return;
+                const existing = nationalities.find(n => n.Country.toLowerCase() === country.name.toLowerCase());
+                const isActive = existing && existing.Active;
+                if (countryFilter === 'active' && !isActive) return;
+                if (countryFilter === 'inactive' && isActive) return;
+                count++;
+                const item = document.createElement('div');
+                item.className = 'country-item' + (isActive ? ' active' : '');
+                item.innerHTML = '<div><span class="country-name">' + country.name + '</span><div style="font-size:11px;color:#666;margin-top:3px;direction:rtl;font-family:Arial,Tahoma,sans-serif;">' + country.nameAr + '</div></div>' + (isActive ? '<span class="country-check">✓</span>' : '');
+                item.onclick = () => toggleCountry(country);
+                grid.appendChild(item);
+            });
+            if (count === 0) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#6c757d;">No countries found</div>';
+        }
+        function filterCountries() { renderCountryGrid(); }
+        function toggleCountry(country) {
+            const existing = nationalities.find(n => n.Country.toLowerCase() === country.name.toLowerCase());
+            let rec;
+            if (existing) { existing.Active = !existing.Active; rec = existing; }
+            else {
+                const maxId = nationalities.length > 0 ? Math.max(...nationalities.map(n => parseInt(n.NationalityID) || 0)) : 0;
+                rec = { NationalityID: maxId + 1, Country: country.name, Nationality: country.nationality, CountryAr: country.nameAr, NationalityAr: country.nationalityAr, Active: true };
+                nationalities.push(rec);
+            }
+            CloudDB.saveRow('nationalities', rec).catch(function(){});
+            renderCountryGrid(); updateSelectedCount();
+        }
+        function updateSelectedCount() { document.getElementById('selectedCount').textContent = nationalities.filter(n => n.Active).length + ' countries selected as active'; }
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('countryModal')) closeCountryBrowser();
+            if (event.target == document.getElementById('datasheetModal')) closeDatasheetView();
+        };
+        
+        function showDatasheetView() { document.getElementById('datasheetModal').style.display = 'block'; renderDatasheetTable(); }
+        function closeDatasheetView() { document.getElementById('datasheetModal').style.display = 'none'; }
+        function renderDatasheetTable() {
+            const tbody = document.getElementById('datasheetBody');
+            tbody.innerHTML = '';
+            nationalities.forEach(nat => {
+                const row = document.createElement('tr');
+                row.onclick = () => { closeDatasheetView(); selectNationality(nat); };
+                row.innerHTML = '<td>' + nat.NationalityID + '</td><td>' + (nat.Country||'') + '</td><td>' + (nat.Nationality||'') + '</td><td style="direction:rtl;font-family:Arial,Tahoma,sans-serif;">' + (nat.CountryAr||'') + '</td><td style="direction:rtl;font-family:Arial,Tahoma,sans-serif;">' + (nat.NationalityAr||'') + '</td><td style="text-align:center;">' + (nat.Active ? '✅ Active' : '❌ Inactive') + '</td>';
+                tbody.appendChild(row);
+            });
+            document.getElementById('datasheetCount').textContent = nationalities.length + ' records';
+        }
+        
+        // Expose functions for inline onclick handlers
+        window.newNationality = newNationality;
+        window.saveNationality = saveNationality;
+        window.clearForm = clearForm;
+        window.showCountryBrowser = showCountryBrowser;
+        window.showDatasheetView = showDatasheetView;
+        window.closeDatasheetView = closeDatasheetView;
+        window.closeCountryBrowser = closeCountryBrowser;
+        window.setCountryFilter = setCountryFilter;
+        window.filterCountries = filterCountries;
+        window.loadNationalities = loadNationalities;
+        window.exportData = exportData;
+        window.importData = importData;
+        window.handleImport = handleImport;
+        window.previousPage = previousPage;
+        window.nextPage = nextPage;
+        window.changePageSize = changePageSize;
+        
+        init();
+    </script>
+    
+    <div id="datasheetModal" style="display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);overflow:auto;">
+        <div style="background:white;margin:20px auto;width:95%;max-width:1600px;border-radius:10px;max-height:90vh;display:flex;flex-direction:column;">
+            <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:20px 30px;border-radius:10px 10px 0 0;display:flex;justify-content:space-between;align-items:center;">
+                <h2 style="margin:0;">📊 Datasheet View - All Nationalities</h2>
+                <span onclick="closeDatasheetView()" style="color:white;font-size:35px;font-weight:bold;cursor:pointer;line-height:20px;">&times;</span>
+            </div>
+            <div style="padding:20px;overflow:auto;flex:1;">
+                <table id="datasheetTable" style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead>
+                        <tr style="background:#667eea;color:white;">
+                            <th style="padding:12px 8px;text-align:left;position:sticky;top:0;font-weight:600;">ID</th>
+                            <th style="padding:12px 8px;text-align:left;position:sticky;top:0;font-weight:600;">Country</th>
+                            <th style="padding:12px 8px;text-align:left;position:sticky;top:0;font-weight:600;">Nationality</th>
+                            <th style="padding:12px 8px;text-align:left;position:sticky;top:0;font-weight:600;">الدولة</th>
+                            <th style="padding:12px 8px;text-align:left;position:sticky;top:0;font-weight:600;">الجنسية</th>
+                            <th style="padding:12px 8px;text-align:center;position:sticky;top:0;font-weight:600;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="datasheetBody"></tbody>
+                </table>
+            </div>
+            <div style="padding:15px 30px;background:#f8f9fa;border-top:1px solid #e9ecef;display:flex;justify-content:space-between;align-items:center;">
+                <span id="datasheetCount" style="color:#6c757d;">0 records</span>
+                <button class="btn btn-success" onclick="closeDatasheetView()">✓ Close</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

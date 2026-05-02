@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Import Nationalities v2</title>
+<style>
+body { font-family: sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; background: #f1f5f9; }
+h1 { color: #11998e; }
+button { padding: 14px 30px; background: #11998e; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+#log { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; max-height: 500px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+.ok { color: #16a34a; }
+.skip { color: #f59e0b; }
+.err { color: #dc2626; }
+</style>
+</head>
+<body>
+<h1>📥 Import Nationalities (v2 — PascalCase)</h1>
+<p>This will upload 196 nationalities to Firestore with numeric IDs and the correct field names matching the ported page.</p>
+<button id="btn" onclick="runImport()">🚀 Start Import</button>
+<div id="log"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+  authDomain: "mgsd2026.firebaseapp.com",
+  projectId: "mgsd2026",
+  storageBucket: "mgsd2026.firebasestorage.app",
+  messagingSenderId: "918582360831",
+  appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Format: [Country, Nationality, CountryAr, NationalityAr, Active]
+const NATIONALITIES = [
+["Afghanistan","Afghan","أفغانستان","أفغاني",false],
+["Albania","Albanian","ألبانيا","ألباني",false],
+["Algeria","Algerian","الجزائر","جزائري",false],
+["Andorra","Andorran","أندورا","أندوري",false],
+["Angola","Angolan","أنغولا","أنغولي",false],
+["Antigua and Barbuda","Antiguan","أنتيغوا وبربودا","أنتيغوي",false],
+["Argentina","Argentine","الأرجنتين","أرجنتيني",false],
+["Armenia","Armenian","أرمينيا","أرميني",false],
+["Australia","Australian","أستراليا","أسترالي",false],
+["Austria","Austrian","النمسا","نمساوي",false],
+["Azerbaijan","Azerbaijani","أذربيجان","أذربيجاني",false],
+["Bahamas","Bahamian","البهاما","باهامي",false],
+["Bahrain","Bahraini","البحرين","بحريني",false],
+["Bangladesh","Bangladeshi","بنغلاديش","بنغلاديشي",false],
+["Barbados","Barbadian","بربادوس","بربادوسي",false],
+["Belarus","Belarusian","بيلاروسيا","بيلاروسي",false],
+["Belgium","Belgian","بلجيكا","بلجيكي",false],
+["Belize","Belizean","بليز","بليزي",false],
+["Benin","Beninese","بنين","بنيني",false],
+["Bhutan","Bhutanese","بوتان","بوتاني",false],
+["Bolivia","Bolivian","بوليفيا","بوليفي",false],
+["Bosnia and Herzegovina","Bosnian","البوسنة والهرسك","بوسني",false],
+["Botswana","Motswana","بوتسوانا","بوتسواني",false],
+["Brazil","Brazilian","البرازيل","برازيلي",false],
+["Brunei","Bruneian","بروناي","بروناوي",false],
+["Bulgaria","Bulgarian","بلغاريا","بلغاري",false],
+["Burkina Faso","Burkinabe","بوركينا فاسو","بوركيني",false],
+["Burundi","Burundian","بوروندي","بوروندي",false],
+["Cambodia","Cambodian","كمبوديا","كمبودي",false],
+["Cameroon","Cameroonian","الكاميرون","كاميروني",false],
+["Canada","Canadian","كندا","كندي",false],
+["Cape Verde","Cape Verdean","الرأس الأخضر","رأس أخضري",false],
+["Central African Republic","Central African","جمهورية أفريقيا الوسطى","أفريقي وسطي",false],
+["Chad","Chadian","تشاد","تشادي",false],
+["Chile","Chilean","تشيلي","تشيلي",false],
+["China","Chinese","الصين","صيني",false],
+["Colombia","Colombian","كولومبيا","كولومبي",false],
+["Comoros","Comoran","جزر القمر","قمري",false],
+["Congo","Congolese","الكونغو","كونغولي",false],
+["Costa Rica","Costa Rican","كوستاريكا","كوستاريكي",false],
+["Croatia","Croatian","كرواتيا","كرواتي",false],
+["Cuba","Cuban","كوبا","كوبي",false],
+["Cyprus","Cypriot","قبرص","قبرصي",false],
+["Czech Republic","Czech","التشيك","تشيكي",false],
+["Denmark","Danish","الدنمارك","دنماركي",false],
+["Djibouti","Djiboutian","جيبوتي","جيبوتي",false],
+["Dominica","Dominican","دومينيكا","دومينيكي",false],
+["Dominican Republic","Dominican","جمهورية الدومينيكان","دومينيكاني",false],
+["East Timor","Timorese","تيمور الشرقية","تيموري",false],
+["Ecuador","Ecuadorian","الإكوادور","إكوادوري",false],
+["Egypt","Egyptian","مصر","مصري",false],
+["El Salvador","Salvadoran","السلفادور","سلفادوري",false],
+["Equatorial Guinea","Equatorial Guinean","غينيا الاستوائية","غيني استوائي",false],
+["Eritrea","Eritrean","إريتريا","إريتري",false],
+["Estonia","Estonian","إستونيا","إستوني",false],
+["Eswatini","Swazi","إسواتيني","سوازيلندي",false],
+["Ethiopia","Ethiopian","إثيوبيا","إثيوبي",true],
+["Fiji","Fijian","فيجي","فيجي",false],
+["Finland","Finnish","فنلندا","فنلندي",false],
+["France","French","فرنسا","فرنسي",false],
+["Gabon","Gabonese","الغابون","غابوني",false],
+["Gambia","Gambian","غامبيا","غامبي",false],
+["Georgia","Georgian","جورجيا","جورجي",false],
+["Germany","German","ألمانيا","ألماني",false],
+["Ghana","Ghanaian","غانا","غاني",false],
+["Greece","Greek","اليونان","يوناني",false],
+["Grenada","Grenadian","غرينادا","غرينادي",false],
+["Guatemala","Guatemalan","غواتيمالا","غواتيمالي",false],
+["Guinea","Guinean","غينيا","غيني",false],
+["Guinea-Bissau","Guinea-Bissauan","غينيا بيساو","غيني بيساوي",false],
+["Guyana","Guyanese","غيانا","غياني",false],
+["Haiti","Haitian","هايتي","هايتي",false],
+["Honduras","Honduran","هندوراس","هندوراسي",false],
+["Hungary","Hungarian","المجر","مجري",false],
+["Iceland","Icelandic","آيسلندا","آيسلندي",false],
+["India","Indian","الهند","هندي",false],
+["Indonesia","Indonesian","إندونيسيا","إندونيسي",false],
+["Iran","Iranian","إيران","إيراني",false],
+["Iraq","Iraqi","العراق","عراقي",false],
+["Ireland","Irish","أيرلندا","أيرلندي",false],
+["Israel","Israeli","إسرائيل","إسرائيلي",false],
+["Italy","Italian","إيطاليا","إيطالي",false],
+["Ivory Coast","Ivorian","ساحل العاج","إيفواري",false],
+["Jamaica","Jamaican","جامايكا","جامايكي",false],
+["Japan","Japanese","اليابان","ياباني",false],
+["Jordan","Jordanian","الأردن","أردني",false],
+["Kazakhstan","Kazakhstani","كازاخستان","كازاخستاني",false],
+["Kenya","Kenyan","كينيا","كيني",true],
+["Kiribati","I-Kiribati","كيريباتي","كيريباتي",false],
+["Kosovo","Kosovar","كوسوفو","كوسوفي",false],
+["Kuwait","Kuwaiti","الكويت","كويتي",false],
+["Kyrgyzstan","Kyrgyz","قيرغيزستان","قيرغيزي",false],
+["Laos","Laotian","لاوس","لاوسي",false],
+["Latvia","Latvian","لاتفيا","لاتفي",false],
+["Lebanon","Lebanese","لبنان","لبناني",true],
+["Lesotho","Basotho","ليسوتو","ليسوتي",false],
+["Liberia","Liberian","ليبيريا","ليبيري",false],
+["Libya","Libyan","ليبيا","ليبي",false],
+["Liechtenstein","Liechtensteiner","ليختنشتاين","ليختنشتايني",false],
+["Lithuania","Lithuanian","ليتوانيا","ليتواني",false],
+["Luxembourg","Luxembourger","لوكسمبورغ","لوكسمبورغي",false],
+["Madagascar","Malagasy","مدغشقر","مدغشقري",false],
+["Malawi","Malawian","ملاوي","ملاوي",false],
+["Malaysia","Malaysian","ماليزيا","ماليزي",false],
+["Maldives","Maldivian","المالديف","مالديفي",false],
+["Mali","Malian","مالي","مالي",false],
+["Malta","Maltese","مالطا","مالطي",false],
+["Marshall Islands","Marshallese","جزر مارشال","مارشالي",false],
+["Mauritania","Mauritanian","موريتانيا","موريتاني",false],
+["Mauritius","Mauritian","موريشيوس","موريشيوسي",false],
+["Mexico","Mexican","المكسيك","مكسيكي",false],
+["Micronesia","Micronesian","ميكرونيزيا","ميكرونيزي",false],
+["Moldova","Moldovan","مولدوفا","مولدوفي",false],
+["Monaco","Monegasque","موناكو","موناكي",false],
+["Mongolia","Mongolian","منغوليا","منغولي",false],
+["Montenegro","Montenegrin","الجبل الأسود","جبل أسودي",false],
+["Morocco","Moroccan","المغرب","مغربي",false],
+["Mozambique","Mozambican","موزمبيق","موزمبيقي",false],
+["Myanmar","Burmese","ميانمار","ميانماري",false],
+["Namibia","Namibian","ناميبيا","ناميبي",false],
+["Nauru","Nauruan","ناورو","ناوري",false],
+["Nepal","Nepali","نيبال","نيبالي",true],
+["Netherlands","Dutch","هولندا","هولندي",false],
+["New Zealand","New Zealander","نيوزيلندا","نيوزيلندي",false],
+["Nicaragua","Nicaraguan","نيكاراغوا","نيكاراغوي",false],
+["Niger","Nigerien","النيجر","نيجيري",false],
+["Nigeria","Nigerian","نيجيريا","نيجيري",false],
+["North Korea","North Korean","كوريا الشمالية","كوري شمالي",false],
+["North Macedonia","Macedonian","مقدونيا الشمالية","مقدوني",false],
+["Norway","Norwegian","النرويج","نرويجي",false],
+["Oman","Omani","عمان","عماني",false],
+["Pakistan","Pakistani","باكستان","باكستاني",false],
+["Palau","Palauan","بالاو","بالاوي",false],
+["Palestine","Palestinian","فلسطين","فلسطيني",false],
+["Panama","Panamanian","بنما","بنمي",false],
+["Papua New Guinea","Papua New Guinean","بابوا غينيا الجديدة","بابوي",false],
+["Paraguay","Paraguayan","باراغواي","باراغواي",false],
+["Peru","Peruvian","بيرو","بيروي",false],
+["Philippines","Filipino","الفلبين","فلبيني",true],
+["Poland","Polish","بولندا","بولندي",false],
+["Portugal","Portuguese","البرتغال","برتغالي",false],
+["Qatar","Qatari","قطر","قطري",false],
+["Romania","Romanian","رومانيا","روماني",false],
+["Russia","Russian","روسيا","روسي",false],
+["Rwanda","Rwandan","رواندا","رواندي",false],
+["Saint Kitts and Nevis","Kittitian","سانت كيتس ونيفيس","كيتسي",false],
+["Saint Lucia","Saint Lucian","سانت لوسيا","لوسي",false],
+["Saint Vincent and the Grenadines","Vincentian","سانت فينسنت والغرينادين","فينسنتي",false],
+["Samoa","Samoan","ساموا","ساموي",false],
+["San Marino","Sammarinese","سان مارينو","سان مارينوي",false],
+["Sao Tome and Principe","Sao Tomean","ساو تومي وبرينسيبي","ساو تومي",false],
+["Saudi Arabia","Saudi","السعودية","سعودي",false],
+["Senegal","Senegalese","السنغال","سنغالي",false],
+["Serbia","Serbian","صربيا","صربي",false],
+["Seychelles","Seychellois","سيشل","سيشلي",false],
+["Sierra Leone","Sierra Leonean","سيراليون","سيراليوني",false],
+["Singapore","Singaporean","سنغافورة","سنغافوري",false],
+["Slovakia","Slovak","سلوفاكيا","سلوفاكي",false],
+["Slovenia","Slovenian","سلوفينيا","سلوفيني",false],
+["Solomon Islands","Solomon Islander","جزر سليمان","سليماني",false],
+["Somalia","Somali","الصومال","صومالي",false],
+["South Africa","South African","جنوب أفريقيا","جنوب أفريقي",false],
+["South Korea","South Korean","كوريا الجنوبية","كوري جنوبي",false],
+["South Sudan","South Sudanese","جنوب السودان","جنوب سوداني",false],
+["Spain","Spanish","إسبانيا","إسباني",false],
+["Sri Lanka","Sri Lankan","سريلانكا","سريلانكي",false],
+["Sudan","Sudanese","السودان","سوداني",false],
+["Suriname","Surinamese","سورينام","سوريناني",false],
+["Sweden","Swedish","السويد","سويدي",false],
+["Switzerland","Swiss","سويسرا","سويسري",false],
+["Syria","Syrian","سوريا","سوري",false],
+["Taiwan","Taiwanese","تايوان","تايواني",false],
+["Tajikistan","Tajik","طاجيكستان","طاجيكي",false],
+["Tanzania","Tanzanian","تنزانيا","تنزاني",false],
+["Thailand","Thai","تايلاند","تايلاندي",false],
+["Togo","Togolese","توغو","توغي",false],
+["Tonga","Tongan","تونغا","تونغي",false],
+["Trinidad and Tobago","Trinidadian","ترينيداد وتوباغو","ترينيدادي",false],
+["Tunisia","Tunisian","تونس","تونسي",false],
+["Turkey","Turkish","تركيا","تركي",false],
+["Turkmenistan","Turkmen","تركمانستان","تركماني",false],
+["Tuvalu","Tuvaluan","توفالو","توفالي",false],
+["Uganda","Ugandan","أوغندا","أوغندي",true],
+["Ukraine","Ukrainian","أوكرانيا","أوكراني",false],
+["United Arab Emirates","Emirati","الإمارات العربية المتحدة","إماراتي",false],
+["United Kingdom","British","المملكة المتحدة","بريطاني",false],
+["United States","American","الولايات المتحدة","أمريكي",false],
+["Uruguay","Uruguayan","أوروغواي","أوروغواي",false],
+["Uzbekistan","Uzbek","أوزبكستان","أوزبكي",false],
+["Vanuatu","Ni-Vanuatu","فانواتو","فانواتي",false],
+["Vatican City","Vatican","الفاتيكان","فاتيكاني",false],
+["Venezuela","Venezuelan","فنزويلا","فنزويلي",false],
+["Vietnam","Vietnamese","فيتنام","فيتنامي",false],
+["Yemen","Yemeni","اليمن","يمني",false],
+["Zambia","Zambian","زامبيا","زامبي",false],
+["Zimbabwe","Zimbabwean","زيمبابوي","زيمبابوي",false]
+];
+
+const log = document.getElementById('log');
+function addLog(msg, cls) {
+  log.innerHTML += `<div class="${cls||''}">${msg}</div>`;
+  log.scrollTop = log.scrollHeight;
+}
+
+window.runImport = async function() {
+  document.getElementById('btn').disabled = true;
+  addLog('🚀 Starting import with PascalCase fields and numeric IDs...');
+  let added = 0, errors = 0;
+
+  for (let i = 0; i < NATIONALITIES.length; i++) {
+    const [Country, Nationality, CountryAr, NationalityAr, Active] = NATIONALITIES[i];
+    const id = i + 1;
+    try {
+      await setDoc(doc(db, "nationalities", String(id)), {
+        NationalityID: id,
+        Country, Nationality, CountryAr, NationalityAr,
+        Active: !!Active
+      });
+      added++;
+      if (i % 10 === 0) addLog(`✅ ${id}/${NATIONALITIES.length}: ${Country}`, 'ok');
+    } catch(e) {
+      errors++;
+      addLog(`❌ ERROR on ${Country}: ${e.message}`, 'err');
+    }
+  }
+
+  addLog('──────────────────────', '');
+  addLog(`🎉 DONE! Added: ${added}, Errors: ${errors}`, 'ok');
+  document.getElementById('btn').textContent = '✅ Finished';
+};
+</script>
+</body>
+</html>

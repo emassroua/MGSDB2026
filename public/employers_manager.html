@@ -1,0 +1,1953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGS - Employers Manager</title>
+
+    <!-- ============================================================ -->
+    <!-- CHANGE #1: Inlined CSS (was: HtmlService.createHtmlOutput…) -->
+    <!-- ============================================================ -->
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+        .nav-panel {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .nav-header {
+            padding: 15px;
+            background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+            color: white;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .search-box {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 14px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .employer-list { list-style: none; flex: 1; overflow-y: auto; min-height: 0; }
+        .employer-item {
+            padding: 12px; margin-bottom: 8px; background: #f8f9fa;
+            border-radius: 6px; cursor: pointer; transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+        .employer-item:hover { background: #e9ecef; border-left-color: #f5576c; }
+        .employer-item.active {
+            background: linear-gradient(135deg,#d4edda,#c3e6cb);
+            border-left: 4px solid #28a745;
+            font-weight: 700; color: #155724;
+        }
+        .main-content {
+            background: white; border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 30px; overflow-y: auto;
+        }
+        .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.3s; font-size: 14px; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-light { background: #f8f9fa; color: #333; }
+        .btn-light:hover { background: #e9ecef; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e9ecef; }
+        .tab { padding: 12px 24px; background: none; border: none; cursor: pointer; font-weight: 600; color: #666; border-bottom: 3px solid transparent; transition: all 0.3s; }
+        .tab.active { color: #f5576c; border-bottom-color: #f5576c; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-weight: 600; margin-bottom: 5px; color: #333; }
+        .form-group input, .form-group textarea { padding: 10px; border: 1px solid #ced4da; border-radius: 5px; font-size: 14px; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #f5576c; }
+        .doc-card { background: white; border: 2px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 15px; }
+        .doc-card:hover { border-color: #f5576c; }
+
+        /* ── PAGINATION ── */
+        .pagination-wrap { flex-shrink: 0; padding: 8px 0 2px; border-top: 1px solid #f0f0f0; margin-top: 6px; }
+        .pagination-info { font-size: 11px; color: #999; text-align: center; margin-bottom: 5px; }
+        .pagination { display: flex; align-items: center; justify-content: center; gap: 3px; flex-wrap: wrap; }
+        .pagination button { min-width: 28px; height: 28px; padding: 0 5px; border: 1px solid #dee2e6; background: white; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; color: #495057; transition: all 0.2s; }
+        .pagination button:hover:not(:disabled) { background: #f5576c; color: white; border-color: #f5576c; }
+        .pagination button.pg-active { background: #f5576c; color: white; border-color: #f5576c; }
+        .pagination button:disabled { opacity: 0.35; cursor: not-allowed; }
+        .pg-ellipsis { font-size: 12px; color: #aaa; padding: 0 2px; line-height: 28px; }
+
+        /* ── SYNC PROGRESS ── */
+        #syncProgressWrap { display: none; background: #f0fff4; border: 2px solid #20c997; border-radius: 10px; padding: 14px 18px; margin-bottom: 15px; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
+        #syncProgressWrap .sync-title { font-weight: 700; color: #0a6640; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        #syncProgressWrap .sync-title .spin { display: inline-block; width: 16px; height: 16px; border: 3px solid #c3e6cb; border-top-color: #20c997; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #syncBar { height: 10px; background: #d4edda; border-radius: 6px; overflow: hidden; margin-bottom: 6px; }
+        #syncBarFill { height: 100%; background: linear-gradient(90deg, #20c997, #00b4d8); border-radius: 6px; transition: width 0.5s ease; width: 0%; }
+        #syncStatusText { font-size: 12px; color: #155724; display: flex; justify-content: space-between; }
+
+        /* ── SYNC BADGE ── */
+        .sync-badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 9px; font-weight: 700; margin-left: 5px; vertical-align: middle; }
+        .sync-badge.active   { background: #d4edda; color: #155724; }
+        .sync-badge.inactive { background: #f8d7da; color: #721c24; }
+        .sync-badge.synced   { background: #cce5ff; color: #004085; }
+        .sync-badge.manual   { background: #fff3cd; color: #856404; }
+
+        @keyframes msgSlideIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes uploadSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* ── ALL FILES MODAL (matches Workers page) ── */
+        #allFilesModal .afm-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.75); }
+        #allFilesModal .afm-box { position: absolute; top: 5%; left: 5%; width: 90%; height: 88%; background: white; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow: hidden; }
+        #allFilesModal .afm-hdr { padding: 12px 18px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; cursor: move; user-select: none; }
+        #allFilesModal .afm-title { font-size: 17px; font-weight: 700; }
+        #allFilesModal .afm-sub { font-size: 12px; opacity: 0.9; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #allFilesModal .afm-hdr-btns { display: flex; gap: 6px; flex-shrink: 0; }
+        #allFilesModal .afm-icon-btn { background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+        #allFilesModal .afm-icon-btn:hover { background: rgba(255,255,255,0.35); }
+        #allFilesModal .afm-nav .afm-icon-btn { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; }
+        #allFilesModal .afm-nav .afm-icon-btn:hover { background: #e0e7ff; }
+        #allFilesModal .afm-close { background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; font-size: 15px; cursor: pointer; font-weight: 700; }
+        #allFilesModal .afm-close:hover { background: rgba(255,80,80,0.7); }
+        #allFilesModal .afm-toolbar { padding: 10px 18px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
+        #allFilesModal .afm-tabgroup { display: flex; background: white; border: 1px solid #dee2e6; border-radius: 7px; overflow: hidden; }
+        #allFilesModal .afm-tabbtn { padding: 6px 12px; background: white; border: none; color: #64748b; cursor: pointer; font-size: 12px; font-weight: 600; }
+        #allFilesModal .afm-tabbtn:hover { background: #f1f5f9; }
+        #allFilesModal .afm-tabbtn-active { background: #667eea !important; color: white !important; }
+        #allFilesModal .afm-checklabel { font-size: 13px; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+        #allFilesModal .afm-btn { padding: 7px 12px; background: white; border: 1px solid #c7d2fe; color: #4338ca; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 600; }
+        #allFilesModal .afm-btn:hover { background: #eef2ff; }
+        #allFilesModal .afm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        #allFilesModal .afm-btn-primary { background: #667eea; border-color: #667eea; color: white; }
+        #allFilesModal .afm-btn-primary:hover { background: #5568d3; }
+        #allFilesModal .afm-btn-accent { background: #28a745; border-color: #28a745; color: white; }
+        #allFilesModal .afm-btn-accent:hover { background: #218838; }
+        #allFilesModal .afm-body { flex: 1; overflow: hidden; background: #2a2a2a; display: flex; padding: 10px; }
+        #allFilesModal .afm-viewer { width: 100%; height: 100%; background: #1e1e1e; border-radius: 8px; overflow: auto; position: relative; }
+        #allFilesModal .afm-viewer-single { display: flex; align-items: center; justify-content: center; }
+        #allFilesModal .afm-zoomwrap { transform-origin: center center; transition: transform 0.15s; display: inline-block; }
+        #allFilesModal .afm-viewer-single img { max-width: 100%; max-height: calc(100vh - 260px); object-fit: contain; background: white; display: block; }
+        #allFilesModal .afm-viewer-single iframe { width: 100%; height: calc(100vh - 260px); border: 0; background: white; }
+        #allFilesModal .afm-placeholder { color: #aaa; text-align: center; padding: 60px 20px; width: 100%; }
+        #allFilesModal .afm-placeholder .ico { font-size: 64px; margin-bottom: 10px; }
+        #allFilesModal .afm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; padding: 16px; background: #1e1e1e; width: 100%; align-content: start; }
+        #allFilesModal .afm-thumb { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.3); cursor: pointer; transition: transform 0.15s; position: relative; }
+        #allFilesModal .afm-thumb:hover { transform: translateY(-3px); box-shadow: 0 5px 16px rgba(0,0,0,0.5); }
+        #allFilesModal .afm-thumb-chk { position: absolute; top: 6px; left: 6px; z-index: 2; }
+        #allFilesModal .afm-thumb-preview { height: 140px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        #allFilesModal .afm-thumb-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        #allFilesModal .afm-thumb-preview .ph { font-size: 44px; color: #999; }
+        #allFilesModal .afm-thumb-label { padding: 8px 10px; font-size: 11px; color: #334155; font-weight: 600; border-top: 1px solid #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: white; }
+        #allFilesModal .afm-thumb-num { position: absolute; top: 6px; right: 6px; background: rgba(102,126,234,0.95); color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; z-index: 2; }
+        #allFilesModal .afm-nav { padding: 10px 18px; background: #f8f9fa; border-top: 1px solid #e9ecef; display: flex; align-items: center; gap: 14px; flex-shrink: 0; flex-wrap: wrap; }
+        #allFilesModal .afm-zoom { display: flex; align-items: center; gap: 4px; }
+        #allFilesModal .afm-pageinfo { font-size: 13px; color: #334155; display: flex; align-items: center; gap: 8px; }
+        #allFilesModal .afm-resize-handle { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 50%, #999 50%, #999 60%, transparent 60%, transparent 70%, #999 70%, #999 80%, transparent 80%); border-bottom-right-radius: 14px; }
+        #allFilesModal.afm-max .afm-box { top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; border-radius: 0 !important; }
+        #allFilesModal.afm-max .afm-resize-handle { display: none; }
+
+        /* ── panel tabs + disabled items + instant sync ── */
+        .panel-tabs { display:flex; border-bottom:2px solid #e9ecef; background:#f8f9fa; }
+        .panel-tab { flex:1; padding:9px 6px; font-size:11px; font-weight:700; border:none; background:transparent; cursor:pointer; color:#6c757d; border-bottom:3px solid transparent; transition:all 0.2s; text-align:center; }
+        .panel-tab.active { color:#667eea; border-bottom-color:#667eea; background:white; }
+        .panel-tab.disabled-tab.active { color:#dc3545; border-bottom-color:#dc3545; }
+        .panel-section { display:none; }
+        .panel-section.active { display:block; }
+        .employer-item { position:relative; }
+        .disable-chk-wrap { position:absolute; top:8px; right:8px; z-index:10; }
+        .disable-chk-wrap input[type=checkbox] { width:15px; height:15px; cursor:pointer; accent-color:#dc3545; }
+        .employer-item.disabled-item { opacity:0.55; background:#fff5f5 !important; border-left:3px solid #dc3545; }
+        .disabled-badge { display:inline-block; background:#dc3545; color:white; font-size:9px; font-weight:700; padding:1px 6px; border-radius:8px; margin-left:4px; vertical-align:middle; }
+        .instant-sync-row { display:flex; align-items:center; gap:8px; padding:8px 0 4px; flex-wrap:wrap; }
+        .instant-sync-input { flex:1; min-width:160px; padding:7px 12px; border:1.5px solid #20c997; border-radius:6px; font-size:13px; outline:none; }
+        .instant-sync-input:focus { border-color:#00b4d8; box-shadow:0 0 0 3px rgba(32,201,151,0.15); }
+        .instant-sync-btn { padding:7px 14px; background:linear-gradient(135deg,#20c997,#00b4d8); color:white; border:none; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
+        .instant-sync-btn:hover { filter:brightness(1.1); }
+        .instant-sync-btn:disabled { opacity:0.6; cursor:not-allowed; }
+        .instant-sync-status { font-size:11px; color:#6c757d; font-family:monospace; }
+    </style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- CHANGE #2: Firebase SDK INIT (module script)                -->
+<!-- Exposes window._fb = { db, storage, ...SDK helpers }        -->
+<!-- Fires 'firebase-ready' event when initialized               -->
+<!-- ============================================================ -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject, listAll, getMetadata } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+        authDomain: "mgsd2026.firebaseapp.com",
+        projectId: "mgsd2026",
+        storageBucket: "mgsd2026.firebasestorage.app",
+        messagingSenderId: "918582360831",
+        appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    window._fb = {
+        db, storage,
+        collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where,
+        ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject, listAll, getMetadata
+    };
+    window.dispatchEvent(new Event('firebase-ready'));
+    console.log('🔥 Firebase SDK initialized');
+</script>
+
+<div class="container">
+
+    <!-- ══════════════ LEFT PANEL ══════════════ -->
+    <div class="nav-panel">
+        <div class="nav-header">
+            <h2>💼 Employers</h2>
+            <p id="counter">0 Employers</p>
+            <p style="font-size:10px;margin-top:5px;">
+                <span id="cloudStatus" style="padding:2px 8px;border-radius:10px;font-weight:600;background:#fff3cd;color:#856404;">⏳ Loading...</span>
+                <span id="autoSaveStatus" style="color:#6c757d;"></span> v5.0-fb
+            </p>
+        </div>
+
+        <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search employers..." oninput="onSearch()">
+
+        <div class="panel-tabs">
+            <button class="panel-tab active" id="ptab-active" onclick="switchPanelTab('active')">✅ Active</button>
+            <button class="panel-tab disabled-tab" id="ptab-disabled" onclick="switchPanelTab('disabled')">🚫 Disabled <span id="disabledCount" style="background:#dc3545;color:white;border-radius:8px;padding:1px 5px;font-size:9px;margin-left:2px;">0</span></button>
+        </div>
+
+        <div class="panel-section active" id="psection-active">
+            <ul class="employer-list" id="employerList"></ul>
+            <div class="pagination-wrap" id="paginationWrap" style="display:none;">
+                <div class="pagination-info" id="paginationInfo"></div>
+                <div class="pagination" id="paginationControls"></div>
+            </div>
+        </div>
+
+        <div class="panel-section" id="psection-disabled">
+            <ul class="employer-list" id="disabledList"></ul>
+            <div style="padding:8px 12px;font-size:11px;color:#6c757d;border-top:1px solid #e9ecef;">
+                Check the box again to re-enable an employer.
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ RIGHT PANEL ══════════════ -->
+    <div class="main-content">
+        <div class="toolbar">
+            <button class="btn btn-success" onclick="showAddEmployerWarning()" style="opacity:0.5;cursor:not-allowed;">➕ New Employer (Disabled)</button>
+            <button class="btn btn-light" onclick="loadEmployers()">🔄 Refresh</button>
+            <button class="btn btn-light" onclick="showAllFiles()">📂 All Files</button>
+            <button class="btn" onclick="manualBackup()" style="background:#17a2b8;color:white;">☁️ Backup</button>
+            <button class="btn" onclick="restoreFromBackup()" style="background:#6f42c1;color:white;">☁️ Restore</button>
+            <button class="btn" id="syncBtn" onclick="syncContacts()" style="background:linear-gradient(135deg,#20c997,#00b4d8);color:white;font-weight:700;box-shadow:0 3px 10px rgba(32,201,151,0.3);">
+                🔁 Sync Contacts
+            </button>
+            <div class="instant-sync-row" style="width:100%;">
+                <input type="text" class="instant-sync-input" id="instantSyncInput"
+                    placeholder="⚡ Type name to instant sync..."
+                    onkeydown="if(event.key==='Enter') instantSyncContact()"/>
+                <button class="instant-sync-btn" id="instantSyncBtn" onclick="instantSyncContact()">⚡ Sync Contact</button>
+                <span class="instant-sync-status" id="instantSyncStatus"></span>
+            </div>
+            <div style="width:100%;font-size:11px;text-align:right;margin-top:4px;">
+                <span id="backupStatus" style="color:#6c757d;">☁️ Last backup: Never</span>
+                &nbsp;&nbsp;
+                <span id="lastSyncStatus" style="color:#20c997;font-weight:600;"></span>
+            </div>
+        </div>
+
+        <div id="syncProgressWrap">
+            <div class="sync-title">
+                <span class="spin" id="syncSpinIcon"></span>
+                <span id="syncTitleText">🔁 Syncing Google Contacts...</span>
+            </div>
+            <div id="syncBar"><div id="syncBarFill"></div></div>
+            <div id="syncStatusText">
+                <span id="syncStatusLeft">Connecting...</span>
+                <span id="syncStatusRight">0%</span>
+            </div>
+        </div>
+
+        <div id="employerProfileBanner" style="display:none;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 4px 15px rgba(102,126,234,0.3);">
+            <div style="display:flex;align-items:center;gap:15px;">
+                <div style="font-size:48px;">👤</div>
+                <div style="flex:1;">
+                    <div style="color:white;font-size:14px;font-weight:600;opacity:0.9;margin-bottom:5px;">📋 You are working on this employer profile:</div>
+                    <div style="color:white;font-size:24px;font-weight:700;margin-bottom:5px;" id="employerProfileName">Employer Name</div>
+                    <div style="color:white;font-size:14px;opacity:0.8;" id="employerProfileCode">Code: XXX-X</div>
+                </div>
+                <button onclick="closeEmployerProfileBanner()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:8px 16px;border-radius:5px;cursor:pointer;font-weight:600;font-size:14px;">✕ Close</button>
+            </div>
+        </div>
+
+        <div style="background:#fff3cd;border:2px solid #ffc107;border-radius:8px;padding:15px;margin-bottom:20px;display:flex;align-items:center;gap:12px;">
+            <div style="font-size:32px;">⚠️</div>
+            <div>
+                <div style="font-weight:700;color:#856404;margin-bottom:5px;">Employer Creation Disabled</div>
+                <div style="color:#856404;font-size:14px;">
+                    Employers are added automatically via <strong>🔁 Sync Contacts</strong> or manually through <strong>Local Agencies Manager</strong>.
+                </div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('info')">💼 Employer Info</button>
+            <button class="tab" onclick="switchTab('docs')">📄 Required Documents</button>
+            <button class="tab" onclick="switchTab('upload')">📤 Upload Files</button>
+        </div>
+
+        <div id="tab-info" class="tab-content active">
+            <div class="form-grid">
+                <div class="form-group"><label>Employer ID</label><input type="text" id="EmployerID" readonly></div>
+                <div class="form-group"><label>Employer Code</label><input type="text" id="EmployerCode" readonly></div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>Full Name *</label>
+                    <input type="text" id="EFN" placeholder="e.g., Elias Jean Massroua" readonly style="background:#e9ecef;cursor:not-allowed;font-weight:600;">
+                </div>
+                <div class="form-group"><label>City</label><input type="text" id="City" readonly style="background:#e9ecef;cursor:not-allowed;"></div>
+                <div class="form-group"><label>Mobile Number</label><input type="text" id="MobileNumber" readonly style="background:#e9ecef;cursor:not-allowed;"></div>
+                <div class="form-group"><label>Sync Status</label><input type="text" id="SyncStatusField" readonly style="background:#e9ecef;cursor:not-allowed;font-weight:600;"></div>
+                <div class="form-group"><label>Last Sync Date</label><input type="text" id="LastSyncDateField" readonly style="background:#e9ecef;cursor:not-allowed;"></div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>📁 Firebase Storage Folder</label>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <input type="text" id="EmployerFolderName" placeholder="e.g. MGSC(1) - Joseph Freiha - 2026-04-23" style="font-family:monospace;flex:1;" readonly>
+                        <button type="button" onclick="showAllFiles()" style="padding:8px 14px;background:linear-gradient(135deg,#f5576c,#f093fb);color:white;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(245,87,108,0.3);white-space:nowrap;" title="Browse files in app viewer">🔥 Open Folder</button>
+                        <button type="button" onclick="openFolderInFirebaseConsole()" style="padding:8px 14px;background:linear-gradient(135deg,#ffa726,#ff7043);color:white;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(255,167,38,0.3);white-space:nowrap;" title="Open folder in Firebase Console (new tab)">🔍 Open in Firebase Console</button>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <button class="btn btn-success" onclick="saveEmployer()">💾 Save</button>
+                <button class="btn" id="syncSingleBtn" onclick="syncSingleContact()" style="background:linear-gradient(135deg,#20c997,#00b4d8);color:white;font-weight:700;box-shadow:0 2px 8px rgba(32,201,151,0.3);">🔄 Sync This Contact</button>
+                <div id="syncSingleStatus" style="font-size:12px;color:#6c757d;font-family:monospace;"></div>
+            </div>
+            <div id="syncPreviewBox" style="display:none;margin-top:16px;background:#f0fff4;border:2px solid #28a745;border-radius:10px;padding:16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <div style="font-weight:700;color:#155724;font-size:14px;">🔄 Changes found in Google Contacts</div>
+                    <button onclick="dismissSyncPreview()" style="background:none;border:none;color:#999;cursor:pointer;font-size:18px;">✕</button>
+                </div>
+                <div id="syncPreviewFields" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="applySyncChanges()" style="background:#28a745;color:white;border:none;padding:8px 20px;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;">✅ Apply Changes</button>
+                    <button onclick="dismissSyncPreview()" style="background:#6c757d;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-docs" class="tab-content">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <h3 style="margin:0;">Select Required Documents</h3>
+                <button onclick="reloadAndRenderDocs()" style="padding:5px 12px;background:#667eea;color:white;border:none;border-radius:5px;cursor:pointer;font-size:12px;">🔄 Refresh List</button>
+            </div>
+            <div id="docsList"></div>
+            <button class="btn btn-success" onclick="saveRequiredDocs()" style="margin-top:20px;">💾 Save Requirements</button>
+            <div style="margin-top:30px;padding:20px;background:#f8f9fa;border-radius:8px;border-left:4px solid #667eea;">
+                <h4 style="color:#667eea;margin-bottom:15px;">📄 Add More Copies</h4>
+                <div style="display:flex;gap:10px;align-items:flex-end;">
+                    <div style="flex:1;">
+                        <label style="font-weight:600;font-size:14px;margin-bottom:5px;display:block;">Select Document:</label>
+                        <select id="addMoreCopiesDropdown" style="width:100%;padding:10px;border:2px solid #667eea;border-radius:5px;font-size:14px;">
+                            <option value="">-- Select Document --</option>
+                        </select>
+                    </div>
+                    <button onclick="addMoreCopy()" class="btn" style="background:#667eea;color:white;white-space:nowrap;">➕ Add Copy</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-upload" class="tab-content">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <h3 style="margin:0;">Upload Document Files</h3>
+                <button onclick="loadUploadList()" style="padding:5px 12px;background:#667eea;color:white;border:none;border-radius:5px;cursor:pointer;font-size:12px;">🔄 Refresh</button>
+            </div>
+            <div id="uploadList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- All Files Modal (Workers-style: draggable, resizable, zoom, grid/single) -->
+<div id="allFilesModal" style="display:none;position:fixed;inset:0;z-index:99998;">
+    <div class="afm-backdrop" onclick="closeAllFilesModal()"></div>
+    <div class="afm-box" id="afmBox">
+        <div class="afm-hdr" id="afmDragHandle">
+            <div style="flex:1;min-width:0;">
+                <div class="afm-title">📂 All Employer Files</div>
+                <div class="afm-sub" id="afmSub">Loading...</div>
+            </div>
+            <div class="afm-hdr-btns">
+                <button class="afm-icon-btn" title="Maximize/Restore" onclick="afmToggleMax()">⤢</button>
+                <button class="afm-close" onclick="closeAllFilesModal()">✕</button>
+            </div>
+        </div>
+        <div class="afm-toolbar">
+            <div class="afm-tabgroup">
+                <button class="afm-tabbtn afm-tabbtn-active" id="afmTabSingle" onclick="afmSetView('single')">📄 Single</button>
+                <button class="afm-tabbtn" id="afmTabGrid" onclick="afmSetView('grid')">▦ Thumbnails</button>
+            </div>
+            <label class="afm-checklabel"><input type="checkbox" id="afmSelectAll" onchange="afmToggleSelectAll(this.checked)"> Select all</label>
+            <span id="afmSelCount" style="color:#888;font-size:12px;">0 of 0 selected</span>
+            <div style="flex:1;"></div>
+            <button class="afm-btn" onclick="downloadAllFiles()">⬇️ Download all</button>
+            <button class="afm-btn afm-btn-primary" onclick="downloadSelectedFiles()">⬇️ Download selected</button>
+            <button class="afm-btn afm-btn-accent" onclick="printSelectedFiles(event)">🖨️ Print selected</button>
+        </div>
+        <div class="afm-body">
+            <div class="afm-viewer afm-viewer-single" id="afmViewer">
+                <div class="afm-placeholder"><div class="ico">⏳</div><div>Loading...</div></div>
+            </div>
+        </div>
+        <div class="afm-nav" id="afmNav" style="display:flex;">
+            <button class="afm-btn" onclick="afmPrev()">◀ Prev</button>
+            <div class="afm-zoom">
+                <button class="afm-icon-btn" title="Zoom out" onclick="afmZoom(-0.25)">−</button>
+                <span id="afmZoomPct" style="min-width:50px;text-align:center;font-size:12px;color:#334155;font-weight:600;">100%</span>
+                <button class="afm-icon-btn" title="Zoom in" onclick="afmZoom(0.25)">+</button>
+                <button class="afm-icon-btn" title="Reset zoom" onclick="afmZoomReset()">↺</button>
+            </div>
+            <div class="afm-pageinfo">
+                <input type="checkbox" id="afmItemCheck" onchange="afmToggleCurrent()" title="Select this file">
+                <span>Page <input id="afmPageNum" type="number" min="1" value="1" style="width:55px;padding:4px;border:1px solid #ccc;border-radius:4px;text-align:center;" onchange="afmJumpTo()"> of <span id="afmPageTotal">0</span></span>
+            </div>
+            <div style="flex:1;text-align:center;font-size:12px;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="afmFileName"></div>
+            <button class="afm-btn" onclick="afmNext()">Next ▶</button>
+        </div>
+        <div class="afm-resize-handle" id="afmResizeHandle"></div>
+    </div>
+</div>
+
+<!-- Message Modal -->
+<div id="msgModal" style="display:none;position:fixed;z-index:99999;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:12px;padding:0;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;">
+        <div id="msgHeader" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:14px 20px;font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;">
+            <span id="msgIcon">ℹ️</span> <span id="msgTitle">Message</span>
+        </div>
+        <div style="padding:20px;">
+            <pre id="msgText" style="white-space:pre-wrap;word-wrap:break-word;font-family:'Segoe UI',sans-serif;font-size:13px;line-height:1.6;color:#333;max-height:400px;overflow-y:auto;margin:0;"></pre>
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid #e9ecef;display:flex;justify-content:flex-end;gap:8px;background:#f8f9fa;">
+            <button onclick="copyMsg()" id="msgCopyBtn" style="padding:8px 16px;background:#667eea;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;">📋 Copy</button>
+            <button onclick="closeMsg()" style="padding:8px 20px;background:#4facfe;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Modal -->
+<div id="confirmModal" style="display:none;position:fixed;z-index:99999;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:12px;padding:0;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:14px 20px;font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;">
+            <span>⚠️</span> <span>Confirm</span>
+        </div>
+        <div style="padding:20px;">
+            <pre id="confirmText" style="white-space:pre-wrap;word-wrap:break-word;font-family:'Segoe UI',sans-serif;font-size:13px;line-height:1.6;color:#333;max-height:400px;overflow-y:auto;margin:0;"></pre>
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid #e9ecef;display:flex;justify-content:flex-end;gap:8px;background:#f8f9fa;">
+            <button onclick="confirmCopy()" id="confirmCopyBtn" style="padding:8px 16px;background:#667eea;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;">📋 Copy</button>
+            <button onclick="confirmNo()" style="padding:8px 20px;background:#6c757d;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Cancel</button>
+            <button onclick="confirmYes()" style="padding:8px 20px;background:#dc3545;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Yes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Overlay -->
+<div id="uploadOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;justify-content:center;align-items:center;flex-direction:column;">
+    <div style="background:white;border-radius:16px;padding:40px 50px;text-align:center;min-width:350px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div id="uploadSpinner" style="width:60px;height:60px;border:5px solid #e0e0e0;border-top:5px solid #667eea;border-radius:50%;animation:uploadSpin 1s linear infinite;margin:0 auto 20px;"></div>
+        <h3 id="uploadTitle" style="margin:0 0 10px;color:#333;font-size:18px;">📤 Uploading...</h3>
+        <p id="uploadDetail" style="margin:0 0 15px;color:#666;font-size:14px;">Preparing file...</p>
+        <div style="width:100%;background:#e9ecef;border-radius:10px;height:8px;overflow:hidden;">
+            <div id="uploadProgressBar" style="width:0%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:10px;transition:width 0.3s;"></div>
+        </div>
+        <p id="uploadPercent" style="margin:8px 0 0;color:#888;font-size:13px;font-weight:600;">0%</p>
+    </div>
+</div>
+
+<script>
+// ====================================================================
+// CHANGE #3: Apps Script web-app URL (for sync operations via fetch)
+// ====================================================================
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEbNo287tvEezLwy8vYHrNWxPXELlzzsGVg9yeA6XXDIkXdR0ILEKOTWbG88PxHiIf/exec';
+
+// ====================================================================
+// CHANGE #3b: _fbReady() — wait for Firebase SDK init
+// ====================================================================
+function _fbReady() {
+    return new Promise(function(resolve) {
+        if (window._fb) return resolve(window._fb);
+        window.addEventListener('firebase-ready', function() { resolve(window._fb); }, { once: true });
+    });
+}
+
+// ====================================================================
+// Helper: fetch JSON from Apps Script (GET with query params)
+// ====================================================================
+async function appsScriptGet(params) {
+    const qs = Object.keys(params).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
+    const url = APPS_SCRIPT_URL + '?' + qs;
+    const res = await fetch(url, { method: 'GET', redirect: 'follow' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+}
+
+// ==========================================
+// MESSAGE SYSTEM
+// ==========================================
+let _msgResolve = null;
+window.alert = function(msg) { showMsg(msg); };
+
+function showMsg(text, title) {
+    var cleanText = String(text || '');
+    document.getElementById('msgText').textContent = cleanText;
+    var hdr = document.getElementById('msgHeader');
+    var icon = document.getElementById('msgIcon');
+    var ttl = document.getElementById('msgTitle');
+    if (cleanText.startsWith('✅')||cleanText.includes('SUCCESS')) { icon.textContent='✅'; ttl.textContent=title||'Success'; hdr.style.background='linear-gradient(135deg,#10b981,#059669)'; }
+    else if (cleanText.startsWith('❌')||cleanText.includes('ERROR')||cleanText.includes('failed')) { icon.textContent='❌'; ttl.textContent=title||'Error'; hdr.style.background='linear-gradient(135deg,#ef4444,#dc2626)'; }
+    else if (cleanText.startsWith('⚠️')||cleanText.includes('WARNING')) { icon.textContent='⚠️'; ttl.textContent=title||'Warning'; hdr.style.background='linear-gradient(135deg,#f59e0b,#d97706)'; }
+    else { icon.textContent='ℹ️'; ttl.textContent=title||'Message'; hdr.style.background='linear-gradient(135deg,#667eea,#764ba2)'; }
+    document.getElementById('msgCopyBtn').textContent = '📋 Copy';
+    document.getElementById('msgModal').style.display = 'flex';
+}
+function copyMsg() { navigator.clipboard.writeText(document.getElementById('msgText').textContent).then(function(){ document.getElementById('msgCopyBtn').textContent='✅ Copied!'; setTimeout(function(){ document.getElementById('msgCopyBtn').textContent='📋 Copy'; },1500); }); }
+function closeMsg() { document.getElementById('msgModal').style.display='none'; if(_msgResolve){_msgResolve();_msgResolve=null;} }
+
+// ==========================================
+// CONFIRM SYSTEM
+// ==========================================
+let _confirmResolve = null;
+function showConfirm(text) {
+    return new Promise(function(resolve) {
+        _confirmResolve = resolve;
+        document.getElementById('confirmText').textContent = String(text||'');
+        document.getElementById('confirmCopyBtn').textContent = '📋 Copy';
+        document.getElementById('confirmModal').style.display = 'flex';
+    });
+}
+var _promptResolve = null;
+function showPrompt(text) {
+    return new Promise(function(resolve) {
+        _promptResolve = resolve;
+        document.getElementById('confirmText').textContent = String(text||'');
+        var existing = document.getElementById('promptInput');
+        if (!existing) {
+            var inp = document.createElement('input'); inp.id='promptInput'; inp.type='password'; inp.placeholder='Enter password...';
+            inp.style.cssText='width:100%;padding:10px;border:2px solid #dc3545;border-radius:6px;font-size:14px;margin-top:12px;text-align:center;';
+            document.getElementById('confirmText').insertAdjacentElement('afterend', inp);
+        } else { existing.style.display='block'; existing.value=''; }
+        document.getElementById('confirmModal').style.display = 'flex';
+        setTimeout(function() {
+            var inp=document.getElementById('promptInput'); if(inp)inp.focus();
+            var yesBtn=document.querySelector('#confirmModal button[onclick="confirmYes()"]');
+            if(yesBtn){yesBtn.onclick=function(){var val=document.getElementById('promptInput').value;document.getElementById('promptInput').style.display='none';document.getElementById('confirmModal').style.display='none';yesBtn.onclick=confirmYes;if(_promptResolve){var r=_promptResolve;_promptResolve=null;r(val);}};}
+            var noBtn=document.querySelector('#confirmModal button[onclick="confirmNo()"]');
+            if(noBtn){noBtn.onclick=function(){document.getElementById('promptInput').style.display='none';document.getElementById('confirmModal').style.display='none';noBtn.onclick=confirmNo;if(_promptResolve){var r=_promptResolve;_promptResolve=null;r(null);}};}
+        }, 50);
+    });
+}
+function confirmCopy() { navigator.clipboard.writeText(document.getElementById('confirmText').textContent).then(function(){ document.getElementById('confirmCopyBtn').textContent='✅ Copied!'; setTimeout(function(){ document.getElementById('confirmCopyBtn').textContent='📋 Copy'; },1500); }); }
+function confirmYes() { document.getElementById('confirmModal').style.display='none'; if(_confirmResolve){_confirmResolve(true);_confirmResolve=null;} }
+function confirmNo()  { document.getElementById('confirmModal').style.display='none'; if(_confirmResolve){_confirmResolve(false);_confirmResolve=null;} }
+document.addEventListener('keydown', function(e) { if(document.getElementById('msgModal').style.display==='flex'){if(e.key==='Escape'||e.key==='Enter'){closeMsg();e.preventDefault();}} });
+
+// ====================================================================
+// CHANGE #4: CloudDB — Firestore-backed (same public API as before)
+// ====================================================================
+const SHEET_MAP = {
+    'Employers':          'employers',
+    'Employer_Documents': 'employer_documents'
+};
+const KEY_MAP = {
+    'Employers':          'EmployerID',
+    'Employer_Documents': 'DocumentID'
+};
+
+const CloudDB = {
+    ready: false,
+
+    async loadSheet(sheetName, callback) {
+        try {
+            const fb = await _fbReady();
+            const collName = SHEET_MAP[sheetName] || sheetName;
+            const snap = await fb.getDocs(fb.collection(fb.db, collName));
+            const rows = [];
+            snap.forEach(function(d) { rows.push(d.data()); });
+            const result = rows.length > 0 ? rows : null;
+            if (typeof callback === 'function') callback(result);
+            return result;
+        } catch (e) {
+            console.warn('☁️ loadSheet(' + sheetName + ') failed:', e.message);
+            if (typeof callback === 'function') callback(null);
+            return null;
+        }
+    },
+
+    async saveRow(sheetName, rowData) {
+        try {
+            const fb = await _fbReady();
+            const collName = SHEET_MAP[sheetName] || sheetName;
+            const kf = KEY_MAP[sheetName] || 'id';
+            const id = String(rowData[kf] || '');
+            if (!id) return { success: false, error: 'Missing key field: ' + kf };
+            const clean = JSON.parse(JSON.stringify(rowData, function(k, v){ return v === undefined ? null : v; }));
+            await fb.setDoc(fb.doc(fb.db, collName, id), clean);
+            return { success: true };
+        } catch (e) {
+            console.warn('☁️ saveRow failed:', e.message);
+            return { success: false, error: e.message };
+        }
+    },
+
+    async deleteRow(sheetName, id) {
+        try {
+            const fb = await _fbReady();
+            const collName = SHEET_MAP[sheetName] || sheetName;
+            await fb.deleteDoc(fb.doc(fb.db, collName, String(id)));
+            return { success: true };
+        } catch (e) {
+            console.warn('☁️ deleteRow failed:', e.message);
+            return { success: false, error: e.message };
+        }
+    },
+
+    async post(data) {
+        // Backward-compat: mimic the old CloudDB.post() for getAll
+        if (data && data.action === 'getAll' && data.sheet) {
+            const rows = await this.loadSheet(data.sheet);
+            return { success: true, data: rows || [] };
+        }
+        if (data && data.action === 'saveRow') {
+            return await this.saveRow(data.sheet, data.data || data.row);
+        }
+        // Any other action — no longer supported client-side; would need fetch() to Apps Script
+        console.warn('☁️ CloudDB.post: unsupported action (Firebase version):', data && data.action);
+        return { success: false, error: 'Unsupported in Firebase version: ' + (data && data.action) };
+    },
+
+    async loadAll() {
+        console.log('☁️ Loading employers + documents from Firestore...');
+        const self = this;
+        function withTimeout(sheet, ms) {
+            return Promise.race([
+                self.loadSheet(sheet),
+                new Promise(function(resolve){ setTimeout(function(){ resolve(null); }, ms); })
+            ]);
+        }
+        try {
+            const [emp, docs] = await Promise.all([
+                withTimeout('Employers', 10000),
+                withTimeout('Employer_Documents', 10000)
+            ]);
+            this.ready = true;
+            console.log('☁️ Loaded:', (emp ? emp.length : 0), 'employers,', (docs ? docs.length : 0), 'doc types');
+            return { employers: emp, employer_documents: docs };
+        } catch (e) {
+            console.warn('☁️ loadAll failed:', e.message);
+            return { employers: null, employer_documents: null };
+        }
+    }
+};
+
+// Expose for legacy callers
+window.CloudDB = CloudDB;
+
+// ==========================================
+// SAVE PROTECTION
+// ==========================================
+var _hasUnsavedChanges = false;
+document.addEventListener('input', function(e) {
+    if(e.target.closest&&e.target.closest('.form-panel')){ _hasUnsavedChanges=true; var el=document.getElementById('autoSaveStatus'); if(el)el.textContent='⚠️ Unsaved'; }
+});
+window.addEventListener('beforeunload', function(e) {
+    if(_hasUnsavedChanges){ e.preventDefault(); e.returnValue='⚠️ You have unsaved changes!'; return e.returnValue; }
+});
+function markAsSaved() { _hasUnsavedChanges=false; var el=document.getElementById('autoSaveStatus'); if(el)el.textContent='✅ '+new Date().toLocaleTimeString(); }
+setInterval(function(){ if(_hasUnsavedChanges&&currentEmployer)saveEmployer(); },30000);
+
+// ==========================================
+// UPLOAD OVERLAY
+// ==========================================
+function showUploadOverlay(title, detail) {
+    var ov=document.getElementById('uploadOverlay'); if(!ov)return;
+    ov.style.display='flex';
+    document.getElementById('uploadTitle').textContent=title||'📤 Uploading...';
+    document.getElementById('uploadDetail').textContent=detail||'Preparing file...';
+    document.getElementById('uploadProgressBar').style.width='0%';
+    document.getElementById('uploadPercent').textContent='0%';
+    var s=document.getElementById('uploadSpinner'); s.innerHTML=''; s.style.animation='uploadSpin 1s linear infinite'; s.style.border='5px solid #e0e0e0'; s.style.borderTop='5px solid #667eea';
+}
+function updateUploadOverlay(detail, percent) { document.getElementById('uploadDetail').textContent=detail; document.getElementById('uploadProgressBar').style.width=percent+'%'; document.getElementById('uploadPercent').textContent=percent+'%'; }
+function hideUploadOverlay(success, msg) {
+    var s=document.getElementById('uploadSpinner'); s.style.animation='none'; s.style.border='none';
+    s.innerHTML='<div style="font-size:50px;line-height:60px">'+(success?'✅':'❌')+'</div>';
+    document.getElementById('uploadTitle').textContent=success?'✅ Upload Complete':'❌ Upload Failed';
+    document.getElementById('uploadTitle').style.color=success?'#28a745':'#dc3545';
+    document.getElementById('uploadDetail').textContent=msg||'';
+    document.getElementById('uploadProgressBar').style.width='100%'; document.getElementById('uploadPercent').textContent='100%';
+    setTimeout(function(){
+        document.getElementById('uploadOverlay').style.display='none'; s.innerHTML=''; s.style.animation='uploadSpin 1s linear infinite'; s.style.border='5px solid #e0e0e0'; s.style.borderTop='5px solid #667eea'; document.getElementById('uploadTitle').style.color='#333';
+    },1500);
+}
+
+// ==========================================
+// STATE
+// ==========================================
+var employers = [];
+var currentEmployer = null;
+var PAGE_SIZE = 20;
+var currentPage = 1;
+var filteredEmployers = [];
+var DEFAULT_SHOW = 9999;
+var currentPanelTab = 'active';
+
+// ==========================================
+// PANEL TAB SWITCH
+// ==========================================
+function switchPanelTab(tab) {
+    currentPanelTab = tab;
+    document.querySelectorAll('.panel-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelectorAll('.panel-section').forEach(function(s){ s.classList.remove('active'); });
+    document.getElementById('ptab-'+tab).classList.add('active');
+    document.getElementById('psection-'+tab).classList.add('active');
+    if (tab==='disabled') renderDisabledList();
+}
+
+// ==========================================
+// PARSE EMPLOYER FIELDS
+// ==========================================
+function parseEmployerFields(arr) {
+    arr.forEach(function(emp) {
+        if (typeof emp.UploadedDocuments==='string'){ try{ emp.UploadedDocuments=JSON.parse(emp.UploadedDocuments); }catch(e){ emp.UploadedDocuments={}; } }
+        if (typeof emp.RequiredDocuments==='string'){ try{ emp.RequiredDocuments=JSON.parse(emp.RequiredDocuments); }catch(e){ emp.RequiredDocuments=[]; } }
+        emp.Disabled = emp.Disabled===true || emp.Disabled==='TRUE' || emp.Disabled==='true' || emp.Disabled==='1';
+    });
+}
+
+// ==========================================
+// INIT
+// ==========================================
+async function init() {
+    console.log('🚀 EMPLOYERS MANAGER v5.0-fb (Firebase)');
+    document.getElementById('allFilesModal').style.display='none';
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape')closeAllFiles(); });
+
+    showUploadOverlay('🔥 Connecting to Firebase...','Initializing Firestore connection...');
+    updateUploadOverlay('Loading 1,354 employers...',30);
+
+    var cloudData = await CloudDB.loadAll();
+    updateUploadOverlay('Loading document types...',70);
+
+    if (cloudData.employers) {
+        employers = cloudData.employers;
+        parseEmployerFields(employers);
+    }
+    if (cloudData.employer_documents) {
+        localStorage.setItem('mgsdb_employer_documents', JSON.stringify(cloudData.employer_documents));
+    }
+
+    employers.forEach(function(emp) {
+        if (!emp.EFN && (emp.EmployerName||emp.EmployerFatherName||emp.EmployerFamilyName)) {
+            emp.EFN = [emp.EmployerName,emp.EmployerFatherName,emp.EmployerFamilyName].filter(Boolean).join(' ');
+        }
+        if (!emp.EFN && emp.EmployerCode) emp.EFN = emp.EmployerCode;
+    });
+
+    loadEmployers();
+
+    var selectedEmployerId = localStorage.getItem('selected_employer_id');
+    var openDocsTab = localStorage.getItem('open_documents_tab');
+    if (selectedEmployerId && openDocsTab==='true') {
+        localStorage.removeItem('selected_employer_id');
+        localStorage.removeItem('open_documents_tab');
+        var employer = employers.find(function(e){ return String(e.EmployerID)===String(selectedEmployerId); });
+        if (employer) {
+            document.getElementById('searchBox').value = employer.EFN||employer.EmployerCode||String(selectedEmployerId);
+            loadEmployers();
+            setTimeout(function(){ selectEmployer(employer); switchTab('docs'); showEmployerProfileBanner(employer); },100);
+        }
+    }
+
+    var s=document.getElementById('uploadSpinner'); s.style.animation='none'; s.style.border='none';
+    s.innerHTML='<div style="font-size:50px;line-height:60px">🔥</div>';
+    document.getElementById('uploadTitle').textContent='🔥 Firebase Connected';
+    document.getElementById('uploadTitle').style.color='#28a745';
+    document.getElementById('uploadDetail').textContent='Data loaded from Firestore';
+    document.getElementById('uploadProgressBar').style.width='100%';
+    document.getElementById('uploadPercent').textContent='100%';
+    setTimeout(function(){
+        document.getElementById('uploadOverlay').style.display='none'; s.innerHTML=''; s.style.animation='uploadSpin 1s linear infinite'; s.style.border='5px solid #e0e0e0'; s.style.borderTop='5px solid #667eea'; document.getElementById('uploadTitle').style.color='#333';
+    },500);
+
+    var cloudBadge=document.getElementById('cloudStatus');
+    if(cloudBadge){ cloudBadge.textContent='🔥 Firebase'; cloudBadge.style.background='#d4edda'; cloudBadge.style.color='#155724'; }
+
+    var lastSync=localStorage.getItem('mgsdb_lastContactsSync');
+    if(lastSync){ var el=document.getElementById('lastSyncStatus'); if(el)el.textContent='🔁 Last sync: '+lastSync; }
+}
+
+// ==========================================
+// SEARCH + LOAD
+// ==========================================
+function onSearch(){ currentPage=1; loadEmployers(); }
+function filterEmployers(){ onSearch(); }
+
+function loadEmployers() {
+    var searchTerm=(document.getElementById('searchBox').value||'').toLowerCase().trim();
+    var activeEmployers   = employers.filter(function(e){ return !e.Disabled; });
+    var disabledEmployers = employers.filter(function(e){ return !!e.Disabled; });
+    var dcEl=document.getElementById('disabledCount'); if(dcEl)dcEl.textContent=disabledEmployers.length;
+    document.getElementById('counter').textContent = activeEmployers.length + ' Employers';
+
+    filteredEmployers = activeEmployers.filter(function(emp){
+        if(!searchTerm) return true;
+        var haystack = Object.keys(emp).map(function(k){
+            var v = emp[k];
+            if (v === null || v === undefined) return '';
+            if (typeof v === 'object') return '';
+            return String(v);
+        }).join(' ').toLowerCase();
+        return haystack.includes(searchTerm);
+    });
+
+    if (!searchTerm) {
+        var sorted=filteredEmployers.slice().sort(function(a,b){ return parseInt(b.EmployerID||0)-parseInt(a.EmployerID||0); });
+        filteredEmployers=sorted.slice(0,DEFAULT_SHOW);
+    }
+
+    var total=filteredEmployers.length;
+    var totalPages=Math.max(1,Math.ceil(total/PAGE_SIZE));
+    if(currentPage<1)currentPage=1; if(currentPage>totalPages)currentPage=totalPages;
+    var start=(currentPage-1)*PAGE_SIZE; var end=Math.min(start+PAGE_SIZE,total);
+    var pageItems=filteredEmployers.slice(start,end);
+
+    var list=document.getElementById('employerList'); list.innerHTML='';
+    if(total===0){
+        list.innerHTML='<li style="padding:20px;text-align:center;color:#999;">'+(searchTerm?'🔍 No results for "'+searchTerm+'"':'No employers yet.')+'</li>';
+    } else {
+        pageItems.forEach(function(emp){ list.appendChild(renderEmployerItem(emp,false)); });
+    }
+
+    renderPagination(total,totalPages,start,end);
+    if(currentPanelTab==='disabled')renderDisabledList();
+}
+
+function renderDisabledList() {
+    var disabledEmployers=employers.filter(function(e){ return !!e.Disabled; });
+    var list=document.getElementById('disabledList'); list.innerHTML='';
+    if(disabledEmployers.length===0){ list.innerHTML='<li style="padding:20px;text-align:center;color:#999;">No disabled employers.</li>'; return; }
+    disabledEmployers.forEach(function(emp){ list.appendChild(renderEmployerItem(emp,true)); });
+}
+
+function renderEmployerItem(emp, isDisabled) {
+    var li=document.createElement('li');
+    li.className='employer-item'+(isDisabled?' disabled-item':'');
+    li.setAttribute('data-employer-id',emp.EmployerID);
+    var syncStatus=emp.SyncStatus||emp.syncStatus||'manual';
+    var badgeClass=syncStatus==='Active'?'active':syncStatus==='Inactive'?'inactive':syncStatus==='Synced'?'synced':'manual';
+    var badgeLabel=syncStatus==='Active'?'🟢 Active':syncStatus==='Inactive'?'🔴 Inactive':syncStatus==='Synced'?'🔵 Synced':'🟡 Manual';
+    var disabledBadge=isDisabled?'<span class="disabled-badge">🚫 Disabled</span>':'';
+    li.innerHTML=
+        '<div style="font-size:12px;color:#f5576c;font-weight:700;">'+computeEmployerCode(emp)+'<span class="sync-badge '+badgeClass+'">'+badgeLabel+'</span>'+disabledBadge+'</div>'
+        +'<div style="font-size:13px;color:#333;margin-top:2px;padding-right:24px;">'+(emp.EFN||emp.EmployerName||'Unknown')+'</div>'
+        +(emp.City?'<div style="font-size:11px;color:#999;">📍 '+emp.City+'</div>':'')
+        +'<div class="disable-chk-wrap"><input type="checkbox" title="'+(isDisabled?'Re-enable':'Disable')+'" '+(isDisabled?'checked':'')
+        +' onchange="toggleDisableEmployer(event,\''+emp.EmployerID+'\')"></div>';
+    if(currentEmployer&&String(emp.EmployerID)===String(currentEmployer.EmployerID))li.classList.add('active');
+    li.addEventListener('click',function(e){ if(e.target.type==='checkbox')return; selectEmployer(emp); });
+    return li;
+}
+
+async function toggleDisableEmployer(event, employerID) {
+    event.stopPropagation();
+    var chk=event.target; var isNowDisabled=chk.checked;
+    var emp=employers.find(function(e){ return String(e.EmployerID)===String(employerID); });
+    if(!emp){ chk.checked=!isNowDisabled; return; }
+    var yes=await showConfirm(
+        (isNowDisabled?'🚫 Disable this employer?\n\n':'✅ Re-enable this employer?\n\n')
+        +(emp.EFN||emp.EmployerCode||'')+'\n\n'
+        +(isNowDisabled?'They will be moved to the Disabled tab.':'They will return to the Active list.')
+    );
+    if(!yes){ chk.checked=!isNowDisabled; return; }
+    emp.Disabled=isNowDisabled; emp.DisabledAt=isNowDisabled?new Date().toISOString():null;
+    var idx=employers.findIndex(function(e){ return String(e.EmployerID)===String(employerID); });
+    if(idx>=0)employers[idx]=emp;
+    var saveBtn=chk; saveBtn.disabled=true;
+    var result=await CloudDB.saveRow('Employers', emp);
+    saveBtn.disabled=false;
+    if(!result||!result.success){
+        emp.Disabled=!isNowDisabled; if(idx>=0)employers[idx]=emp; chk.checked=!isNowDisabled;
+        showMsg('❌ Failed to save to cloud.'); return;
+    }
+    if(currentEmployer&&String(currentEmployer.EmployerID)===String(employerID)&&isNowDisabled){
+        currentEmployer=null; closeEmployerProfileBanner();
+    }
+    loadEmployers();
+    if(isNowDisabled) switchPanelTab('disabled');
+    showMsg((isNowDisabled?'🚫 Employer disabled.\n\n':'✅ Employer re-enabled.\n\n')+(emp.EFN||emp.EmployerCode||''));
+}
+
+function renderPagination(total,totalPages,start,end) {
+    var wrap=document.getElementById('paginationWrap'); var info=document.getElementById('paginationInfo'); var controls=document.getElementById('paginationControls');
+    if(total===0||totalPages<=1){wrap.style.display='none';return;}
+    wrap.style.display='block'; info.textContent='Showing '+(start+1)+'–'+end+' of '+total; controls.innerHTML='';
+    function makeBtn(label,page,isActive,isDisabled){
+        var btn=document.createElement('button'); btn.textContent=label;
+        if(isActive)btn.classList.add('pg-active'); if(isDisabled)btn.disabled=true;
+        if(!isDisabled&&!isActive)btn.onclick=(function(p){ return function(){ currentPage=p; loadEmployers(); document.getElementById('employerList').scrollTop=0; }; })(page);
+        return btn;
+    }
+    controls.appendChild(makeBtn('◀',currentPage-1,false,currentPage===1));
+    var pages=[1]; if(currentPage>3)pages.push('…');
+    for(var p=Math.max(2,currentPage-1);p<=Math.min(totalPages-1,currentPage+1);p++)pages.push(p);
+    if(currentPage<totalPages-2)pages.push('…'); if(totalPages>1)pages.push(totalPages);
+    pages.forEach(function(p){ if(p==='…'){var s=document.createElement('span');s.className='pg-ellipsis';s.textContent='…';controls.appendChild(s);}else{controls.appendChild(makeBtn(p,p,p===currentPage,false));} });
+    controls.appendChild(makeBtn('▶',currentPage+1,false,currentPage===totalPages));
+}
+
+// ====================================================================
+// CHANGE #5: SYNC CONTACTS (fetch to Apps Script, not google.script.run)
+// ====================================================================
+var _syncInProgress=false;
+async function syncContacts() {
+    if(_syncInProgress){showMsg('⚠️ Sync already in progress!');return;}
+    _syncInProgress=true;
+    var syncBtn=document.getElementById('syncBtn'); if(syncBtn){syncBtn.disabled=true;syncBtn.textContent='⏳ Syncing...';}
+    var wrap=document.getElementById('syncProgressWrap'); wrap.style.display='block'; wrap.scrollIntoView({behavior:'smooth',block:'nearest'});
+    setSyncProgress(5,'Connecting to Google Contacts...','5%');
+    document.getElementById('syncTitleText').textContent='🔁 Syncing Google Contacts...';
+    document.getElementById('syncSpinIcon').style.display='inline-block';
+    var fakeProgress=5;
+    var fakeTimer=setInterval(function(){ if(fakeProgress<80){fakeProgress+=Math.random()*8;if(fakeProgress>80)fakeProgress=80;setSyncProgress(fakeProgress,'Reading MGSC contacts...',Math.round(fakeProgress)+'%');} },800);
+
+    try {
+        // Call Apps Script via fetch() — action=syncContacts
+        var result = await appsScriptGet({ action: 'syncContacts' });
+
+        clearInterval(fakeTimer); _syncInProgress=false;
+        if(syncBtn){syncBtn.disabled=false;syncBtn.textContent='🔁 Sync Contacts';}
+
+        if(result && result.success){
+            setSyncProgress(100,'✅ Sync complete!','100%');
+            document.getElementById('syncSpinIcon').style.display='none';
+            document.getElementById('syncTitleText').textContent='✅ Sync Completed!';
+            wrap.style.background='#f0fff4'; wrap.style.borderColor='#28a745';
+            var now=new Date().toLocaleString(); localStorage.setItem('mgsdb_lastContactsSync',now);
+            var el=document.getElementById('lastSyncStatus'); if(el)el.textContent='🔁 Last sync: '+now;
+
+            // Reload employers from Firestore (sync writes to Sheets; dual-write to Firestore comes in Step 4)
+            // For now, give the user a heads-up that Firebase view will lag until dual-write is live.
+            setTimeout(async function(){
+                var data = await CloudDB.loadSheet('Employers');
+                if(data){ employers=data; parseEmployerFields(employers); currentPage=1; loadEmployers(); }
+            },500);
+
+            setTimeout(function(){
+                showMsg('✅ Sync Completed!\n\n📋 Total: '+(result.total||0)+'\n➕ Inserted: '+(result.inserted||0)+'\n✏️ Updated: '+(result.updated||0)+'\n🔴 Inactive: '+(result.inactive||0)+'\n📁 Folders: '+(result.folders||0)+'\n❌ Errors: '+(result.errors||0)+'\n\n⚠️ Note: Firebase view updates after Step 4 (dual-write).');
+                setTimeout(function(){wrap.style.display='none';},3000);
+            },600);
+        } else {
+            setSyncProgress(0,'❌ Sync failed!','0%'); document.getElementById('syncSpinIcon').style.display='none';
+            document.getElementById('syncTitleText').textContent='❌ Sync Failed'; wrap.style.background='#fff5f5'; wrap.style.borderColor='#dc3545';
+            setTimeout(function(){showMsg('❌ Sync Failed!\n\n'+(result && result.error ? result.error : 'Unknown error.'));},300);
+        }
+    } catch (err) {
+        clearInterval(fakeTimer); _syncInProgress=false;
+        if(syncBtn){syncBtn.disabled=false;syncBtn.textContent='🔁 Sync Contacts';}
+        setSyncProgress(0,'❌ Connection failed!','0%'); document.getElementById('syncSpinIcon').style.display='none';
+        document.getElementById('syncTitleText').textContent='❌ Sync Failed'; wrap.style.background='#fff5f5'; wrap.style.borderColor='#dc3545';
+        showMsg('❌ Sync Failed!\n\n'+(err.message||String(err)));
+    }
+}
+function setSyncProgress(percent,leftText,rightText){ document.getElementById('syncBarFill').style.width=percent+'%'; document.getElementById('syncStatusLeft').textContent=leftText||''; document.getElementById('syncStatusRight').textContent=rightText||''; }
+
+// ====================================================================
+// CHANGE #6: INSTANT SYNC (fetch to Apps Script)
+// ====================================================================
+async function instantSyncContact() {
+    var name = (document.getElementById('instantSyncInput').value || '').trim();
+    if (!name) { showMsg('⚠️ Please enter a name to search.'); return; }
+    var btn = document.getElementById('instantSyncBtn');
+    var statusEl = document.getElementById('instantSyncStatus');
+    btn.disabled = true; btn.textContent = '⏳ Searching...';
+    statusEl.textContent = 'Searching Google Contacts...'; statusEl.style.color = '#6c757d';
+
+    try {
+        var result = await appsScriptGet({ action: 'searchContactsByName', name: name });
+        btn.disabled = false; btn.textContent = '⚡ Sync Contact';
+        if (!result || !result.success || !result.contacts || result.contacts.length === 0) {
+            statusEl.textContent = '❌ Not found: ' + name; statusEl.style.color = '#dc3545';
+            showMsg('❌ No contact found matching "' + name + '"');
+            return;
+        }
+        var contacts = result.contacts;
+        if (contacts.length === 1) { doInstantSync(contacts[0], statusEl, btn); }
+        else { showInstantSyncPicker(contacts, statusEl, btn); }
+    } catch (e) {
+        btn.disabled = false; btn.textContent = '⚡ Sync Contact';
+        statusEl.textContent = '❌ ' + e.message; statusEl.style.color = '#dc3545';
+    }
+}
+
+async function doInstantSync(contact, statusEl, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing...'; }
+    if (statusEl) { statusEl.textContent = 'Syncing ' + contact.name + '...'; statusEl.style.color = '#6c757d'; }
+    try {
+        var result = await appsScriptGet({ action: 'syncContactByResourceName', resourceName: contact.resourceName });
+        if (btn) { btn.disabled = false; btn.textContent = '⚡ Sync Contact'; }
+        if (!result || !result.success) {
+            if (statusEl) { statusEl.textContent = '❌ Sync failed'; statusEl.style.color = '#dc3545'; }
+            showMsg('❌ Sync failed: ' + (result && result.error ? result.error : 'Unknown error'));
+            return;
+        }
+        var msg = result.inserted > 0 ? '➕ Added to Employers' : '✏️ Updated in Employers';
+        if (statusEl) { statusEl.textContent = '✅ ' + msg; statusEl.style.color = '#28a745'; }
+        document.getElementById('instantSyncInput').value = '';
+        setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 4000);
+
+        // Reload from Firestore
+        var data = await CloudDB.loadSheet('Employers');
+        if (data) { employers = data; parseEmployerFields(employers); loadEmployers(); }
+
+        showMsg('✅ ' + contact.name + '\n\n' + msg + '\n➕ Inserted: ' + (result.inserted||0) + '\n✏️ Updated: ' + (result.updated||0) + '\n📁 Folders: ' + (result.folders||0));
+    } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = '⚡ Sync Contact'; }
+        if (statusEl) { statusEl.textContent = '❌ ' + e.message; statusEl.style.color = '#dc3545'; }
+    }
+}
+
+function showInstantSyncPicker(contacts, statusEl, btn) {
+    var listHtml = contacts.map(function(c, i) {
+        return '<div onclick="window._instantPickChoice='+i+';closeMsg();doInstantSync(window._instantPickContacts['+i+'],document.getElementById(\'instantSyncStatus\'),document.getElementById(\'instantSyncBtn\'));" '
+            + 'style="padding:10px 14px;border:1.5px solid #e0e0e0;border-radius:7px;margin-bottom:7px;cursor:pointer;display:flex;align-items:center;gap:10px;" '
+            + 'onmouseover="this.style.borderColor=\'#20c997\'" onmouseout="this.style.borderColor=\'#e0e0e0\'">'
+            + '<div style="width:28px;height:28px;background:#e8f5ff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1a73e8;">'+(i+1)+'</div>'
+            + '<div><div style="font-weight:600;font-size:13px;">'+c.name+'</div>'
+            + (c.phone ? '<div style="font-size:11px;color:#999;">'+c.phone+'</div>' : '')
+            + '</div></div>';
+    }).join('');
+    window._instantPickContacts = contacts;
+    document.getElementById('msgText').innerHTML = '<div style="font-weight:700;margin-bottom:12px;">🔍 Multiple matches — select one:</div>' + listHtml;
+    document.getElementById('msgIcon').textContent = '🔍';
+    document.getElementById('msgTitle').textContent = 'Select Contact';
+    document.getElementById('msgHeader').style.background = 'linear-gradient(135deg,#20c997,#00b4d8)';
+    document.getElementById('msgModal').style.display = 'flex';
+}
+
+// ====================================================================
+// CHANGE #7: SYNC SINGLE CONTACT (fetch to Apps Script)
+// ====================================================================
+async function syncSingleContact() {
+    if (!currentEmployer) { showMsg('⚠️ Please select an employer first.'); return; }
+    var btn = document.getElementById('syncSingleBtn');
+    var statusEl = document.getElementById('syncSingleStatus');
+    btn.disabled = true; btn.textContent = '⏳ Syncing...';
+    statusEl.textContent = 'Fetching from Google Contacts...';
+    try {
+        var result = await appsScriptGet({
+            action: 'syncSingleContact',
+            employerId: currentEmployer.EmployerID
+        });
+        btn.disabled = false; btn.textContent = '🔄 Sync This Contact';
+        if (!result || !result.success) {
+            statusEl.textContent = '❌ ' + (result && result.error ? result.error : 'Failed');
+            showMsg('❌ ' + (result && result.error ? result.error : 'Sync failed'));
+            return;
+        }
+        statusEl.textContent = '✅ Synced';
+        // Reload the updated employer
+        var data = await CloudDB.loadSheet('Employers');
+        if (data) {
+            employers = data; parseEmployerFields(employers);
+            var fresh = employers.find(function(e){ return String(e.EmployerID) === String(currentEmployer.EmployerID); });
+            if (fresh) { currentEmployer = fresh; selectEmployer(fresh); }
+            loadEmployers();
+        }
+        showMsg('✅ Contact synced from Google Contacts');
+    } catch (e) {
+        btn.disabled = false; btn.textContent = '🔄 Sync This Contact';
+        statusEl.textContent = '❌ ' + e.message;
+        showMsg('❌ ' + e.message);
+    }
+}
+
+function dismissSyncPreview() { document.getElementById('syncPreviewBox').style.display='none'; }
+function applySyncChanges()   { dismissSyncPreview(); }
+
+// ==========================================
+// SELECT EMPLOYER
+// ==========================================
+function selectEmployer(emp) {
+    currentEmployer=JSON.parse(JSON.stringify(emp));
+    if(emp.EmployerID){
+        emp.EmployerCode = computeEmployerCode(emp);
+        currentEmployer.EmployerCode = emp.EmployerCode;
+    }
+    document.getElementById('EmployerID').value        = emp.EmployerID    || '';
+    document.getElementById('EmployerCode').value      = emp.EmployerCode  || '';
+    document.getElementById('EFN').value               = emp.EFN           || '';
+    document.getElementById('City').value              = emp.City          || '';
+    document.getElementById('MobileNumber').value      = emp.MobileNumber  || emp.ContactNumber || '';
+    document.getElementById('SyncStatusField').value  = emp.SyncStatus    || emp.syncStatus    || 'Manual';
+    document.getElementById('LastSyncDateField').value= emp.LastSyncDate  || emp.lastSyncDate  || '';
+    var folderName=emp.EmployerFolderName||emp.EmployerFolder||'';
+    if(!folderName&&emp.AgencyCode&&emp.EmployerID) folderName=emp.AgencyCode+'('+emp.EmployerID+') - '+(emp.EFN||emp.EmployerName||'')+' - '+new Date().toISOString().slice(0,10);
+    document.getElementById('EmployerFolderName').value=folderName;
+    document.querySelectorAll('.employer-item').forEach(function(item){item.classList.remove('active');});
+    var sel=document.querySelector('.employer-item[data-employer-id="'+emp.EmployerID+'"]'); if(sel)sel.classList.add('active');
+    loadDocsList(); loadUploadList();
+}
+function showEmployerProfileBanner(emp){ document.getElementById('employerProfileBanner').style.display='block'; document.getElementById('employerProfileName').textContent=emp.EFN||emp.EmployerName||''; document.getElementById('employerProfileCode').textContent='Code: '+(emp.EmployerCode||computeEmployerCode(emp)||''); }
+function closeEmployerProfileBanner(){ document.getElementById('employerProfileBanner').style.display='none'; }
+function showAddEmployerWarning(){ alert('⚠️ EMPLOYER CREATION DISABLED\n\n1️⃣  Click 🔁 Sync Contacts\n2️⃣  Local Agencies Manager → Add New Employer'); }
+
+function saveEmployer() {
+    if(!currentEmployer){showAddEmployerWarning();return;}
+    var fullName=document.getElementById('EFN').value.trim();
+    if(!fullName){alert('Please enter Full Name!');return;}
+    var nameParts=fullName.split(' ').filter(function(p){return p.length>0;});
+    if(nameParts.length<2){alert('Please enter at least First and Last name');return;}
+    var id=parseInt(document.getElementById('EmployerID').value);
+    var existingIndex=employers.findIndex(function(e){return e.EmployerID===id;});
+    if(existingIndex===-1){alert('⚠️ Cannot create new employer!');return;}
+    var employer=Object.assign({},currentEmployer,{
+        EmployerID:id, EmployerCode:currentEmployer.EmployerCode,
+        EFN:fullName, City:document.getElementById('City').value.trim(),
+        MobileNumber:document.getElementById('MobileNumber').value.trim(),
+        EmployerFolderName:document.getElementById('EmployerFolderName').value.trim()||currentEmployer.EmployerFolderName||''
+    });
+    document.getElementById('EmployerCode').value=employer.EmployerCode;
+    currentEmployer=employer; employers[existingIndex]=employer;
+    CloudDB.saveRow('Employers', employer); markAsSaved(); loadEmployers();
+    alert('✅ Employer updated successfully!');
+}
+
+async function deleteEmployer() {
+    if(!currentEmployer)return;
+    var yes=await showConfirm('🗑️ Delete this employer?\n\n'+(currentEmployer.EFN||currentEmployer.EmployerCode||'')+'\n\nThis cannot be undone!');
+    if(!yes)return;
+    var deletedId=currentEmployer.EmployerID;
+    employers=employers.filter(function(e){return e.EmployerID!==currentEmployer.EmployerID;});
+    if(CloudDB.ready)CloudDB.deleteRow('Employers',deletedId);
+    currentEmployer=null; currentPage=1; loadEmployers();
+}
+
+// ==========================================
+// TAB SWITCHING
+// ==========================================
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active');});
+    document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+    document.getElementById('tab-'+tabName).classList.add('active');
+    document.querySelectorAll('.tab').forEach(function(t){ if((t.getAttribute('onclick')||'').indexOf("'"+tabName+"'")!==-1)t.classList.add('active'); });
+    if(tabName==='docs')reloadAndRenderDocs();
+    if(tabName==='upload')loadUploadList();
+}
+
+// ==========================================
+// DOCUMENTS TAB
+// ==========================================
+function loadDocsList() {
+    if(!currentEmployer){document.getElementById('docsList').innerHTML='<p style="padding:20px;text-align:center;color:#999;">⚠️ Please select an employer first!</p>';return;}
+    CloudDB.post({action:'getAll',sheet:'Employer_Documents'}).then(function(res){
+        if(res&&res.data&&res.data.length>0){
+            var seen={};
+            var docs=res.data.filter(function(doc){
+                var id=parseInt(doc.DocumentID);
+                if(seen[id])return false;
+                seen[id]=true;
+                return true;
+            });
+            localStorage.setItem('mgsdb_employer_documents',JSON.stringify(docs));
+        }
+        renderDocsList();
+    }).catch(function(){renderDocsList();});
+}
+async function reloadAndRenderDocs() {
+    try{ var res=await CloudDB.post({action:'getAll',sheet:'Employer_Documents'}); if(res&&res.data&&res.data.length>0)localStorage.setItem('mgsdb_employer_documents',JSON.stringify(res.data)); }catch(e){}
+    renderDocsList();
+}
+function renderDocsList() {
+    var allDocs=JSON.parse(localStorage.getItem('mgsdb_employer_documents')||'[]');
+    var required=(currentEmployer&&currentEmployer.RequiredDocuments)||[];
+    if(typeof required==='string'){try{required=JSON.parse(required);}catch(e){required=[];}}
+    if(!Array.isArray(required))required=[];
+    var container=document.getElementById('docsList'); container.innerHTML='';
+    if(allDocs.length===0){container.innerHTML='<div style="padding:30px;text-align:center;color:#999;">No documents found.</div>';return;}
+    container.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:15px;';
+    allDocs.forEach(function(doc){
+        var copyCount=required.filter(function(id){return id===parseInt(doc.DocumentID);}).length;
+        var isRequired=copyCount>0;
+        var div=document.createElement('div'); div.className='doc-card';
+        div.style.cssText='background:white;border:2px solid '+(isRequired?'#28a745':'#e0e0e0')+';border-radius:8px;padding:10px;cursor:pointer;transition:all 0.2s;';
+        div.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;"><span style="font-size:10px;color:#999;">#'+doc.DocumentID+'</span><input type="checkbox" id="req-'+doc.DocumentID+'" '+(isRequired?'checked':'')+' style="width:16px;height:16px;cursor:pointer;accent-color:#28a745;" onchange="this.closest(\'.doc-card\').style.borderColor=this.checked?\'#28a745\':\'#e0e0e0\'"></div><div style="font-weight:600;font-size:12px;color:#333;margin-bottom:3px;">'+(doc.DocumentNameEN||'—')+'</div><div style="font-size:11px;color:#888;direction:rtl;text-align:right;">'+(doc.DocumentNameAR||'—')+'</div>'+(copyCount>1?'<div style="margin-top:5px;"><span style="background:#667eea;color:white;padding:1px 7px;border-radius:10px;font-size:10px;">×'+copyCount+' copies</span></div>':'');
+        container.appendChild(div);
+    });
+    var dropdown=document.getElementById('addMoreCopiesDropdown');
+    if(dropdown){ dropdown.innerHTML='<option value="">-- Select Document --</option>'; allDocs.forEach(function(doc){ var o=document.createElement('option'); o.value=doc.DocumentID; o.textContent=doc.DocumentNameEN+(doc.DocumentNameAR?' | '+doc.DocumentNameAR:''); dropdown.appendChild(o); }); }
+}
+function saveRequiredDocs() {
+    if(!currentEmployer){alert('Select an employer first!');return;}
+    var allDocs=JSON.parse(localStorage.getItem('mgsdb_employer_documents')||'[]');
+    var required=[];
+    allDocs.forEach(function(doc){ var cb=document.getElementById('req-'+doc.DocumentID); if(cb&&cb.checked)required.push(parseInt(doc.DocumentID)); });
+    currentEmployer.RequiredDocuments=required;
+    var index=employers.findIndex(function(e){return e.EmployerID===currentEmployer.EmployerID;});
+    if(index>=0)employers[index].RequiredDocuments=required;
+    CloudDB.saveRow('Employers',currentEmployer); alert('✅ Saved! '+required.length+' document(s) required.'); switchTab('upload');
+}
+async function addMoreCopy() {
+    if(!currentEmployer){alert('⚠️ Please select an employer first!');return;}
+    var dropdown=document.getElementById('addMoreCopiesDropdown'); var selectedDocId=dropdown.value;
+    if(!selectedDocId){alert('⚠️ Please select a document!');return;}
+    var allDocs=JSON.parse(localStorage.getItem('mgsdb_employer_documents')||'[]');
+    var selectedDoc=allDocs.find(function(d){return d.DocumentID==selectedDocId;});
+    if(!selectedDoc){alert('❌ Document not found!');return;}
+    if(!currentEmployer.RequiredDocuments)currentEmployer.RequiredDocuments=[];
+    var existingCopies=currentEmployer.RequiredDocuments.filter(function(id){return id===parseInt(selectedDocId);}).length;
+    if(existingCopies>0){ var confirmed=await showConfirm('📄 Add Another Copy?\n\n"'+selectedDoc.DocumentNameEN+'"\nCurrent copies: '+existingCopies+'\n\nAdd copy #'+(existingCopies+1)+'?'); if(!confirmed){dropdown.value='';return;} }
+    currentEmployer.RequiredDocuments.push(parseInt(selectedDocId));
+    var index=employers.findIndex(function(e){return e.EmployerID===currentEmployer.EmployerID;});
+    if(index>=0)employers[index].RequiredDocuments=currentEmployer.RequiredDocuments;
+    CloudDB.saveRow('Employers',currentEmployer); renderDocsList();
+    alert('✅ Copy Added!\n\n"'+selectedDoc.DocumentNameEN+'"\nTotal: '+currentEmployer.RequiredDocuments.length);
+    dropdown.value='';
+}
+
+// ==========================================
+// UPLOAD TAB — renders list + drag-and-drop
+// Filters out legacy Drive-URL entries (old Apps Script uploads).
+// ==========================================
+
+// Helper: is this upload entry from Firebase Storage (new) or Drive (old)?
+function isFirebaseUpload(fileData) {
+    if (!fileData) return false;
+    // New uploads have storagePath set; old ones don't.
+    if (fileData.storagePath) return true;
+    // Safety check: Drive URLs contain 'drive.google.com'
+    var url = String(fileData.fileUrl || '');
+    if (url.indexOf('drive.google.com') >= 0) return false;
+    // If no URL at all, treat as not-valid
+    return !!url;
+}
+
+function loadUploadList() {
+    if(!currentEmployer){document.getElementById('uploadList').innerHTML='<p style="padding:20px;text-align:center;color:#999;">⚠️ Please select an employer first!</p>';return;}
+    var allDocs=JSON.parse(localStorage.getItem('mgsdb_employer_documents')||'[]');
+    var required=currentEmployer.RequiredDocuments||[];
+    if(typeof required==='string'){try{required=JSON.parse(required);}catch(e){required=[];}}
+    if(!Array.isArray(required))required=[];
+    var uploaded=currentEmployer.UploadedDocuments||{};
+    if(typeof uploaded==='string'){try{uploaded=JSON.parse(uploaded);}catch(e){uploaded={};}}
+    var container=document.getElementById('uploadList'); container.innerHTML='';
+    if(required.length===0){container.innerHTML='<p style="padding:20px;text-align:center;color:#999;">No documents required.<br>Go to "📄 Required Documents" tab first.</p>';return;}
+    var seen={},unique=[];
+    required.forEach(function(docId){var key=String(docId);if(!seen[key]){seen[key]=true;unique.push(docId);}});
+
+    // (🗑️ Clear All Uploaded Files button removed — files are now protected by Firebase Storage Rules.
+    //  To delete files, sign in to Firebase Console → Storage and delete from there.)
+
+    unique.forEach(function(docId){
+        var doc=allDocs.find(function(d){return parseInt(d.DocumentID)===parseInt(docId);}); if(!doc)return;
+        var uploadedData=uploaded[String(docId)]||uploaded[docId];
+        var filesArray=[];
+        if(Array.isArray(uploadedData))filesArray=uploadedData;
+        else if(uploadedData&&typeof uploadedData==='object')filesArray=[uploadedData];
+
+        // FIX #4: Filter out legacy Drive-URL entries
+        filesArray = filesArray.filter(isFirebaseUpload);
+
+        var docNameSafe=(doc.DocumentNameEN||String(docId)).replace(/'/g,'');
+        var card=document.createElement('div');
+        card.className='doc-card';
+        card.style.cssText='border:2px solid '+(filesArray.length>0?'#c3e6cb':'#e0e0e0')+';border-radius:8px;padding:15px;margin-bottom:12px;background:white;';
+
+        // Header: doc name + status badge
+        var header=document.createElement('div');
+        header.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;';
+        header.innerHTML='<div><div style="font-weight:700;font-size:14px;color:#333;">'+doc.DocumentNameEN+'</div><div style="font-size:12px;color:#888;direction:rtl;">'+(doc.DocumentNameAR||'')+'</div></div><span style="background:'+(filesArray.length>0?'#d4edda;color:#155724':'#f8d7da;color:#721c24')+';padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap;">'+(filesArray.length>0?'✅ '+filesArray.length+' file(s)':'⏳ Pending')+'</span>';
+        card.appendChild(header);
+
+        // FIX #3: Drag-and-drop zone
+        var dropZone=document.createElement('div');
+        dropZone.className='em-drop-zone';
+        dropZone.setAttribute('data-doc-id', docId);
+        dropZone.setAttribute('data-doc-name', docNameSafe);
+        dropZone.style.cssText='border:2px dashed #4facfe;border-radius:8px;padding:18px;text-align:center;background:#f8fbff;cursor:pointer;transition:all 0.2s;margin-bottom:10px;';
+        dropZone.innerHTML='<div style="font-size:28px;margin-bottom:4px;">📤</div>'
+            + '<div style="font-size:13px;color:#1a73e8;font-weight:600;margin-bottom:2px;">Drop files here or click to browse</div>'
+            + '<div style="font-size:11px;color:#888;">Multiple files supported</div>';
+        card.appendChild(dropZone);
+
+        // Wire the drop zone (drag & click)
+        dropZone.addEventListener('click', function() {
+            var d = this;
+            var input = document.createElement('input');
+            input.type = 'file'; input.multiple = true; input.accept = '*/*';
+            input.onchange = function(e) {
+                var files = Array.from(e.target.files);
+                if (files.length) handleFileDrop(files, d.getAttribute('data-doc-id'), d.getAttribute('data-doc-name'));
+            };
+            input.click();
+        });
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault(); e.stopPropagation();
+            this.style.background='#e7f3ff'; this.style.borderColor='#1a73e8'; this.style.transform='scale(1.02)';
+        });
+        dropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault(); e.stopPropagation();
+            this.style.background='#f8fbff'; this.style.borderColor='#4facfe'; this.style.transform='scale(1)';
+        });
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault(); e.stopPropagation();
+            this.style.background='#f8fbff'; this.style.borderColor='#4facfe'; this.style.transform='scale(1)';
+            var files = Array.from(e.dataTransfer.files);
+            if (files.length) handleFileDrop(files, this.getAttribute('data-doc-id'), this.getAttribute('data-doc-name'));
+        });
+
+        // List of already-uploaded files
+        if(filesArray.length>0){
+            var filesWrap=document.createElement('div');
+            filesWrap.style.cssText='margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px;';
+            filesWrap.innerHTML='<div style="font-size:11px;color:#999;font-weight:600;margin-bottom:8px;">📎 '+filesArray.length+' FILE(S) IN FIREBASE STORAGE:</div>';
+            filesArray.forEach(function(fileData,idx){
+                var row=document.createElement('div');
+                row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f8fff8;border:1px solid #c3e6cb;border-radius:5px;margin-bottom:5px;';
+                row.innerHTML='<span style="background:#28a745;color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">'+(idx+1)+'</span><span style="flex:1;font-size:12px;color:#333;word-break:break-all;">'+(fileData.fileName||'File '+(idx+1))+'</span>'+(fileData.uploadedAt?'<span style="font-size:10px;color:#999;white-space:nowrap;">'+new Date(fileData.uploadedAt).toLocaleString()+'</span>':'')+(fileData.fileUrl?'<a href="'+fileData.fileUrl+'" target="_blank" style="padding:4px 10px;background:#1a73e8;color:white;text-decoration:none;border-radius:4px;font-size:11px;">📂 Open</a>':'');
+                filesWrap.appendChild(row);
+            });
+            card.appendChild(filesWrap);
+        }
+
+        container.appendChild(card);
+    });
+}
+
+// Handler for files coming from either drop or click-browse
+function handleFileDrop(files, docId, docName) {
+    if (!currentEmployer) { showMsg('Please select an employer first.'); return; }
+    doUploadFiles(files, docId, docName);
+}
+
+// ====================================================================
+// CHANGE #8: uploadFileForDoc — direct Firebase Storage upload
+// ====================================================================
+
+
+// Builds the employer folder path in Firebase Storage.
+// Format: employers/MGSC(1033) - Robert Harris Kandalaft - 2026-03-10/
+// Prefers existing EmployerFolderName if set (keeps original Drive pattern).
+function getEmployerStoragePath(emp) {
+    var folderName = emp.EmployerFolderName || '';
+    if (!folderName) {
+        var agency = (emp.AgencyCode || 'MGS').toString().trim();
+        var id     = (emp.EmployerID  || '').toString().trim();
+        var name   = (emp.EFN || emp.EmployerName || 'Unknown').toString().trim();
+        var safe   = name.replace(/[#\[\]\*\?\/\\]/g, '').replace(/\s+/g, ' ');
+        var today  = new Date().toISOString().slice(0, 10);
+        folderName = agency + '(' + id + ') - ' + safe + ' - ' + today;
+    }
+    return 'employers/' + folderName;
+}
+
+// Sanitize a file name for Firebase Storage path (strip the illegal chars)
+function sanitizeFileName(name) {
+    return String(name || 'file').replace(/[#\[\]\*\?]/g, '_').replace(/\s+/g, ' ').trim();
+}
+
+// Build a document name slug from the Employer_Documents.DocumentNameEN field.
+// Examples:
+//   "Passport"                  -> "passport"
+//   "National ID"               -> "national-id"
+//   "Employer Work Permit (1)"  -> "employer-work-permit-1"
+function slugifyDocName(docName) {
+    return String(docName || 'doc')
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, '')   // drop punctuation
+        .replace(/\s+/g, '-')       // spaces -> dashes
+        .replace(/-+/g, '-')        // collapse multiple dashes
+        .replace(/^-|-$/g, '')      // trim leading/trailing dashes
+        .trim() || 'doc';
+}
+
+// Build the Firebase Storage filename for a new upload.
+//   documentName-EmployerID-YYYY-MM-DD_HH-MM-SS.ext       (1st copy, no number)
+//   documentName1-EmployerID-YYYY-MM-DD_HH-MM-SS.ext      (2nd copy)
+//   documentName2-EmployerID-YYYY-MM-DD_HH-MM-SS.ext      (3rd copy)
+// Copy index is based on how many files are already uploaded for this document
+// in the current employer's UploadedDocuments[docId] array.
+function buildFileName(docName, employerId, docId, copyIndex, originalFileName) {
+    var slug = slugifyDocName(docName);
+    var suffix = (copyIndex === 0) ? '' : String(copyIndex);
+    // Extract extension from original filename
+    var ext = '';
+    var dot = String(originalFileName || '').lastIndexOf('.');
+    if (dot > -1) ext = originalFileName.substring(dot).toLowerCase();
+
+    // Build timestamp: 2026-04-24_20-15-30
+    var d = new Date();
+    var pad = function(n) { return n < 10 ? '0' + n : String(n); };
+    var stamp = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+              + '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '-' + pad(d.getSeconds());
+
+    return slug + suffix + '-' + employerId + '-' + stamp + ext;
+}
+
+function uploadFileForDoc(docId, docName) {
+    // Legacy entry point — now just opens a file picker then calls doUploadFiles
+    if (!currentEmployer) { showMsg('Please select an employer first.'); return; }
+    var input = document.createElement('input');
+    input.type = 'file'; input.accept = '*/*'; input.multiple = true;
+    input.onchange = function(e) {
+        var files = Array.from(e.target.files);
+        if (files.length) doUploadFiles(files, docId, docName);
+    };
+    input.click();
+}
+
+// Core upload routine — shared by drag-drop and click-browse paths.
+async function doUploadFiles(files, docId, docName) {
+    if (!currentEmployer) { showMsg('Please select an employer first.'); return; }
+    if (!files || !files.length) return;
+
+    var total = files.length, uploaded = 0, failed = 0;
+    showUploadOverlay('📤 Uploading 0 of ' + total + '...', 'Starting...');
+
+    var fb = await _fbReady();
+    var folderPath = getEmployerStoragePath(currentEmployer);
+
+    // Load current uploaded metadata for this doc
+    var uploadedMap = currentEmployer.UploadedDocuments || {};
+    if (typeof uploadedMap === 'string') { try { uploadedMap = JSON.parse(uploadedMap); } catch (e) { uploadedMap = {}; } }
+    if (!uploadedMap[String(docId)]) uploadedMap[String(docId)] = [];
+    if (!Array.isArray(uploadedMap[String(docId)])) uploadedMap[String(docId)] = [uploadedMap[String(docId)]];
+
+    // Count only Firebase uploads for copy index (legacy Drive entries don't count)
+    var firebaseExistingCount = uploadedMap[String(docId)].filter(isFirebaseUpload).length;
+
+    for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        var pct = Math.round((i / total) * 100);
+        updateUploadOverlay('Uploading ' + (i + 1) + ' of ' + total + ': ' + file.name, pct);
+
+        try {
+            var copyIndex = firebaseExistingCount + i;
+            var fileName = buildFileName(
+                docName,
+                currentEmployer.EmployerID,
+                docId,
+                copyIndex,
+                file.name
+            );
+            var storagePath = folderPath + '/' + fileName;
+            var fileRef = fb.ref(fb.storage, storagePath);
+
+            var task = fb.uploadBytesResumable(fileRef, file, {
+                contentType: file.type || 'application/octet-stream',
+                customMetadata: {
+                    employerId:   String(currentEmployer.EmployerID),
+                    documentId:   String(docId),
+                    documentName: docName || '',
+                    uploadedAt:   new Date().toISOString()
+                }
+            });
+
+            await new Promise(function(resolve, reject) {
+                task.on('state_changed',
+                    function(snap) {
+                        var fileProgress = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+                        var overall = Math.round(((i + fileProgress / 100) / total) * 100);
+                        updateUploadOverlay('Uploading ' + (i + 1) + ' of ' + total + ': ' + file.name + ' (' + fileProgress + '%)', overall);
+                    },
+                    function(err) { reject(err); },
+                    function() { resolve(); }
+                );
+            });
+
+            var url = await fb.getDownloadURL(fileRef);
+
+            uploadedMap[String(docId)].push({
+                fileName:    file.name,
+                fileUrl:     url,
+                storagePath: storagePath,
+                mimeType:    file.type,
+                size:        file.size,
+                uploadedAt:  new Date().toISOString()
+            });
+
+            uploaded++;
+        } catch (err) {
+            console.error('Upload failed:', file.name, err);
+            failed++;
+        }
+    }
+
+    // Save updated UploadedDocuments back to Firestore
+    currentEmployer.UploadedDocuments = uploadedMap;
+    var idx = employers.findIndex(function(e) { return String(e.EmployerID) === String(currentEmployer.EmployerID); });
+    if (idx >= 0) employers[idx].UploadedDocuments = uploadedMap;
+    await CloudDB.saveRow('Employers', currentEmployer);
+
+    hideUploadOverlay(failed === 0, uploaded + ' of ' + total + ' file(s) uploaded');
+    showMsg(failed === 0 ? '✅ ' + uploaded + ' file(s) uploaded to Firebase Storage!' : '⚠️ ' + uploaded + ' uploaded, ' + failed + ' failed.');
+    loadUploadList();
+}
+
+// ====================================================================
+// CHANGE #9: Files are now protected by Firebase Storage Rules.
+// The old cleanupAllFiles() function has been REMOVED.
+// To delete files, sign in to Firebase Console → Storage manually.
+// ====================================================================
+
+
+// ====================================================================
+// CHANGE #10: All Files modal — Workers-style (drag/resize/zoom/grid)
+// ====================================================================
+
+// ── CloudStorage module (mirrors Workers page API) ──────────────────
+const CloudStorage = {
+    async listFiles(folderPath) {
+        try {
+            const fb = await _fbReady();
+            const folderRef = fb.ref(fb.storage, folderPath);
+            const listing = await fb.listAll(folderRef);
+            const promises = listing.items
+                .filter(item => item.name !== '.placeholder')
+                .map(async function(item) {
+                    try {
+                        const meta = await fb.getMetadata(item);
+                        const url  = await fb.getDownloadURL(item);
+                        return {
+                            name:     item.name,
+                            path:     item.fullPath,
+                            url:      url,
+                            fileUrl:  url,
+                            mimeType: meta.contentType || '',
+                            size:     meta.size || 0,
+                            date:     meta.updated || meta.timeCreated
+                        };
+                    } catch(e) { console.warn('Meta fail:', item.name, e.message); return null; }
+                });
+            const files = (await Promise.all(promises)).filter(Boolean);
+            return { success: true, files: files };
+        } catch(e) {
+            console.warn('listFiles failed:', e.message);
+            return { success: false, error: e.message };
+        }
+    }
+};
+window.CloudStorage = CloudStorage;
+
+// ── File type helpers ───────────────────────────────────────────────
+function fileExt(name) {
+    var n = String(name || '');
+    var dot = n.lastIndexOf('.');
+    return dot > -1 ? n.substring(dot + 1).toLowerCase() : '';
+}
+function isImageExt(e) { return ['jpg','jpeg','png','gif','webp','bmp','svg'].indexOf(e) >= 0; }
+function isPdfExt(e)   { return e === 'pdf'; }
+
+// ── Modal state (shared by helpers) ─────────────────────────────────
+var _afmState = { files: [], idx: 0, selected: {}, folderPath: '', empCode: '', empName: '', view: 'single', zoom: 1 };
+
+// ── Main entry: open the modal ──────────────────────────────────────
+async function showAllFiles() {
+    if (!currentEmployer) { showMsg('⚠️ No employer selected.'); return; }
+
+    var emp = currentEmployer;
+    var folderPath = getEmployerStoragePath(emp);
+    var empCode = computeEmployerCode(emp);
+    var empName = emp.EFN || emp.EmployerName || '';
+
+    var modal = document.getElementById('allFilesModal');
+    modal.style.display = 'block';
+    document.getElementById('afmSub').textContent = 'Loading files...';
+    document.getElementById('afmViewer').innerHTML = '<div class="afm-placeholder"><div class="ico">⏳</div><div>Loading from Firebase Storage...</div></div>';
+
+    afmInstallDragResize();
+
+    var result;
+    try { result = await CloudStorage.listFiles(folderPath); }
+    catch (e) {
+        document.getElementById('afmViewer').innerHTML = '<div class="afm-placeholder"><div class="ico">❌</div><div>' + (e.message || e) + '</div></div>';
+        return;
+    }
+    if (!result || !result.success) {
+        document.getElementById('afmViewer').innerHTML = '<div class="afm-placeholder"><div class="ico">❌</div><div>' + ((result && result.error) || 'Unknown error') + '</div></div>';
+        return;
+    }
+
+    var files = (result.files || []).slice();
+    if (!files.length) {
+        document.getElementById('afmViewer').innerHTML = '<div class="afm-placeholder"><div class="ico">📁</div><div>No files in this folder yet.</div></div>';
+        document.getElementById('afmSub').textContent = folderPath + ' — empty';
+        return;
+    }
+
+    files.sort(function(a, b) {
+        function rank(n) { var e = fileExt(n); if (isImageExt(e)) return 0; if (isPdfExt(e)) return 1; return 2; }
+        var ra = rank(a.name), rb = rank(b.name);
+        if (ra !== rb) return ra - rb;
+        return a.name.localeCompare(b.name);
+    });
+
+    _afmState.files = files; _afmState.idx = 0; _afmState.selected = {};
+    _afmState.folderPath = folderPath; _afmState.empCode = empCode; _afmState.empName = empName;
+    _afmState.view = 'single'; _afmState.zoom = 1;
+
+    document.getElementById('afmSub').textContent = empCode + (empName ? ' — ' + empName : '') + ' — ' + files.length + ' file' + (files.length !== 1 ? 's' : '');
+    document.getElementById('afmSelectAll').checked = false;
+    document.getElementById('afmPageTotal').textContent = files.length;
+    showPage(0);
+}
+
+function closeAllFilesModal() { var m = document.getElementById('allFilesModal'); if (m) m.style.display = 'none'; }
+function closeAllFiles() { closeAllFilesModal(); }
+
+// ── Open folder directly in Firebase Console (new tab) ──────────────
+// Firebase Console URL format: /files/~2F<segment1>~2F<segment2>/...
+// CRITICAL: parentheses must be encoded as %28 and %29. JavaScript's
+// encodeURIComponent leaves parens as-is (they're RFC 3986 "safe" chars),
+// so we encode them manually after.
+function openFolderInFirebaseConsole() {
+    if (!currentEmployer) { showMsg('⚠️ Please select an employer first.'); return; }
+    var projectId = 'mgsd2026';
+    var bucket    = 'mgsd2026.firebasestorage.app';
+    var folderPath = getEmployerStoragePath(currentEmployer);  // "employers/MGSC(1033) - Name - Date"
+
+    // Encode each path segment. encodeURIComponent handles most chars correctly,
+    // but leaves ( ) raw — Firebase Console needs these encoded.
+    var encodedSegs = folderPath.split('/').map(function(seg) {
+        return encodeURIComponent(seg)
+            .replace(/\(/g, '%28')
+            .replace(/\)/g, '%29');
+    });
+    var url = 'https://console.firebase.google.com/u/0/project/' + projectId
+            + '/storage/' + bucket
+            + '/files/~2F' + encodedSegs.join('~2F');
+
+    console.log('🔗 Opening Firebase Console URL:', url);
+    console.log('   folderPath:', folderPath);
+    window.open(url, '_blank');
+}
+
+// ── View mode (single vs grid) ──────────────────────────────────────
+function afmSetView(v) {
+    _afmState.view = v;
+    document.getElementById('afmTabSingle').classList.toggle('afm-tabbtn-active', v === 'single');
+    document.getElementById('afmTabGrid').classList.toggle('afm-tabbtn-active', v === 'grid');
+    document.getElementById('afmNav').style.display = (v === 'single') ? 'flex' : 'none';
+    if (v === 'grid') renderGrid(); else showPage(_afmState.idx);
+}
+
+// ── Render: single file ─────────────────────────────────────────────
+function showPage(i) {
+    if (!_afmState.files.length) return;
+    if (i < 0) i = 0;
+    if (i >= _afmState.files.length) i = _afmState.files.length - 1;
+    _afmState.idx = i;
+
+    var f = _afmState.files[i];
+    var ext = fileExt(f.name);
+    var viewer = document.getElementById('afmViewer');
+    viewer.classList.add('afm-viewer-single');
+    viewer.innerHTML = '';
+
+    var wrap = document.createElement('div');
+    wrap.className = 'afm-zoomwrap';
+    wrap.id = 'afmZoomWrap';
+
+    if (isImageExt(ext)) {
+        var img = document.createElement('img'); img.src = f.url; img.alt = f.name;
+        wrap.appendChild(img);
+    } else if (isPdfExt(ext)) {
+        var iframe = document.createElement('iframe'); iframe.src = f.url;
+        wrap.appendChild(iframe);
+    } else {
+        var ph = document.createElement('div'); ph.className = 'afm-placeholder';
+        ph.innerHTML = '<div class="ico">📎</div><div>' + f.name + '</div><div style="margin-top:10px;"><a href="' + f.url + '" target="_blank" style="color:#667eea;">📂 Open externally</a></div>';
+        wrap.appendChild(ph);
+    }
+
+    viewer.appendChild(wrap);
+    applyZoom();
+    document.getElementById('afmFileName').textContent = f.name;
+    document.getElementById('afmPageNum').value = i + 1;
+    document.getElementById('afmItemCheck').checked = !!_afmState.selected[f.path || f.name];
+    updateSelectionUI();
+}
+
+// ── Render: grid view ───────────────────────────────────────────────
+function renderGrid() {
+    var viewer = document.getElementById('afmViewer');
+    viewer.classList.remove('afm-viewer-single');
+    viewer.innerHTML = '';
+
+    var grid = document.createElement('div');
+    grid.className = 'afm-grid';
+    _afmState.files.forEach(function(f, i) {
+        var ext = fileExt(f.name);
+        var key = f.path || f.name;
+        var thumb = document.createElement('div');
+        thumb.className = 'afm-thumb';
+        var numBadge = '<div class="afm-thumb-num">' + (i + 1) + '</div>';
+        var chkAttr = _afmState.selected[key] ? 'checked' : '';
+        var chk = '<input type="checkbox" class="afm-thumb-chk" ' + chkAttr + ' data-key="' + String(key).replace(/"/g,'&quot;') + '">';
+        var preview;
+        if (isImageExt(ext)) {
+            preview = '<div class="afm-thumb-preview"><img src="' + f.url + '" alt="' + f.name + '"></div>';
+        } else if (isPdfExt(ext)) {
+            preview = '<div class="afm-thumb-preview"><div class="ph">📄</div></div>';
+        } else {
+            preview = '<div class="afm-thumb-preview"><div class="ph">📎</div></div>';
+        }
+        thumb.innerHTML = numBadge + chk + preview + '<div class="afm-thumb-label">' + f.name + '</div>';
+        // Wire checkbox
+        thumb.querySelector('input[type=checkbox]').addEventListener('change', function(e) {
+            e.stopPropagation();
+            _afmState.selected[this.getAttribute('data-key')] = this.checked;
+            updateSelectionUI();
+        });
+        // Click thumbnail (not checkbox) opens in single view
+        thumb.addEventListener('click', function(e) {
+            if (e.target.type === 'checkbox') return;
+            afmSetView('single');
+            showPage(i);
+        });
+        grid.appendChild(thumb);
+    });
+    viewer.appendChild(grid);
+}
+
+// ── Navigation / zoom / selection helpers ───────────────────────────
+function afmPrev()       { showPage(_afmState.idx - 1); }
+function afmNext()       { showPage(_afmState.idx + 1); }
+function afmJumpTo()     { var v = parseInt(document.getElementById('afmPageNum').value, 10); if (!isNaN(v)) showPage(v - 1); }
+function afmToggleMax()  { document.getElementById('allFilesModal').classList.toggle('afm-max'); }
+function afmZoom(d)      { _afmState.zoom = Math.max(0.25, Math.min(4, _afmState.zoom + d)); applyZoom(); }
+function afmZoomReset()  { _afmState.zoom = 1; applyZoom(); }
+function applyZoom() {
+    var w = document.getElementById('afmZoomWrap'); if (w) w.style.transform = 'scale(' + _afmState.zoom + ')';
+    var pct = document.getElementById('afmZoomPct'); if (pct) pct.textContent = Math.round(_afmState.zoom * 100) + '%';
+}
+function afmToggleCurrent() {
+    var cur = _afmState.files[_afmState.idx]; if (!cur) return;
+    var k = cur.path || cur.name;
+    _afmState.selected[k] = !_afmState.selected[k];
+    updateSelectionUI();
+}
+function afmToggleSelectAll(checked) {
+    _afmState.selected = {};
+    if (checked) _afmState.files.forEach(function(f) { _afmState.selected[f.path || f.name] = true; });
+    updateSelectionUI();
+    if (_afmState.view === 'grid') renderGrid();
+    else { var cur = _afmState.files[_afmState.idx]; if (cur) document.getElementById('afmItemCheck').checked = !!_afmState.selected[cur.path || cur.name]; }
+}
+function updateSelectionUI() {
+    var count = Object.keys(_afmState.selected).filter(function(k) { return _afmState.selected[k]; }).length;
+    var total = _afmState.files.length;
+    var el = document.getElementById('afmSelCount'); if (el) el.textContent = count + ' of ' + total + ' selected';
+    var sa = document.getElementById('afmSelectAll'); if (sa) sa.checked = (count === total && total > 0);
+}
+
+// ── Drag / resize installation (once per page) ──────────────────────
+var _afmDragInstalled = false;
+function afmInstallDragResize() {
+    if (_afmDragInstalled) return;
+    _afmDragInstalled = true;
+    var box = document.getElementById('afmBox');
+    var handle = document.getElementById('afmDragHandle');
+    var dragging = false, startX = 0, startY = 0, startL = 0, startT = 0;
+
+    handle.addEventListener('mousedown', function(e) {
+        if (e.target.closest('button')) return;
+        var modal = document.getElementById('allFilesModal');
+        if (modal.classList.contains('afm-max')) return;
+        dragging = true;
+        startX = e.clientX; startY = e.clientY;
+        startL = box.offsetLeft; startT = box.offsetTop;
+        e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (dragging) { box.style.left = (startL + e.clientX - startX) + 'px'; box.style.top = (startT + e.clientY - startY) + 'px'; }
+    });
+    document.addEventListener('mouseup', function() { dragging = false; });
+
+    var rhandle = document.getElementById('afmResizeHandle');
+    var resizing = false, rsx = 0, rsy = 0, rsw = 0, rsh = 0;
+    rhandle.addEventListener('mousedown', function(e) {
+        resizing = true;
+        rsx = e.clientX; rsy = e.clientY;
+        rsw = box.offsetWidth; rsh = box.offsetHeight;
+        e.preventDefault(); e.stopPropagation();
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (resizing) {
+            box.style.width  = Math.max(400, rsw + e.clientX - rsx) + 'px';
+            box.style.height = Math.max(300, rsh + e.clientY - rsy) + 'px';
+        }
+    });
+    document.addEventListener('mouseup', function() { resizing = false; });
+}
+
+// ── Download helpers ────────────────────────────────────────────────
+async function downloadOne(url, name) {
+    try {
+        var resp = await fetch(url);
+        var blob = await resp.blob();
+        var blobUrl = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = blobUrl; a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 3000);
+    } catch(e) { console.warn('downloadOne failed:', name, e.message); }
+}
+async function downloadAllFiles() {
+    for (var i = 0; i < _afmState.files.length; i++) {
+        await downloadOne(_afmState.files[i].url, _afmState.files[i].name);
+        await new Promise(function(r) { setTimeout(r, 300); });
+    }
+}
+async function downloadSelectedFiles() {
+    var sel = _afmState.files.filter(function(f) { return _afmState.selected[f.path || f.name]; });
+    if (!sel.length) { showMsg('⚠️ No files selected.'); return; }
+    for (var i = 0; i < sel.length; i++) {
+        await downloadOne(sel[i].url, sel[i].name);
+        await new Promise(function(r) { setTimeout(r, 300); });
+    }
+}
+
+// ── Print selected as merged PDF (uses pdf-lib) ─────────────────────
+async function ensurePdfLib() {
+    if (window.PDFLib) return window.PDFLib;
+    return new Promise(function(resolve, reject) {
+        var s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+        s.onload = function() { resolve(window.PDFLib); };
+        s.onerror = function() { reject(new Error('Failed to load pdf-lib')); };
+        document.head.appendChild(s);
+    });
+}
+async function printSelectedFiles(ev) {
+    var sel = _afmState.files.filter(function(f) { return _afmState.selected[f.path || f.name]; });
+    if (!sel.length) { showMsg('⚠️ No files selected.'); return; }
+    var btn = ev && ev.target; var origText = btn ? btn.textContent : '';
+    if (btn) { btn.textContent = '⏳ Building PDF...'; btn.disabled = true; }
+    try {
+        var PDFLib = await ensurePdfLib();
+        var outPdf = await PDFLib.PDFDocument.create();
+        var HEADER_H = 24;
+        var headerBg = PDFLib.rgb(0.4, 0.31, 0.64);
+        var headerFg = PDFLib.rgb(1, 1, 1);
+        function stampHeader(page, name, idx, total, opacity) {
+            var sz = page.getSize();
+            var op = (opacity === undefined) ? 1 : opacity;
+            page.drawRectangle({ x:0, y:sz.height - HEADER_H, width:sz.width, height:HEADER_H, color:headerBg, opacity:op });
+            var dn = name.length > 80 ? name.substring(0, 77) + '...' : name;
+            page.drawText(dn, { x:10, y:sz.height - 16, size:10, color:headerFg, opacity:op });
+            page.drawText((idx + 1) + ' / ' + total, { x:sz.width - 50, y:sz.height - 16, size:10, color:headerFg, opacity:op });
+        }
+        for (var i = 0; i < sel.length; i++) {
+            var f = sel[i], url = f.url || '', ext = fileExt(f.name);
+            if (btn) btn.textContent = '⏳ ' + (i + 1) + '/' + sel.length;
+            try {
+                var resp = await fetch(url); var buf = await resp.arrayBuffer();
+                if (isPdfExt(ext)) {
+                    try {
+                        var srcPdf = await PDFLib.PDFDocument.load(buf, { ignoreEncryption: true, throwOnInvalidObject: false });
+                        var pages = await outPdf.copyPages(srcPdf, srcPdf.getPageIndices());
+                        pages.forEach(function(p, pi) {
+                            outPdf.addPage(p);
+                            var label = f.name + (pages.length > 1 ? ' (p.' + (pi + 1) + '/' + pages.length + ')' : '');
+                            stampHeader(p, label, i, sel.length, 0.85);
+                        });
+                    } catch(pe) {
+                        var ep = outPdf.addPage([595, 842]);
+                        stampHeader(ep, f.name + ' (error)', i, sel.length);
+                        ep.drawText('Could not embed PDF', { x:40, y:400, size:14 });
+                        ep.drawText(pe.message.substring(0, 80), { x:40, y:370, size:10 });
+                    }
+                } else if (ext === 'jpg' || ext === 'jpeg') {
+                    var img = await outPdf.embedJpg(buf);
+                    var pg = outPdf.addPage([img.width, img.height + HEADER_H]);
+                    pg.drawImage(img, { x:0, y:0, width:img.width, height:img.height });
+                    stampHeader(pg, f.name, i, sel.length);
+                } else if (ext === 'png') {
+                    var imgP = await outPdf.embedPng(buf);
+                    var pgP = outPdf.addPage([imgP.width, imgP.height + HEADER_H]);
+                    pgP.drawImage(imgP, { x:0, y:0, width:imgP.width, height:imgP.height });
+                    stampHeader(pgP, f.name, i, sel.length);
+                } else {
+                    var np = outPdf.addPage([595, 842]);
+                    stampHeader(np, f.name, i, sel.length);
+                    np.drawText('Skipped (unsupported type)', { x:40, y:400, size:14 });
+                }
+            } catch(e) {
+                var eep = outPdf.addPage([595, 842]);
+                stampHeader(eep, f.name + ' (error)', i, sel.length);
+                eep.drawText('Error loading file', { x:40, y:400, size:14 });
+                eep.drawText((e.message || String(e)).substring(0, 80), { x:40, y:370, size:10 });
+            }
+        }
+        var pdfBytes = await outPdf.save();
+        var blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        var blobUrl = URL.createObjectURL(blob);
+        var pw = window.open(blobUrl, '_blank');
+        if (pw) pw.addEventListener('load', function() { setTimeout(function() { try { pw.print(); } catch(e) {} }, 400); });
+    } catch(e) {
+        console.error('Print failed:', e);
+        showMsg('❌ Print failed: ' + (e.message || e));
+    } finally {
+        if (btn) { btn.textContent = origText; btn.disabled = false; }
+    }
+}
+
+// ====================================================================
+// CHANGE #11: Backup / Restore — show "Coming soon"
+// ====================================================================
+function manualBackup()      { showMsg('☁️ Backup\n\nComing soon — Firebase-native backup is planned for a future step.'); }
+function restoreFromBackup() { showMsg('☁️ Restore\n\nComing soon — Firebase-native restore is planned for a future step.'); }
+
+// ==========================================
+// HELPERS
+// ==========================================
+// ── EmployerCode — simple format: AgencyCode + "-" + EmployerID
+// e.g. MGSC + "-" + 1355 = MGSC-1355
+function computeEmployerCode(emp) {
+    var agC = (emp.AgencyCode || '').toString().toUpperCase().trim();
+    var id  = String(emp.EmployerID || '').trim();
+    if (!agC || !id) return agC + id;  // fallback if either is missing
+    return agC + '-' + id;
+}
+
+// ====================================================================
+// BOOT
+// ====================================================================
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>

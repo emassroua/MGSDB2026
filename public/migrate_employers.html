@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGS — Employers Migration (One-Time)</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚚</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 12px 50px rgba(0,0,0,0.25);
+            width: 100%;
+            max-width: 720px;
+            overflow: hidden;
+        }
+        .head {
+            background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+            color: white;
+            padding: 24px 30px;
+        }
+        .head h1 { font-size: 22px; margin-bottom: 6px; }
+        .head p { font-size: 13px; opacity: 0.95; }
+        .body { padding: 26px 30px; }
+
+        .warn {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 20px;
+            color: #856404;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+        .warn strong { display: block; margin-bottom: 4px; font-size: 14px; }
+
+        .status {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 18px;
+            border-left: 4px solid #6c757d;
+        }
+        .status .label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #6c757d;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .status .value {
+            font-size: 15px;
+            color: #212529;
+            font-family: monospace;
+        }
+
+        .bar-wrap {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 28px;
+            overflow: hidden;
+            margin: 18px 0 8px;
+            position: relative;
+        }
+        .bar {
+            height: 100%;
+            background: linear-gradient(90deg, #f5576c, #f093fb);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .counts {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 16px 0;
+        }
+        .count {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .count .n { font-size: 22px; font-weight: 700; color: #f5576c; }
+        .count .l { font-size: 11px; color: #6c757d; text-transform: uppercase; font-weight: 600; letter-spacing: 0.3px; }
+
+        .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+        .btn {
+            flex: 1;
+            min-width: 140px;
+            padding: 12px 18px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: linear-gradient(135deg, #f5576c, #f093fb); color: white; }
+        .btn-primary:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+        .btn-check { background: #17a2b8; color: white; }
+        .btn-check:hover:not(:disabled) { background: #138496; }
+        .btn-secondary { background: #6c757d; color: white; }
+
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 18px;
+            max-height: 280px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            display: none;
+        }
+        .log.visible { display: block; }
+        .log .l-info { color: #9cdcfe; }
+        .log .l-ok   { color: #4ec9b0; }
+        .log .l-warn { color: #ce9178; }
+        .log .l-err  { color: #f48771; }
+        .log .t { color: #808080; }
+
+        .preview-box {
+            background: #f0fff4;
+            border: 2px solid #28a745;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-top: 14px;
+            display: none;
+        }
+        .preview-box h4 { color: #155724; font-size: 13px; margin-bottom: 10px; }
+        .preview-box .row { font-family: monospace; font-size: 11px; padding: 4px 0; border-bottom: 1px dashed #c3e6cb; }
+        .preview-box .row:last-child { border-bottom: none; }
+        .preview-box .row strong { color: #155724; }
+
+        .done {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border-radius: 8px;
+            padding: 18px 20px;
+            margin-top: 18px;
+            text-align: center;
+            display: none;
+        }
+        .done.visible { display: block; }
+        .done .icon { font-size: 38px; margin-bottom: 8px; }
+        .done h3 { font-size: 18px; margin-bottom: 4px; }
+        .done p { font-size: 13px; opacity: 0.95; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="head">
+        <h1>🚚 Employers Migration Tool</h1>
+        <p>One-time copy: Google Sheets <strong>Employers</strong> → Firestore <code>employers</code></p>
+    </div>
+
+    <div class="body">
+
+        <div class="warn">
+            <strong>⚠️ Read this before running</strong>
+            This tool <strong>only reads</strong> from your Sheets and writes new docs to Firestore. It does <strong>not</strong> delete, modify, or touch Sheets data. If the target Firestore collection already has documents with the same <code>EmployerID</code>, they will be <strong>overwritten</strong> (this is expected on retry, not a data loss — Sheets is still the source of truth).
+        </div>
+
+        <div class="status" id="cloudStatus">
+            <div class="label">🔥 Firebase</div>
+            <div class="value" id="cloudStatusText">Initializing...</div>
+        </div>
+
+        <div class="btns">
+            <button class="btn btn-check" id="btnCheck" onclick="doCheck()" disabled>
+                👀 1. Check Source &amp; Target
+            </button>
+            <button class="btn btn-primary" id="btnMigrate" onclick="doMigrate()" disabled>
+                🚚 2. Start Migration
+            </button>
+        </div>
+
+        <div class="preview-box" id="previewBox">
+            <h4>📋 Sample rows (first 3 from Sheets):</h4>
+            <div id="previewContent"></div>
+        </div>
+
+        <div class="bar-wrap" id="barWrap" style="display:none;">
+            <div class="bar" id="bar">0%</div>
+        </div>
+
+        <div class="counts" id="countsWrap" style="display:none;">
+            <div class="count"><div class="n" id="cTotal">0</div><div class="l">Total</div></div>
+            <div class="count"><div class="n" id="cDone" style="color:#28a745;">0</div><div class="l">Written</div></div>
+            <div class="count"><div class="n" id="cErr" style="color:#dc3545;">0</div><div class="l">Errors</div></div>
+        </div>
+
+        <div class="done" id="doneBox">
+            <div class="icon">✅</div>
+            <h3 id="doneTitle">Migration Complete!</h3>
+            <p id="doneMsg">You can now delete this file.</p>
+        </div>
+
+        <div class="log" id="log"></div>
+
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- FIREBASE INIT (same config as workers_manager.html)          -->
+<!-- ============================================================ -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, doc, getDocs, getDoc, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+        authDomain: "mgsd2026.firebaseapp.com",
+        projectId: "mgsd2026",
+        storageBucket: "mgsd2026.firebasestorage.app",
+        messagingSenderId: "918582360831",
+        appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    window._fb = { db, collection, doc, getDocs, getDoc, setDoc, writeBatch };
+    window.dispatchEvent(new Event('firebase-ready'));
+    console.log('🔥 Firebase initialized for migration');
+</script>
+
+<!-- ============================================================ -->
+<!-- MIGRATION LOGIC                                              -->
+<!-- ============================================================ -->
+<script>
+    // ⚠️ UPDATE THIS if your Apps Script deployment URL has changed.
+    // Memory says this is current — confirm before running if unsure.
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEbNo287tvEezLwy8vYHrNWxPXELlzzsGVg9yeA6XXDIkXdR0ILEKOTWbG88PxHiIf/exec';
+
+    const TARGET_COLLECTION = 'employers';  // Firestore collection name (matches SHEET_MAP)
+    const KEY_FIELD         = 'EmployerID'; // document ID source (matches KEY_MAP)
+    const BATCH_SIZE        = 100;          // Firestore max writes per batch
+
+    let fb = null;
+    let sourceRows = [];
+
+    // ── Log helpers ─────────────────────────────────────────────
+    function logLine(cls, text) {
+        const box = document.getElementById('log');
+        box.classList.add('visible');
+        const line = document.createElement('div');
+        const ts = new Date().toLocaleTimeString();
+        line.innerHTML = '<span class="t">[' + ts + ']</span> <span class="' + cls + '">' + text + '</span>';
+        box.appendChild(line);
+        box.scrollTop = box.scrollHeight;
+    }
+    const logInfo = (t) => logLine('l-info', t);
+    const logOk   = (t) => logLine('l-ok',   t);
+    const logWarn = (t) => logLine('l-warn', t);
+    const logErr  = (t) => logLine('l-err',  t);
+
+    // ── Wait for Firebase ───────────────────────────────────────
+    function waitForFirebase() {
+        return new Promise((resolve) => {
+            if (window._fb) return resolve(window._fb);
+            window.addEventListener('firebase-ready', () => resolve(window._fb), { once: true });
+        });
+    }
+
+    // ── UI helpers ──────────────────────────────────────────────
+    function setStatus(msg, ok) {
+        const s = document.getElementById('cloudStatus');
+        document.getElementById('cloudStatusText').textContent = msg;
+        s.style.borderLeftColor = ok === true ? '#28a745' : ok === false ? '#dc3545' : '#6c757d';
+    }
+    function setBar(pct) {
+        document.getElementById('barWrap').style.display = 'block';
+        const bar = document.getElementById('bar');
+        bar.style.width = pct + '%';
+        bar.textContent = Math.round(pct) + '%';
+    }
+    function setCount(id, n) { document.getElementById(id).textContent = n; }
+
+    // ── Fetch from Apps Script ──────────────────────────────────
+    async function fetchSheetsEmployers() {
+        logInfo('Fetching Employers rows from Apps Script...');
+        const url = APPS_SCRIPT_URL + '?action=getAll&sheet=Employers';
+        const res = await fetch(url, { method: 'GET', redirect: 'follow' });
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching Sheets');
+        const json = await res.json();
+        const rows = (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+        if (!Array.isArray(rows)) throw new Error('Unexpected response shape from Apps Script');
+        return rows;
+    }
+
+    // ── Init ────────────────────────────────────────────────────
+    (async function init() {
+        try {
+            fb = await waitForFirebase();
+            setStatus('✅ Connected to Firestore (project: mgsd2026)', true);
+            document.getElementById('btnCheck').disabled = false;
+            logOk('Firebase ready. Click "Check Source & Target" to begin.');
+        } catch (e) {
+            setStatus('❌ Firebase init failed: ' + e.message, false);
+            logErr(e.message);
+        }
+    })();
+
+    // ── Step 1: Check ───────────────────────────────────────────
+    window.doCheck = async function() {
+        const btn = document.getElementById('btnCheck');
+        btn.disabled = true;
+        btn.textContent = '⏳ Checking...';
+        try {
+            // Source
+            sourceRows = await fetchSheetsEmployers();
+            logOk('Sheets: ' + sourceRows.length + ' row(s) found in Employers tab.');
+
+            // Target
+            const targetSnap = await fb.getDocs(fb.collection(fb.db, TARGET_COLLECTION));
+            const targetCount = targetSnap.size;
+            logInfo('Firestore `' + TARGET_COLLECTION + '`: ' + targetCount + ' existing doc(s).');
+            if (targetCount > 0) {
+                logWarn('⚠️ Target collection is not empty. Running migration will OVERWRITE docs with matching EmployerID.');
+            }
+
+            // Validate key field
+            const missingKey = sourceRows.filter(r => !r[KEY_FIELD]).length;
+            if (missingKey > 0) {
+                logErr('❌ ' + missingKey + ' row(s) are missing EmployerID — they will be SKIPPED.');
+            }
+
+            // Preview
+            const preview = sourceRows.slice(0, 3);
+            const pv = document.getElementById('previewContent');
+            pv.innerHTML = '';
+            preview.forEach((r, i) => {
+                const div = document.createElement('div');
+                div.className = 'row';
+                div.innerHTML = '<strong>#' + (i + 1) + '</strong> ID=' + (r.EmployerID || '(missing)')
+                    + ' | Code=' + (r.EmployerCode || '—')
+                    + ' | Name=' + (r.EFN || r.EmployerName || '—')
+                    + ' | Agency=' + (r.AgencyCode || '—');
+                pv.appendChild(div);
+            });
+            document.getElementById('previewBox').style.display = 'block';
+
+            document.getElementById('countsWrap').style.display = 'grid';
+            setCount('cTotal', sourceRows.length);
+            setCount('cDone', 0);
+            setCount('cErr', 0);
+
+            document.getElementById('btnMigrate').disabled = sourceRows.length === 0;
+            btn.textContent = '✅ Check Done — Review Log, Then Migrate';
+            btn.disabled = false;
+        } catch (e) {
+            logErr('Check failed: ' + e.message);
+            btn.textContent = '👀 1. Check Source & Target';
+            btn.disabled = false;
+        }
+    };
+
+    // ── Step 2: Migrate ─────────────────────────────────────────
+    window.doMigrate = async function() {
+        const btnM = document.getElementById('btnMigrate');
+        const btnC = document.getElementById('btnCheck');
+        if (!sourceRows.length) { logErr('No source rows. Run Check first.'); return; }
+        if (!confirm('Write ' + sourceRows.length + ' document(s) to Firestore collection "' + TARGET_COLLECTION + '"?\n\nExisting docs with the same EmployerID will be OVERWRITTEN.\n\nContinue?')) return;
+
+        btnM.disabled = true;
+        btnC.disabled = true;
+        btnM.textContent = '⏳ Migrating...';
+        logInfo('Starting migration of ' + sourceRows.length + ' row(s)...');
+
+        let done = 0, err = 0;
+        const total = sourceRows.length;
+
+        // Process in batches of 100 (Firestore hard limit is 500, we use 100 for safety)
+        for (let i = 0; i < total; i += BATCH_SIZE) {
+            const batch = fb.writeBatch(fb.db);
+            const slice = sourceRows.slice(i, i + BATCH_SIZE);
+            const validInSlice = [];
+
+            slice.forEach(row => {
+                const id = String(row[KEY_FIELD] || '').trim();
+                if (!id) { err++; return; }
+                // Normalize: strip undefined (Firestore rejects it)
+                const clean = JSON.parse(JSON.stringify(row, (k, v) => v === undefined ? null : v));
+                batch.set(fb.doc(fb.db, TARGET_COLLECTION, id), clean);
+                validInSlice.push(id);
+            });
+
+            try {
+                await batch.commit();
+                done += validInSlice.length;
+                logOk('Batch ' + (Math.floor(i / BATCH_SIZE) + 1) + ': wrote ' + validInSlice.length + ' doc(s). IDs: ' + validInSlice.slice(0, 5).join(', ') + (validInSlice.length > 5 ? '...' : ''));
+            } catch (e) {
+                err += validInSlice.length;
+                logErr('Batch ' + (Math.floor(i / BATCH_SIZE) + 1) + ' failed: ' + e.message);
+            }
+
+            setCount('cDone', done);
+            setCount('cErr', err);
+            setBar(((done + err) / total) * 100);
+        }
+
+        // Done
+        btnM.textContent = '✅ Migration Finished';
+        if (err === 0) {
+            logOk('🎉 All ' + done + ' employer(s) migrated successfully.');
+            document.getElementById('doneTitle').textContent = '✅ Migration Complete!';
+            document.getElementById('doneMsg').innerHTML = 'Migrated <strong>' + done + '</strong> employer(s) to Firestore. You can now delete this file and move to Step 2 (porting the Employers page).';
+        } else {
+            logWarn('⚠️ Finished with ' + err + ' error(s). Check log above.');
+            document.getElementById('doneTitle').textContent = '⚠️ Finished with Errors';
+            document.getElementById('doneMsg').innerHTML = '<strong>' + done + '</strong> migrated, <strong>' + err + '</strong> failed. Review the log.';
+            document.getElementById('doneBox').style.background = 'linear-gradient(135deg, #ffc107, #fd7e14)';
+        }
+        document.getElementById('doneBox').classList.add('visible');
+    };
+</script>
+
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Import Worker Documents</title>
+<style>
+body { font-family: sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; background: #f1f5f9; }
+h1 { color: #0ea5e9; }
+button { padding: 14px 30px; background: #0ea5e9; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+#log { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; font-family: monospace; font-size: 12px; }
+.ok { color: #16a34a; }
+.err { color: #dc2626; }
+</style>
+</head>
+<body>
+<h1>📥 Import Worker Documents</h1>
+<p>Imports 5 worker documents with PascalCase fields and numeric IDs.</p>
+<button id="btn" onclick="runImport()">🚀 Start Import</button>
+<div id="log"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+  authDomain: "mgsd2026.firebaseapp.com",
+  projectId: "mgsd2026",
+  storageBucket: "mgsd2026.firebasestorage.app",
+  messagingSenderId: "918582360831",
+  appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const DOCUMENTS = [
+  { DocumentID: 1, DocumentNameEN: "Passport",          DocumentNameAR: "جواز السفر",         Required: false, Active: true },
+  { DocumentID: 2, DocumentNameEN: "Id Photo",          DocumentNameAR: "صورة الهوية",         Required: false, Active: true },
+  { DocumentID: 3, DocumentNameEN: "Medical Tests",     DocumentNameAR: "فحوصات المخبرية",     Required: false, Active: true },
+  { DocumentID: 4, DocumentNameEN: "Police clearance",  DocumentNameAR: "سجل عدلي",            Required: false, Active: true },
+  { DocumentID: 5, DocumentNameEN: "Worker Photo",      DocumentNameAR: "صورة العامل",         Required: false, Active: true }
+];
+
+const log = document.getElementById('log');
+function addLog(msg, cls) {
+  log.innerHTML += `<div class="${cls||''}">${msg}</div>`;
+  log.scrollTop = log.scrollHeight;
+}
+
+window.runImport = async function() {
+  document.getElementById('btn').disabled = true;
+  addLog('🚀 Starting import of 5 worker documents...');
+  let added = 0, errors = 0;
+
+  for (const d of DOCUMENTS) {
+    try {
+      await setDoc(doc(db, "worker_documents", String(d.DocumentID)), d);
+      added++;
+      addLog(`✅ ${d.DocumentID}: ${d.DocumentNameEN}`, 'ok');
+    } catch(e) {
+      errors++;
+      addLog(`❌ ERROR on ${d.DocumentNameEN}: ${e.message}`, 'err');
+    }
+  }
+
+  addLog('──────────────────────');
+  addLog(`🎉 DONE! Added: ${added}, Errors: ${errors}`, 'ok');
+  document.getElementById('btn').textContent = '✅ Finished';
+};
+</script>
+</body>
+</html>

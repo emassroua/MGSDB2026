@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MGS - Database Reset Manager</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#dc3545 0%,#c82333 100%);padding:20px;min-height:100vh}
+
+/* LOGIN */
+.login-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#dc3545,#c82333);display:flex;align-items:center;justify-content:center;z-index:99999}
+.login-box{background:white;border-radius:14px;padding:40px 36px;width:420px;max-width:94vw;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo .ico{font-size:52px;display:block;margin-bottom:8px}
+.login-logo h1{font-size:22px;font-weight:800;color:#1e293b}
+.login-logo p{font-size:12px;color:#64748b;margin-top:3px}
+.lf{margin-bottom:14px}
+.lf label{display:block;font-size:11px;font-weight:700;color:#475057;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.lf input{width:100%;padding:10px 13px;border:2px solid #e9ecef;border-radius:7px;font-size:14px;font-family:inherit}
+.lf input:focus{outline:none;border-color:#dc3545;box-shadow:0 0 0 3px rgba(220,53,69,.12)}
+.login-btn{width:100%;padding:13px;background:linear-gradient(135deg,#dc3545,#c82333);border:none;border-radius:8px;color:white;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:6px}
+.login-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(220,53,69,.35)}
+.login-err{margin-top:12px;padding:9px 13px;background:#f8d7da;border:1px solid #f5c6cb;border-radius:7px;color:#721c24;font-size:12px;text-align:center;display:none}
+
+.container{max-width:1100px;margin:0 auto;background:white;border-radius:15px;box-shadow:0 10px 40px rgba(0,0,0,.3);overflow:hidden}
+.header{background:linear-gradient(135deg,#dc3545,#c82333);color:white;padding:22px 30px;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:26px;margin-bottom:4px}
+.header p{font-size:12px;opacity:.9}
+.header-actions{display:flex;gap:8px}
+.header-btn{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:white;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.header-btn:hover{background:rgba(255,255,255,.3)}
+
+.warning-banner{background:#fff3cd;border:2px solid #ffc107;border-left:6px solid #ffc107;padding:16px 20px;margin:20px;border-radius:8px}
+.warning-banner h3{color:#856404;margin-bottom:8px;font-size:16px}
+.warning-banner ul{color:#856404;margin-left:20px;line-height:1.7;font-size:12px}
+
+.content{padding:20px 30px 30px}
+.section{background:#f8f9fa;padding:18px;border-radius:10px;margin-bottom:18px;border:2px solid #e9ecef}
+.section h3{margin-bottom:12px;color:#495057;font-size:15px}
+
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:4px}
+.stat-box{background:white;padding:14px;border-radius:8px;text-align:center;border:2px solid #e9ecef}
+.stat-label{font-size:11px;color:#6c757d;margin-bottom:4px}
+.stat-value{font-size:24px;font-weight:700;color:#dc3545}
+
+.table-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:8px}
+.table-card{background:white;padding:13px;border-radius:8px;border:2px solid #e9ecef;transition:all .3s}
+.table-card:hover{border-color:#dc3545;box-shadow:0 4px 12px rgba(220,53,69,.15)}
+.table-card.protected{border-color:#28a745;background:#f0fff4}
+.table-card.protected:hover{border-color:#28a745;box-shadow:0 4px 12px rgba(40,167,69,.15)}
+.table-card.is-new{border-color:#ffc107;background:#fffbeb;border-width:3px}
+.table-card.is-new:hover{border-color:#ffc107;box-shadow:0 4px 12px rgba(255,193,7,.3)}
+.new-badge{display:inline-block;background:#ffc107;color:#212529;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;animation:pulse-new 1.5s ease-in-out infinite}
+@keyframes pulse-new{0%,100%{opacity:1}50%{opacity:0.6}}
+.new-warning{background:#fff3cd;color:#856404;padding:6px 10px;border-radius:5px;font-size:11px;margin:6px 0;font-weight:600;border-left:3px solid #ffc107}
+.table-name{font-weight:600;font-size:14px;margin-bottom:6px;color:#495057;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.table-count{font-size:22px;font-weight:700;color:#dc3545;margin-bottom:4px}
+.table-card.protected .table-count{color:#28a745}
+.table-description{font-size:12px;color:#6c757d;margin-bottom:10px}
+
+.btn{padding:8px 14px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:all .3s;font-family:inherit}
+.btn-danger{background:#dc3545;color:white}
+.btn-danger:hover{background:#c82333;transform:translateY(-1px)}
+.btn-warning{background:#ffc107;color:#212529}
+.btn-warning:hover{background:#e0a800}
+.btn-primary{background:#007bff;color:white}
+.btn-primary:hover{background:#0056b3}
+.btn-protected{background:#28a745;color:white;cursor:not-allowed;opacity:.7}
+.action-buttons{display:flex;gap:8px}
+.action-buttons .btn{flex:1}
+
+.protected-badge{display:inline-block;background:#28a745;color:white;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
+.protected-note{background:#d4edda;border:1px solid #c3e6cb;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#155724}
+
+.nuclear-section{background:linear-gradient(135deg,#fff5f5 0%,#ffe0e0 100%);border:3px solid #dc3545;padding:20px;border-radius:10px;margin-top:20px}
+.nuclear-warning{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.nuclear-icon{font-size:42px}
+.nuclear-text h3{color:#dc3545;font-size:18px;margin-bottom:4px}
+.nuclear-text p{color:#721c24;font-size:12px}
+
+/* STORAGE */
+.storage-section{background:#fff4e6;border:2px solid #ff9800;border-radius:10px;padding:18px;margin-bottom:18px}
+.storage-section h3{color:#f57c00;font-size:15px;margin-bottom:10px}
+.storage-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.storage-card{background:white;border:2px solid #ffe0b2;border-radius:8px;padding:12px}
+
+/* MODAL */
+#msgModal{display:none;position:fixed;z-index:99999;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.5);align-items:center;justify-content:center}
+@keyframes msgSlideIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+
+.view-modal{display:none;position:fixed;z-index:99999;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.5);align-items:center;justify-content:center}
+.view-modal-content{background:white;border-radius:10px;width:90%;max-width:700px;max-height:85vh;overflow-y:auto;padding:0}
+.view-modal-head{background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:10px 10px 0 0}
+.view-modal-body{padding:18px}
+.view-record{background:#f8f9fa;border-radius:6px;padding:10px 12px;margin-bottom:8px;font-size:11px;font-family:monospace;overflow-x:auto}
+
+.status-bar{padding:12px 24px;background:#f8f9fa;border-top:1px solid #e9ecef;display:flex;justify-content:space-between;align-items:center}
+.status-text{color:#6c757d;font-size:12px}
+.status-text.success{color:#28a745;font-weight:600}
+.status-text.error{color:#dc3545;font-weight:600}
+</style>
+</head>
+<body>
+
+<!-- LOGIN GATE -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="ico">🗑️</span>
+      <h1>Database Reset Manager</h1>
+      <p>Destructive operations — admin required</p>
+    </div>
+    <div class="lf">
+      <label>Admin Password</label>
+      <input type="password" id="adminPass" placeholder="Enter admin password" autofocus onkeydown="if(event.key==='Enter')adminLogin()">
+    </div>
+    <button class="login-btn" onclick="adminLogin()">🔓 Unlock</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" style="display:none;">
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>🗑️ Database Reset Manager</h1>
+        <p>Manage and clear Firestore collections + Firebase Storage</p>
+      </div>
+      <div class="header-actions">
+        <button class="header-btn" onclick="loadStats()">🔄 Refresh</button>
+        <button class="header-btn" onclick="adminLogout()">🚪 Lock</button>
+      </div>
+    </div>
+
+    <div class="warning-banner">
+      <h3>⚠️ IMPORTANT WARNING</h3>
+      <ul>
+        <li><strong>Firestore deletions are permanent and cannot be undone</strong></li>
+        <li>Firebase Storage file deletions are permanent (no trash/recycle)</li>
+        <li>Protected collections cannot be cleared from this page</li>
+        <li>Every destructive action requires double confirmation</li>
+      </ul>
+    </div>
+
+    <div class="content">
+      <div class="section">
+        <h3>📊 Database Statistics</h3>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="stat-label">Total Collections</div><div class="stat-value" id="totalTables">0</div></div>
+          <div class="stat-box"><div class="stat-label">Total Records</div><div class="stat-value" id="totalRecords">0</div></div>
+          <div class="stat-box"><div class="stat-label">Last Updated</div><div class="stat-value" style="font-size:13px;" id="lastUpdated">—</div></div>
+        </div>
+      </div>
+
+      <div class="protected-note">
+        🛡️ <strong>Protected Collections:</strong> Processing Costs, Nationalities, Worker Documents, Employer Documents, Invoice Header, and Admin Settings cannot be cleared here. Use Enable/Disable in their manager pages instead.
+      </div>
+
+      <div class="section">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3 style="margin:0;">📋 Firestore Collections</h3>
+          <button class="btn btn-primary" onclick="openRegisterDialog()" style="padding:7px 14px;font-size:12px;">➕ Register New Collection</button>
+        </div>
+        <div id="newCollectionsBanner" style="display:none;background:#fff3cd;border:2px solid #ffc107;border-left:6px solid #ffc107;padding:12px 16px;border-radius:8px;margin-bottom:14px;font-size:12px;color:#856404;">
+          <strong>🆕 New collections detected.</strong> Review their protection status below. Collections marked NEW default to <strong>unprotected</strong> — if they should be protected, click "🛡️ Mark Protected" on their card.
+        </div>
+        <div class="table-list" id="tablesList"></div>
+      </div>
+
+      <!-- Firebase Storage cleanup -->
+      <div class="storage-section">
+        <h3>🗄️ Firebase Storage Cleanup</h3>
+        <p style="font-size:12px;color:#666;margin-bottom:14px;">
+          Delete uploaded files from Firebase Storage.
+          <strong style="color:#dc3545;">Permanent deletion — no recycle bin.</strong>
+        </p>
+        <div class="storage-grid">
+          <div class="storage-card">
+            <div style="font-weight:700;font-size:14px;margin-bottom:6px;">👷 Workers Files</div>
+            <div style="font-size:11px;color:#666;margin-bottom:8px;">Photos, passports, IDs, and uploaded documents</div>
+            <div id="workersStorageStatus" style="font-size:11px;color:#666;margin-bottom:8px;">Click "Scan" to count files</div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-primary" onclick="scanStorage('workers')" style="flex:1;">🔍 Scan</button>
+              <button class="btn btn-danger" onclick="cleanStorage('workers')" style="flex:1;">🗑️ Delete All</button>
+            </div>
+          </div>
+          <div class="storage-card">
+            <div style="font-weight:700;font-size:14px;margin-bottom:6px;">🏢 Employers Files</div>
+            <div style="font-size:11px;color:#666;margin-bottom:8px;">Invoices, pre-approvals, visa documents</div>
+            <div id="employersStorageStatus" style="font-size:11px;color:#666;margin-bottom:8px;">Click "Scan" to count files</div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-primary" onclick="scanStorage('employers')" style="flex:1;">🔍 Scan</button>
+              <button class="btn btn-danger" onclick="cleanStorage('employers')" style="flex:1;">🗑️ Delete All</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="nuclear-section">
+        <div class="nuclear-warning">
+          <div class="nuclear-icon">☢️</div>
+          <div class="nuclear-text">
+            <h3>NUCLEAR OPTION: Reset All Database</h3>
+            <p>Deletes all records from unprotected Firestore collections. Protected collections and Firebase Storage are not affected — use separate controls.</p>
+          </div>
+        </div>
+        <button class="btn btn-danger" onclick="resetAllDatabase()" style="width:100%;padding:13px;font-size:14px;">☢️ RESET DATABASE (skips protected)</button>
+      </div>
+
+      <div style="text-align:center;margin-top:20px;padding:16px;">
+        <a href="Admin_Dashboard.html" style="color:#007bff;text-decoration:none;font-weight:600;font-size:13px;">← Back to Admin Dashboard</a>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <span class="status-text" id="statusText">Ready</span>
+      <span style="font-size:10px;color:#94a3b8;">Reset Manager v2.0 — Firebase</span>
+    </div>
+  </div>
+</div>
+
+<!-- MSG MODAL -->
+<div id="msgModal">
+  <div style="background:white;border-radius:12px;padding:0;max-width:500px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;animation:msgSlideIn .2s ease-out;">
+    <div id="msgHeader" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:13px 18px;font-weight:700;font-size:14px;display:flex;align-items:center;gap:7px;">
+      <span id="msgIcon">ℹ️</span><span id="msgTitle">Message</span>
+    </div>
+    <div style="padding:18px;">
+      <pre id="msgText" style="white-space:pre-wrap;word-wrap:break-word;font-family:inherit;font-size:12px;line-height:1.6;color:#333;max-height:360px;overflow-y:auto;margin:0;"></pre>
+    </div>
+    <div id="msgButtons" style="padding:10px 18px;border-top:1px solid #e9ecef;display:flex;justify-content:flex-end;gap:7px;background:#f8f9fa;"></div>
+  </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div class="view-modal" id="viewModal">
+  <div class="view-modal-content">
+    <div class="view-modal-head">
+      <div><span id="viewTitle">Collection</span> <span id="viewCount" style="background:rgba(255,255,255,.25);padding:2px 8px;border-radius:8px;font-size:11px;margin-left:6px;"></span></div>
+      <button onclick="document.getElementById('viewModal').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;">✕</button>
+    </div>
+    <div class="view-modal-body" id="viewBody"></div>
+  </div>
+</div>
+
+<!-- FIREBASE BRIDGE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getStorage, ref, listAll, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+  authDomain: "mgsd2026.firebaseapp.com",
+  projectId: "mgsd2026",
+  storageBucket: "mgsd2026.firebasestorage.app",
+  messagingSenderId: "918582360831",
+  appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+window.DBReset = {
+  ready: true,
+  listAll: async function(collectionName) {
+    try {
+      const snap = await getDocs(collection(db, collectionName));
+      const rows = []; snap.forEach(d => rows.push({ id: d.id, data: d.data() }));
+      return rows;
+    } catch(e) { console.error('list error:', collectionName, e); return []; }
+  },
+  clearCollection: async function(collectionName, onProgress) {
+    try {
+      const snap = await getDocs(collection(db, collectionName));
+      const docs = []; snap.forEach(d => docs.push(d));
+      const total = docs.length;
+      if (total === 0) return { success: true, deleted: 0 };
+
+      // Delete in batches of 400 (Firestore limit 500)
+      let deleted = 0;
+      for (let i = 0; i < docs.length; i += 400) {
+        const batch = writeBatch(db);
+        const chunk = docs.slice(i, i + 400);
+        chunk.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+        deleted += chunk.length;
+        if (onProgress) onProgress(deleted, total);
+      }
+      return { success: true, deleted: deleted };
+    } catch(e) { console.error('clear error:', e); return { success: false, error: e.message }; }
+  },
+  scanStorage: async function(rootPath) {
+    try {
+      const files = [];
+      async function recurse(path) {
+        const r = ref(storage, path);
+        const res = await listAll(r);
+        for (const f of res.items) files.push(f.fullPath);
+        for (const folder of res.prefixes) await recurse(folder.fullPath);
+      }
+      await recurse(rootPath);
+      return { success: true, files: files };
+    } catch(e) { console.error('scan error:', e); return { success: false, error: e.message }; }
+  },
+  deleteStorageFile: async function(path) {
+    try { await deleteObject(ref(storage, path)); return { success: true }; }
+    catch(e) { return { success: false, error: e.message }; }
+  },
+  loadRegistry: async function() {
+    try {
+      const docSnap = await getDoc(doc(db, 'mgs_admin_settings', 'collections_registry'));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        return { success: true, collections: Array.isArray(data.collections) ? data.collections : [] };
+      }
+      return { success: true, collections: null }; // null = doesn't exist yet
+    } catch(e) { console.error('registry load error:', e); return { success: false, error: e.message }; }
+  },
+  saveRegistry: async function(collectionsList) {
+    try {
+      await setDoc(doc(db, 'mgs_admin_settings', 'collections_registry'), {
+        collections: collectionsList,
+        updatedAt: new Date().toISOString()
+      });
+      return { success: true };
+    } catch(e) { console.error('registry save error:', e); return { success: false, error: e.message }; }
+  }
+};
+</script>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════════════
+const ADMIN_PASSWORD = 'masr3434';
+const ADMIN_SESSION_KEY = 'mgs_dbreset_admin_session';
+
+// Default collections to seed the registry on first run
+const DEFAULT_COLLECTIONS = [
+  { key: 'Workers',              name: 'Workers',              desc: 'Worker profiles and information',              icon: '👷', protected: false, isNew: false },
+  { key: 'employers',            name: 'Employers',            desc: 'Employer companies and contacts',              icon: '🏢', protected: false, isNew: false },
+  { key: 'local_agencies',       name: 'Local Agencies',       desc: 'Recruitment agency information',               icon: '🏛️', protected: false, isNew: false },
+  { key: 'supplier_manager',     name: 'Suppliers',            desc: 'Foreign supplier companies',                   icon: '🌍', protected: false, isNew: false },
+  { key: 'invoices',             name: 'Invoices',             desc: 'Invoice records',                              icon: '💰', protected: false, isNew: false },
+  { key: 'receipts',             name: 'Receipts / Payments',  desc: 'Payment receipts linked to invoices',          icon: '🧾', protected: false, isNew: false },
+  { key: 'outgoing_payments',    name: 'Outgoing Payments',    desc: 'Payments to employers, suppliers, agencies',   icon: '💸', protected: false, isNew: false },
+  { key: 'items',                name: 'Items',                desc: 'Items / products catalog',                     icon: '📦', protected: false, isNew: false },
+  { key: 'ComplianceDocuments',  name: 'Compliance Documents', desc: 'Work permit, insurance, ikama records',        icon: '📑', protected: false, isNew: false },
+  { key: 'WorkPermit',           name: 'Work Permits',         desc: 'Work permit records for workers',              icon: '📜', protected: false, isNew: false },
+  { key: 'Insurance',            name: 'Insurance Records',    desc: 'Insurance records for workers',                icon: '🏥', protected: false, isNew: false },
+  { key: 'Ikama',                name: 'Ikama Records',        desc: 'Ikama records for workers',                    icon: '🆔', protected: false, isNew: false },
+  { key: 'PassportRenewal',      name: 'Passport Renewals',    desc: 'Passport renewal tracking',                    icon: '🛂', protected: false, isNew: false },
+  // Protected
+  { key: 'processing_costs',     name: 'Processing Costs',     desc: 'Processing cost items',                        icon: '💲', protected: true,  isNew: false },
+  { key: 'nationalities',        name: 'Nationalities',        desc: 'Country and nationality data',                 icon: '🌐', protected: true,  isNew: false },
+  { key: 'worker_documents',     name: 'Worker Documents',     desc: 'Worker document definitions',                  icon: '📋', protected: true,  isNew: false },
+  { key: 'employer_documents',   name: 'Employer Documents',   desc: 'Employer document definitions',                icon: '📄', protected: true,  isNew: false },
+  { key: 'Invoice_Header',       name: 'Invoice Header',       desc: 'Company info for invoice headers',             icon: '🧾', protected: true,  isNew: false },
+  { key: 'MessageTemplates',     name: 'Message Templates',    desc: 'WhatsApp / SMS templates',                     icon: '💬', protected: true,  isNew: false },
+  { key: 'mgs_admin_settings',   name: 'Admin Settings',       desc: 'Admin passwords, security, module config',     icon: '⚙️', protected: true,  isNew: false }
+];
+
+// The LIVE list — loaded from registry, falls back to defaults
+let COLLECTIONS = [...DEFAULT_COLLECTIONS];
+
+let _counts = {};
+let _storageFiles = { workers: null, employers: null };
+let _msgResolve = null;
+
+// ════════════════════════════════════════════════════════════
+// MSG SYSTEM
+// ════════════════════════════════════════════════════════════
+window.alert = m => showMsg(String(m || ''));
+
+function showMsg(text, title) {
+  document.getElementById('msgText').textContent = text;
+  const icon = document.getElementById('msgIcon'), titleEl = document.getElementById('msgTitle'), hdr = document.getElementById('msgHeader');
+  if (text.startsWith('✅')) { icon.textContent='✅'; titleEl.textContent=title||'Success'; hdr.style.background='linear-gradient(135deg,#10b981,#059669)'; }
+  else if (text.startsWith('❌')) { icon.textContent='❌'; titleEl.textContent=title||'Error'; hdr.style.background='linear-gradient(135deg,#ef4444,#dc2626)'; }
+  else if (text.startsWith('⚠️') || text.startsWith('☢️')) { icon.textContent='⚠️'; titleEl.textContent=title||'Warning'; hdr.style.background='linear-gradient(135deg,#f59e0b,#d97706)'; }
+  else { icon.textContent='ℹ️'; titleEl.textContent=title||'Message'; hdr.style.background='linear-gradient(135deg,#667eea,#764ba2)'; }
+  document.getElementById('msgButtons').innerHTML = '<button onclick="closeMsg(true)" style="padding:7px 18px;background:#4facfe;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;">OK</button>';
+  document.getElementById('msgModal').style.display = 'flex';
+}
+
+function showConfirm(text, title, dangerMode) {
+  return new Promise(resolve => {
+    _msgResolve = resolve;
+    document.getElementById('msgText').textContent = text;
+    document.getElementById('msgIcon').textContent = dangerMode ? '☢️' : '❓';
+    document.getElementById('msgTitle').textContent = title || 'Confirm';
+    document.getElementById('msgHeader').style.background = dangerMode ? 'linear-gradient(135deg,#dc2626,#991b1b)' : 'linear-gradient(135deg,#f59e0b,#d97706)';
+    const okBtn = dangerMode ? '#dc3545' : '#ef4444';
+    const okText = dangerMode ? '☢️ YES, DELETE' : 'Yes';
+    document.getElementById('msgButtons').innerHTML =
+      '<button onclick="closeMsg(false)" style="padding:7px 18px;background:#94a3b8;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;">Cancel</button>' +
+      '<button onclick="closeMsg(true)" style="padding:7px 18px;background:'+okBtn+';color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;">'+okText+'</button>';
+    document.getElementById('msgModal').style.display = 'flex';
+  });
+}
+
+function closeMsg(val) {
+  document.getElementById('msgModal').style.display = 'none';
+  if (_msgResolve) { const r = _msgResolve; _msgResolve = null; r(val); }
+}
+window.closeMsg = closeMsg;
+
+// ════════════════════════════════════════════════════════════
+// LOGIN
+// ════════════════════════════════════════════════════════════
+function hasValidSession() {
+  try {
+    const s = sessionStorage.getItem(ADMIN_SESSION_KEY);
+    if (!s) return false;
+    return (Date.now() - JSON.parse(s).ts) < 30 * 60 * 1000; // 30 min
+  } catch(e) { return false; }
+}
+function saveSession() { try { sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ ts: Date.now() })); } catch(e){} }
+function clearSession() { try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch(e){} }
+
+function adminLogin() {
+  const pass = (document.getElementById('adminPass').value || '').trim();
+  const errEl = document.getElementById('loginErr');
+  if (pass !== ADMIN_PASSWORD) { errEl.textContent='❌ Incorrect password'; errEl.style.display='block'; return; }
+  saveSession();
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  loadStats();
+}
+function adminLogout() {
+  showConfirm('Lock Database Reset Manager?').then(ok => {
+    if (!ok) return;
+    clearSession();
+    document.getElementById('mainApp').style.display = 'none';
+    document.getElementById('loginOverlay').style.display = 'flex';
+    document.getElementById('adminPass').value = '';
+    document.getElementById('loginErr').style.display = 'none';
+  });
+}
+window.adminLogin = adminLogin;
+window.adminLogout = adminLogout;
+
+// Require password before EVERY destructive action
+async function verifyAdminAgain(actionName) {
+  return new Promise(resolve => {
+    _msgResolve = resolve;
+    document.getElementById('msgText').textContent = '🔐 Confirm admin password for:\n' + actionName + '\n\nThis is a destructive operation.';
+    document.getElementById('msgIcon').textContent = '🔐';
+    document.getElementById('msgTitle').textContent = 'Admin Password Required';
+    document.getElementById('msgHeader').style.background = 'linear-gradient(135deg,#dc3545,#c82333)';
+    document.getElementById('msgButtons').innerHTML =
+      '<input type="password" id="verifyPassInput" placeholder="Admin password" style="padding:6px 10px;border:1px solid #ced4da;border-radius:5px;font-size:12px;margin-right:auto;" onkeydown="if(event.key===\'Enter\')document.getElementById(\'verifyOkBtn\').click()">' +
+      '<button onclick="closeMsg(false)" style="padding:7px 18px;background:#94a3b8;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;">Cancel</button>' +
+      '<button id="verifyOkBtn" onclick="closeMsg(document.getElementById(\'verifyPassInput\').value)" style="padding:7px 18px;background:#dc3545;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;">Confirm</button>';
+    document.getElementById('msgModal').style.display = 'flex';
+    setTimeout(() => document.getElementById('verifyPassInput').focus(), 100);
+  }).then(val => val === ADMIN_PASSWORD);
+}
+
+// ════════════════════════════════════════════════════════════
+// STATS
+// ════════════════════════════════════════════════════════════
+function setStatus(msg, ok) {
+  const el = document.getElementById('statusText');
+  el.textContent = msg; el.className = 'status-text' + (ok ? ' success' : '');
+  if (ok) setTimeout(() => { el.textContent='Ready'; el.className='status-text'; }, 4000);
+}
+
+async function loadStats() {
+  await waitForDB();
+  setStatus('Loading registry...');
+
+  // Load registry from Firestore
+  const reg = await window.DBReset.loadRegistry();
+  if (reg.success && reg.collections && reg.collections.length > 0) {
+    COLLECTIONS = reg.collections;
+    setStatus('Loaded registry with ' + COLLECTIONS.length + ' collections');
+  } else if (reg.success && reg.collections === null) {
+    // First-time setup: seed the registry with defaults
+    setStatus('First run — seeding registry with defaults...');
+    COLLECTIONS = [...DEFAULT_COLLECTIONS];
+    await window.DBReset.saveRegistry(COLLECTIONS);
+    setStatus('Registry initialized with default collections');
+  } else {
+    // Failed to load — fall back to defaults (read-only this session)
+    COLLECTIONS = [...DEFAULT_COLLECTIONS];
+    setStatus('⚠️ Registry load failed, using defaults');
+  }
+
+  setStatus('Loading collection counts...');
+  document.getElementById('totalTables').textContent = COLLECTIONS.length;
+  document.getElementById('lastUpdated').textContent = new Date().toLocaleDateString();
+
+  _counts = {};
+  const promises = COLLECTIONS.map(async c => {
+    try {
+      const rows = await window.DBReset.listAll(c.key);
+      _counts[c.key] = rows.length;
+    } catch(e) { _counts[c.key] = 0; }
+  });
+  await Promise.all(promises);
+
+  const total = Object.values(_counts).reduce((a,b) => a+b, 0);
+  document.getElementById('totalRecords').textContent = total.toLocaleString();
+  renderTables();
+  setStatus('Loaded ' + total + ' records across ' + COLLECTIONS.length + ' collections', true);
+}
+
+function waitForDB() {
+  return new Promise(resolve => {
+    const check = () => { if (window.DBReset && window.DBReset.ready) resolve(); else setTimeout(check, 100); };
+    check();
+  });
+}
+
+function renderTables() {
+  const container = document.getElementById('tablesList');
+  container.innerHTML = '';
+
+  // Show NEW banner if any collections need review
+  const newCount = COLLECTIONS.filter(c => c.isNew).length;
+  document.getElementById('newCollectionsBanner').style.display = newCount > 0 ? 'block' : 'none';
+
+  COLLECTIONS.forEach(c => {
+    const count = _counts[c.key] || 0;
+    const isProt = c.protected;
+    const isNew = c.isNew;
+
+    const card = document.createElement('div');
+    card.className = 'table-card' + (isProt ? ' protected' : '') + (isNew ? ' is-new' : '');
+
+    let actions = '';
+    if (isNew) {
+      // New collections get review buttons
+      actions = '<button class="btn btn-warning" onclick="viewCollection(\''+c.key+'\')" style="flex:1;">👁️ View</button>' +
+                '<button class="btn btn-primary" onclick="toggleProtection(\''+c.key+'\')" style="flex:1;">' +
+                (isProt ? '🔓 Unprotect' : '🛡️ Mark Protected') + '</button>';
+    } else if (isProt) {
+      actions = '<button class="btn btn-warning" onclick="viewCollection(\''+c.key+'\')" style="flex:1;">👁️ View</button>' +
+                '<button class="btn btn-primary" onclick="toggleProtection(\''+c.key+'\')" style="flex:1;">🔓 Unprotect</button>' +
+                '<button class="btn btn-protected" style="flex:0.5;padding:8px;" title="Protected — cannot clear">🛡️</button>';
+    } else {
+      actions = '<button class="btn btn-warning" onclick="viewCollection(\''+c.key+'\')" style="flex:1;">👁️ View</button>' +
+                '<button class="btn btn-danger" onclick="clearCollection(\''+c.key+'\')" style="flex:1;">🗑️ Clear</button>' +
+                '<button class="btn btn-primary" onclick="toggleProtection(\''+c.key+'\')" style="flex:0.5;padding:8px;" title="Mark as protected">🛡️</button>';
+    }
+
+    let badges = '';
+    if (isNew) badges += '<span class="new-badge">🆕 NEW</span>';
+    if (isProt) badges += ' <span class="protected-badge">🛡️</span>';
+
+    let newNotice = '';
+    if (isNew) {
+      newNotice = '<div class="new-warning">⚠️ Review protection status. <button onclick="acknowledgeNew(\''+c.key+'\')" style="background:#28a745;color:white;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;margin-left:6px;">✓ Reviewed</button></div>';
+    }
+
+    card.innerHTML =
+      '<div class="table-name"><span>'+c.icon+' '+esc(c.name)+'</span>' + badges + '</div>' +
+      '<div class="table-count">'+count.toLocaleString()+'</div>' +
+      '<div class="table-description">'+esc(c.desc)+' <span style="color:#aaa;font-size:10px;">('+c.key+')</span></div>' +
+      newNotice +
+      '<div class="action-buttons">'+actions+'</div>';
+
+    container.appendChild(card);
+  });
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ════════════════════════════════════════════════════════════
+// VIEW COLLECTION
+// ════════════════════════════════════════════════════════════
+async function viewCollection(key) {
+  const coll = COLLECTIONS.find(c => c.key === key);
+  setStatus('Loading ' + coll.name + '...');
+  const rows = await window.DBReset.listAll(key);
+
+  document.getElementById('viewTitle').textContent = coll.icon + ' ' + coll.name;
+  document.getElementById('viewCount').textContent = rows.length + ' record(s)';
+
+  if (rows.length === 0) {
+    document.getElementById('viewBody').innerHTML = '<div style="text-align:center;color:#999;padding:40px;">📭 Collection is empty</div>';
+  } else {
+    const preview = rows.slice(0, 5);
+    let html = '<div style="font-size:11px;color:#666;margin-bottom:10px;">Showing first ' + preview.length + ' of ' + rows.length + ' records</div>';
+    preview.forEach((r, i) => {
+      const d = r.data;
+      const keys = Object.keys(d).slice(0, 5);
+      let details = '';
+      keys.forEach(k => {
+        let v = d[k];
+        if (typeof v === 'string' && v.length > 60) v = v.substring(0, 60) + '...';
+        if (typeof v === 'object') v = JSON.stringify(v).substring(0, 60) + '...';
+        details += '<div style="margin:2px 0;"><span style="color:#4facfe;font-weight:600;">'+k+':</span> '+String(v)+'</div>';
+      });
+      html += '<div class="view-record"><div style="color:#6c757d;font-size:10px;margin-bottom:4px;">🆔 '+r.id+'</div>'+details+'</div>';
+    });
+    if (rows.length > 5) html += '<div style="text-align:center;color:#999;font-size:11px;padding:8px;">...and ' + (rows.length - 5) + ' more records</div>';
+    document.getElementById('viewBody').innerHTML = html;
+  }
+  document.getElementById('viewModal').style.display = 'flex';
+  setStatus('Loaded ' + rows.length + ' records', true);
+}
+window.viewCollection = viewCollection;
+
+// ════════════════════════════════════════════════════════════
+// CLEAR COLLECTION
+// ════════════════════════════════════════════════════════════
+async function clearCollection(key) {
+  const coll = COLLECTIONS.find(c => c.key === key);
+  if (!coll) return;
+  if (coll.protected) { alert('🛡️ This collection is protected. Use Enable/Disable in its manager page.'); return; }
+  const count = _counts[key] || 0;
+  if (count === 0) { alert('ℹ️ ' + coll.name + ' is already empty.'); return; }
+
+  // Step 1: Admin password
+  const passed = await verifyAdminAgain('Clear "' + coll.name + '" (' + count + ' records)');
+  if (!passed) { alert('❌ Incorrect password or cancelled'); return; }
+
+  // Step 2: First confirmation
+  const ok1 = await showConfirm(
+    '⚠️ CLEAR: ' + coll.name + '\n\n' +
+    'This will permanently delete ' + count + ' record(s).\n\n' +
+    '⚠️ THIS CANNOT BE UNDONE!',
+    'Confirm Delete',
+    true
+  );
+  if (!ok1) return;
+
+  // Step 3: Second confirmation for >10 records
+  if (count > 10) {
+    const ok2 = await showConfirm(
+      '⚠️ FINAL CONFIRMATION\n\n' +
+      'Delete ' + count + ' records from ' + coll.name + '?\n\n' +
+      'Last chance to cancel.',
+      'Final Confirmation',
+      true
+    );
+    if (!ok2) return;
+  }
+
+  setStatus('Deleting ' + count + ' records from ' + coll.name + '...');
+  const result = await window.DBReset.clearCollection(key, (done, total) => {
+    setStatus('Deleting ' + coll.name + ': ' + done + '/' + total + '...');
+  });
+
+  if (result.success) {
+    _counts[key] = 0;
+    renderTables();
+    const total = Object.values(_counts).reduce((a,b) => a+b, 0);
+    document.getElementById('totalRecords').textContent = total.toLocaleString();
+    setStatus('✅ Cleared ' + result.deleted + ' records', true);
+    alert('✅ Cleared!\n\n' + result.deleted + ' record(s) deleted from ' + coll.name);
+  } else {
+    setStatus('❌ Clear failed');
+    alert('❌ Failed: ' + result.error);
+  }
+}
+window.clearCollection = clearCollection;
+
+// ════════════════════════════════════════════════════════════
+// NUCLEAR RESET
+// ════════════════════════════════════════════════════════════
+async function resetAllDatabase() {
+  const clearable = COLLECTIONS.filter(c => !c.protected);
+  const clearableCount = clearable.reduce((sum, c) => sum + (_counts[c.key] || 0), 0);
+  const protectedCount = COLLECTIONS.filter(c => c.protected).reduce((sum, c) => sum + (_counts[c.key] || 0), 0);
+
+  if (clearableCount === 0) { alert('ℹ️ No clearable records.\n\nAll remaining data is in protected collections.'); return; }
+
+  const passed = await verifyAdminAgain('☢️ NUCLEAR RESET: Clear ALL unprotected collections');
+  if (!passed) { alert('❌ Incorrect password or cancelled'); return; }
+
+  const ok1 = await showConfirm(
+    '☢️ NUCLEAR RESET\n\n' +
+    'Delete ' + clearableCount + ' records across ' + clearable.length + ' collections.\n\n' +
+    '🛡️ Protected: ' + protectedCount + ' records SAFE.\n\n' +
+    '⚠️ THIS CANNOT BE UNDONE!',
+    'Nuclear Confirmation',
+    true
+  );
+  if (!ok1) return;
+
+  const ok2 = await showConfirm(
+    '🚨 FINAL WARNING\n\n' +
+    'About to delete ' + clearableCount + ' records from ' + clearable.length + ' collections.\n\n' +
+    'No recovery possible.',
+    'Final Nuclear Warning',
+    true
+  );
+  if (!ok2) return;
+
+  setStatus('Starting nuclear reset...');
+  let totalDeleted = 0, errors = [];
+  for (const c of clearable) {
+    setStatus('Nuclear: clearing ' + c.name + '...');
+    const r = await window.DBReset.clearCollection(c.key);
+    if (r.success) {
+      totalDeleted += r.deleted;
+      _counts[c.key] = 0;
+    } else errors.push(c.name + ': ' + r.error);
+  }
+
+  renderTables();
+  const total = Object.values(_counts).reduce((a,b) => a+b, 0);
+  document.getElementById('totalRecords').textContent = total.toLocaleString();
+
+  let msg = '✅ NUCLEAR RESET COMPLETE\n\n🗑️ ' + totalDeleted + ' records deleted\n🛡️ ' + protectedCount + ' protected records preserved';
+  if (errors.length) msg += '\n\n⚠️ Errors:\n' + errors.join('\n');
+  alert(msg);
+  setStatus('✅ Reset complete: ' + totalDeleted + ' deleted', true);
+}
+window.resetAllDatabase = resetAllDatabase;
+
+// ════════════════════════════════════════════════════════════
+// REGISTRY MANAGEMENT
+// ════════════════════════════════════════════════════════════
+async function openRegisterDialog() {
+  // Show a custom modal for registering a new collection
+  return new Promise(resolve => {
+    _msgResolve = resolve;
+    document.getElementById('msgText').textContent = 'Register a new Firestore collection with this manager.\n\nNew collections are added as UNPROTECTED with a 🆕 NEW flag until you review their protection status.';
+    document.getElementById('msgIcon').textContent = '➕';
+    document.getElementById('msgTitle').textContent = 'Register New Collection';
+    document.getElementById('msgHeader').style.background = 'linear-gradient(135deg,#4facfe,#00f2fe)';
+    document.getElementById('msgButtons').innerHTML =
+      '<div style="display:flex;flex-direction:column;gap:6px;width:100%;">' +
+      '<div style="display:flex;gap:6px;"><span style="font-size:11px;color:#666;min-width:70px;padding-top:8px;">Collection:</span>' +
+      '<input type="text" id="regKeyInput" placeholder="e.g. stage_transitions" style="flex:1;padding:6px 10px;border:1px solid #ced4da;border-radius:5px;font-size:12px;" autofocus></div>' +
+      '<div style="display:flex;gap:6px;"><span style="font-size:11px;color:#666;min-width:70px;padding-top:8px;">Display:</span>' +
+      '<input type="text" id="regNameInput" placeholder="e.g. Stage Transitions" style="flex:1;padding:6px 10px;border:1px solid #ced4da;border-radius:5px;font-size:12px;"></div>' +
+      '<div style="display:flex;gap:6px;"><span style="font-size:11px;color:#666;min-width:70px;padding-top:8px;">Icon:</span>' +
+      '<input type="text" id="regIconInput" placeholder="e.g. 📊" style="flex:1;padding:6px 10px;border:1px solid #ced4da;border-radius:5px;font-size:12px;" maxlength="4"></div>' +
+      '<div style="display:flex;gap:6px;margin-top:4px;"><span style="font-size:11px;color:#666;min-width:70px;padding-top:8px;">Desc:</span>' +
+      '<input type="text" id="regDescInput" placeholder="Short description" style="flex:1;padding:6px 10px;border:1px solid #ced4da;border-radius:5px;font-size:12px;"></div>' +
+      '<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px;">' +
+      '<button onclick="closeMsg(null)" style="padding:7px 18px;background:#94a3b8;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;">Cancel</button>' +
+      '<button onclick="submitRegister()" style="padding:7px 18px;background:#4facfe;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;">➕ Register</button>' +
+      '</div></div>';
+    document.getElementById('msgModal').style.display = 'flex';
+    setTimeout(() => document.getElementById('regKeyInput').focus(), 100);
+  });
+}
+window.openRegisterDialog = openRegisterDialog;
+
+async function submitRegister() {
+  const key = (document.getElementById('regKeyInput').value || '').trim();
+  const name = (document.getElementById('regNameInput').value || '').trim();
+  const icon = (document.getElementById('regIconInput').value || '').trim() || '📦';
+  const desc = (document.getElementById('regDescInput').value || '').trim() || '(no description)';
+
+  if (!key) { alert('⚠️ Collection name required'); return; }
+  if (/[\/\\\s]/.test(key)) { alert('⚠️ Collection name cannot contain spaces, slashes, or backslashes'); return; }
+
+  // Check if already exists
+  if (COLLECTIONS.find(c => c.key === key)) {
+    alert('⚠️ Collection "' + key + '" is already registered.');
+    return;
+  }
+
+  closeMsg(null);
+  setStatus('Registering ' + key + '...');
+
+  // Try to scan the collection to see if it has data
+  let count = 0;
+  try {
+    const rows = await window.DBReset.listAll(key);
+    count = rows.length;
+  } catch(e) {
+    // Collection doesn't exist yet — that's fine, admin is pre-registering
+  }
+
+  // Add to registry
+  const newCollection = {
+    key: key,
+    name: name || key,
+    desc: desc,
+    icon: icon,
+    protected: false,
+    isNew: true
+  };
+  COLLECTIONS.push(newCollection);
+  _counts[key] = count;
+
+  // Save to Firestore
+  const result = await window.DBReset.saveRegistry(COLLECTIONS);
+  if (result.success) {
+    renderTables();
+    const total = Object.values(_counts).reduce((a,b) => a+b, 0);
+    document.getElementById('totalTables').textContent = COLLECTIONS.length;
+    document.getElementById('totalRecords').textContent = total.toLocaleString();
+    setStatus('✅ Registered ' + key + ' (' + count + ' records)', true);
+    alert('✅ Registered!\n\nCollection: ' + key + '\nRecords found: ' + count + '\n\n⚠️ Marked as 🆕 NEW — review its protection status on the card below.');
+  } else {
+    // Rollback
+    COLLECTIONS = COLLECTIONS.filter(c => c.key !== key);
+    setStatus('❌ Registry save failed');
+    alert('❌ Failed to save registry: ' + result.error);
+  }
+}
+window.submitRegister = submitRegister;
+
+async function toggleProtection(key) {
+  const coll = COLLECTIONS.find(c => c.key === key);
+  if (!coll) return;
+
+  const action = coll.protected ? 'UNPROTECT' : 'PROTECT';
+  const msg = coll.protected
+    ? '🔓 Unprotect "' + coll.name + '"?\n\nOnce unprotected, this collection CAN be cleared from this page.\n\nAre you sure?'
+    : '🛡️ Protect "' + coll.name + '"?\n\nProtected collections CANNOT be cleared from this page. Only their Enable/Disable toggle in manager pages works.\n\nRecommended for lookup/reference data.';
+
+  const ok = await showConfirm(msg, action + ' Collection');
+  if (!ok) return;
+
+  const passed = await verifyAdminAgain(action + ' "' + coll.name + '"');
+  if (!passed) { alert('❌ Incorrect password or cancelled'); return; }
+
+  coll.protected = !coll.protected;
+  setStatus('Updating registry...');
+  const result = await window.DBReset.saveRegistry(COLLECTIONS);
+  if (result.success) {
+    renderTables();
+    setStatus('✅ ' + coll.name + ' is now ' + (coll.protected ? 'PROTECTED' : 'unprotected'), true);
+  } else {
+    coll.protected = !coll.protected; // rollback
+    setStatus('❌ Save failed');
+    alert('❌ Failed: ' + result.error);
+  }
+}
+window.toggleProtection = toggleProtection;
+
+async function acknowledgeNew(key) {
+  const coll = COLLECTIONS.find(c => c.key === key);
+  if (!coll) return;
+
+  const msg = '✓ Acknowledge that "' + coll.name + '" has been reviewed?\n\nCurrent status: ' +
+    (coll.protected ? '🛡️ PROTECTED' : '🔓 UNPROTECTED') +
+    '\n\nYou can change protection later using the 🛡️ button.';
+
+  const ok = await showConfirm(msg, 'Acknowledge Review');
+  if (!ok) return;
+
+  coll.isNew = false;
+  setStatus('Updating registry...');
+  const result = await window.DBReset.saveRegistry(COLLECTIONS);
+  if (result.success) {
+    renderTables();
+    setStatus('✅ ' + coll.name + ' marked as reviewed', true);
+  } else {
+    coll.isNew = true; // rollback
+    setStatus('❌ Save failed');
+    alert('❌ Failed: ' + result.error);
+  }
+}
+window.acknowledgeNew = acknowledgeNew;
+
+// ════════════════════════════════════════════════════════════
+// FIREBASE STORAGE CLEANUP
+// ════════════════════════════════════════════════════════════
+async function scanStorage(type) {
+  const statusEl = document.getElementById(type + 'StorageStatus');
+  statusEl.textContent = '⏳ Scanning ' + type + '/ folder...';
+  statusEl.style.color = '#ff9800';
+
+  const result = await window.DBReset.scanStorage(type);
+  if (result.success) {
+    _storageFiles[type] = result.files;
+    if (result.files.length === 0) {
+      statusEl.textContent = '✅ ' + type + '/ is empty (0 files)';
+      statusEl.style.color = '#28a745';
+    } else {
+      statusEl.textContent = '📦 Found ' + result.files.length + ' file(s) in ' + type + '/';
+      statusEl.style.color = '#333';
+    }
+  } else {
+    statusEl.textContent = '❌ Scan failed: ' + result.error;
+    statusEl.style.color = '#dc3545';
+  }
+}
+window.scanStorage = scanStorage;
+
+async function cleanStorage(type) {
+  const statusEl = document.getElementById(type + 'StorageStatus');
+  if (!_storageFiles[type]) { alert('⚠️ Scan first to count files.'); return; }
+  const files = _storageFiles[type];
+  if (files.length === 0) { alert('ℹ️ ' + type + '/ is already empty'); return; }
+
+  const passed = await verifyAdminAgain('Delete ALL ' + files.length + ' files from Firebase Storage → ' + type + '/');
+  if (!passed) { alert('❌ Incorrect password or cancelled'); return; }
+
+  const ok1 = await showConfirm(
+    '🗑️ DELETE STORAGE FILES\n\n' +
+    'Permanently delete ' + files.length + ' file(s) from Firebase Storage → ' + type + '/\n\n' +
+    '⚠️ No recycle bin — files are gone forever!',
+    'Delete Files',
+    true
+  );
+  if (!ok1) return;
+
+  if (files.length > 20) {
+    const ok2 = await showConfirm(
+      '🚨 LARGE DELETION\n\n' +
+      'About to delete ' + files.length + ' files.\n\nContinue?',
+      'Final Warning',
+      true
+    );
+    if (!ok2) return;
+  }
+
+  statusEl.textContent = '⏳ Deleting 0/' + files.length + '...';
+  statusEl.style.color = '#ff9800';
+
+  let deleted = 0, failed = 0;
+  for (let i = 0; i < files.length; i++) {
+    const r = await window.DBReset.deleteStorageFile(files[i]);
+    if (r.success) deleted++; else failed++;
+    if (i % 5 === 0 || i === files.length - 1) {
+      statusEl.textContent = '⏳ Deleting ' + (i + 1) + '/' + files.length + '...';
+    }
+  }
+
+  _storageFiles[type] = [];
+  statusEl.textContent = '✅ Deleted ' + deleted + ' file(s)' + (failed ? ' · ' + failed + ' failed' : '');
+  statusEl.style.color = deleted > 0 ? '#28a745' : '#dc3545';
+  alert('✅ Storage cleaned\n\n🗑️ Deleted: ' + deleted + (failed ? '\n❌ Failed: ' + failed : ''));
+}
+window.cleanStorage = cleanStorage;
+
+// START
+(function init() {
+  if (hasValidSession()) {
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    loadStats();
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🌱 Seed Processing Costs</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; padding: 40px; max-width: 800px; margin: 0 auto; }
+        h1 { color: #2e7d32; }
+        .warn { background: #fff3cd; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 6px; margin: 20px 0; color: #856404; }
+        button { padding: 14px 28px; background: #2e7d32; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; margin: 10px 6px 10px 0; }
+        button:hover { background: #1b5e20; }
+        button:disabled { background: #999; cursor: not-allowed; }
+        #log { background: #0f172a; color: #e2e8f0; padding: 20px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 13px; margin-top: 20px; min-height: 200px; white-space: pre-wrap; }
+        .ok { color: #6ee7b7; }
+        .err { color: #fca5a5; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+        th, td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 13px; }
+        th { background: #e8f5e9; color: #2e7d32; font-weight: 700; }
+        td.ar { direction: rtl; text-align: right; }
+    </style>
+</head>
+<body>
+    <h1>🌱 Seed Processing Costs Collection</h1>
+    <p>One-time import of the 7 fees from Google Sheets into Firestore collection <code>processing_costs</code>.</p>
+
+    <div class="warn">
+        ⚠️ <strong>Warning:</strong> This will <strong>overwrite</strong> any existing documents in the <code>processing_costs</code> collection with the same FeeID. If you've already added or edited fees in Firestore, they'll be reset to the values below.
+    </div>
+
+    <h3>Data to be imported:</h3>
+    <table>
+        <thead><tr><th>FeeID</th><th>Name (EN)</th><th>Name (AR)</th><th>Qty</th><th>Price</th><th>Currency</th></tr></thead>
+        <tbody id="preview"></tbody>
+    </table>
+
+    <button onclick="runSeed()" id="seedBtn">🌱 Seed Firestore Now</button>
+    <button onclick="window.location.href='processing_costs.html'">← Back to Processing Costs</button>
+
+    <div id="log">Ready to seed. Click the button above.</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+        authDomain: "mgsd2026.firebaseapp.com",
+        projectId: "mgsd2026",
+        storageBucket: "mgsd2026.firebasestorage.app",
+        messagingSenderId: "918582360831",
+        appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const FEES = [
+        { FeeID: "FEE-001", FeeNameEN: "Pre Approval Fees",                       FeeNameAR: "رسوم الموافقة المسبقه",        FeeQty: 1, FeePrice: 33,  FeeCurrency: "USD", FeeNotes: "", Discontinued: false },
+        { FeeID: "FEE-002", FeeNameEN: "Stamps",                                  FeeNameAR: "طوابع",                         FeeQty: 1, FeePrice: 1,   FeeCurrency: "USD", FeeNotes: "", Discontinued: false },
+        { FeeID: "FEE-003", FeeNameEN: "Pre Approval Office Cost",                FeeNameAR: "موافقة مسبقة ( كلفة المكتب )", FeeQty: 1, FeePrice: 300, FeeCurrency: "USD", FeeNotes: "", Discontinued: false },
+        { FeeID: "FEE-004", FeeNameEN: "Oversees Fees ( Supplier )",              FeeNameAR: "مصاريف مكتب المصدر",            FeeQty: 1, FeePrice: 105, FeeCurrency: "USD", FeeNotes: "", Discontinued: false },
+        { FeeID: "FEE-005", FeeNameEN: "Insurance Policy ( Female Worker )",      FeeNameAR: "بوليصة تآمين ( غاملة )",        FeeQty: 1, FeePrice: 65,  FeeCurrency: "USD", FeeNotes: "", Discontinued: false },
+        { FeeID: "FEE-006", FeeNameEN: "Work contract",                           FeeNameAR: "عقد عمل",                       FeeQty: 1, FeePrice: 60,  FeeCurrency: "USD", FeeNotes: "", Discontinued: false },
+        { FeeID: "FEE-007", FeeNameEN: "Release Paper",                           FeeNameAR: "تنازل",                         FeeQty: 1, FeePrice: 35,  FeeCurrency: "USD", FeeNotes: "", Discontinued: false }
+    ];
+
+    // Render preview table
+    const previewEl = document.getElementById('preview');
+    previewEl.innerHTML = FEES.map(f =>
+        `<tr><td><strong>${f.FeeID}</strong></td><td>${f.FeeNameEN}</td><td class="ar">${f.FeeNameAR}</td><td>${f.FeeQty}</td><td>$${f.FeePrice}</td><td>${f.FeeCurrency}</td></tr>`
+    ).join('');
+
+    const logEl = document.getElementById('log');
+    function log(msg, cls = '') {
+        const line = cls ? `<span class="${cls}">${msg}</span>` : msg;
+        logEl.innerHTML += '\n' + line;
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    window.runSeed = async function() {
+        const btn = document.getElementById('seedBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Seeding...';
+        logEl.innerHTML = '';
+        log(`🌱 Starting seed of ${FEES.length} fees into processing_costs...`);
+
+        let ok = 0, fail = 0;
+        for (const fee of FEES) {
+            try {
+                await setDoc(doc(db, 'processing_costs', fee.FeeID), fee);
+                log(`✅ ${fee.FeeID} — ${fee.FeeNameEN} ($${fee.FeePrice})`, 'ok');
+                ok++;
+            } catch(e) {
+                log(`❌ ${fee.FeeID} — ${e.message}`, 'err');
+                fail++;
+            }
+        }
+        log(`\n━━━━━━━━━━━━━━━━━━━━━━━━`);
+        log(`Done. ${ok} succeeded, ${fail} failed.`, fail > 0 ? 'err' : 'ok');
+        btn.disabled = false;
+        btn.textContent = '🌱 Seed Firestore Now';
+    };
+</script>
+</body>
+</html>

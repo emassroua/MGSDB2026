@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MGS — Backfill Employer Codes (One-Time)</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔧</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; padding: 20px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .card {
+            background: white; border-radius: 14px; box-shadow: 0 12px 50px rgba(0,0,0,0.25);
+            width: 100%; max-width: 800px; overflow: hidden;
+        }
+        .head {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 24px 30px;
+        }
+        .head h1 { font-size: 22px; margin-bottom: 6px; }
+        .head p { font-size: 13px; opacity: 0.95; }
+        .body { padding: 26px 30px; }
+
+        .warn {
+            background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px;
+            padding: 14px 16px; margin-bottom: 20px; color: #856404;
+            font-size: 13px; line-height: 1.55;
+        }
+        .warn strong { display: block; margin-bottom: 4px; font-size: 14px; }
+
+        .status {
+            background: #f8f9fa; border-radius: 8px; padding: 16px;
+            margin-bottom: 18px; border-left: 4px solid #6c757d;
+        }
+        .status .label {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            color: #6c757d; letter-spacing: 0.5px; margin-bottom: 4px;
+        }
+        .status .value {
+            font-size: 15px; color: #212529; font-family: monospace; word-break: break-all;
+        }
+
+        .bar-wrap {
+            background: #e9ecef; border-radius: 10px; height: 28px;
+            overflow: hidden; margin: 18px 0 8px;
+        }
+        .bar {
+            height: 100%; background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%; transition: width 0.3s ease;
+            display: flex; align-items: center; justify-content: flex-end;
+            padding-right: 10px; color: white; font-size: 12px; font-weight: 700;
+        }
+
+        .counts {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 10px; margin: 16px 0;
+        }
+        .count {
+            background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center;
+        }
+        .count .n { font-size: 22px; font-weight: 700; color: #667eea; }
+        .count .l { font-size: 10px; color: #6c757d; text-transform: uppercase; font-weight: 600; letter-spacing: 0.3px; }
+
+        .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+        .btn {
+            flex: 1; min-width: 140px; padding: 12px 18px;
+            border: none; border-radius: 8px; font-size: 14px; font-weight: 700;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+        .btn-primary:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+        .btn-check { background: #17a2b8; color: white; }
+        .btn-check:hover:not(:disabled) { background: #138496; }
+
+        .log {
+            background: #1e1e1e; color: #d4d4d4; border-radius: 8px;
+            padding: 14px; margin-top: 18px; max-height: 320px;
+            overflow-y: auto; font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 12px; line-height: 1.6; display: none;
+        }
+        .log.visible { display: block; }
+        .log .l-info { color: #9cdcfe; }
+        .log .l-ok   { color: #4ec9b0; }
+        .log .l-warn { color: #ce9178; }
+        .log .l-err  { color: #f48771; }
+        .log .l-skip { color: #888; }
+        .log .t { color: #808080; }
+
+        .preview-box {
+            background: #e7f5ff; border: 2px solid #4facfe; border-radius: 8px;
+            padding: 14px 16px; margin-top: 14px; display: none;
+        }
+        .preview-box h4 { color: #004085; font-size: 13px; margin-bottom: 10px; }
+        .preview-box .row {
+            font-family: monospace; font-size: 11px; padding: 5px 0;
+            border-bottom: 1px dashed #b3d9ff; display: flex; justify-content: space-between;
+        }
+        .preview-box .row:last-child { border-bottom: none; }
+        .preview-box .row strong { color: #004085; }
+        .preview-box .arrow { color: #20c997; font-weight: 700; }
+        .preview-box .old { color: #dc3545; text-decoration: line-through; }
+        .preview-box .new { color: #28a745; }
+
+        .done {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white; border-radius: 8px; padding: 18px 20px;
+            margin-top: 18px; text-align: center; display: none;
+        }
+        .done.visible { display: block; }
+        .done .icon { font-size: 38px; margin-bottom: 8px; }
+        .done h3 { font-size: 18px; margin-bottom: 4px; }
+        .done p { font-size: 13px; opacity: 0.95; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="head">
+        <h1>🔧 Backfill Employer Codes</h1>
+        <p>One-time: update <code>EmployerCode</code> field in Firestore to the new format</p>
+    </div>
+
+    <div class="body">
+
+        <div class="warn">
+            <strong>⚠️ What this does</strong>
+            For every employer in Firestore, computes <code>AgencyCode + "-" + EmployerID</code> (e.g. <code>MGSC-1354</code>) and updates the stored <code>EmployerCode</code> field if it differs. <strong>Only the EmployerCode field is touched</strong> — all other data left untouched. Sheets is NOT modified.
+            <br><br>
+            <strong>Safe to re-run</strong> — if a code is already correct, it's skipped.
+        </div>
+
+        <div class="status" id="cloudStatus">
+            <div class="label">🔥 Firebase</div>
+            <div class="value" id="cloudStatusText">Initializing...</div>
+        </div>
+
+        <div class="btns">
+            <button class="btn btn-check" id="btnCheck" onclick="doCheck()" disabled>
+                👀 1. Preview Changes
+            </button>
+            <button class="btn btn-primary" id="btnApply" onclick="doApply()" disabled>
+                🔧 2. Apply Backfill
+            </button>
+        </div>
+
+        <div class="preview-box" id="previewBox">
+            <h4 id="previewTitle">📋 Preview (first 10 changes)</h4>
+            <div id="previewContent"></div>
+        </div>
+
+        <div class="bar-wrap" id="barWrap" style="display:none;">
+            <div class="bar" id="bar">0%</div>
+        </div>
+
+        <div class="counts" id="countsWrap" style="display:none;">
+            <div class="count"><div class="n" id="cTotal">0</div><div class="l">Total</div></div>
+            <div class="count"><div class="n" id="cChanged" style="color:#28a745;">0</div><div class="l">Updated</div></div>
+            <div class="count"><div class="n" id="cSkipped" style="color:#6c757d;">0</div><div class="l">Already OK</div></div>
+            <div class="count"><div class="n" id="cErr" style="color:#dc3545;">0</div><div class="l">Errors</div></div>
+        </div>
+
+        <div class="done" id="doneBox">
+            <div class="icon">✅</div>
+            <h3 id="doneTitle">Backfill Complete!</h3>
+            <p id="doneMsg">You can now delete this file.</p>
+        </div>
+
+        <div class="log" id="log"></div>
+
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- FIREBASE INIT                                                -->
+<!-- ============================================================ -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, doc, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+        authDomain: "mgsd2026.firebaseapp.com",
+        projectId: "mgsd2026",
+        storageBucket: "mgsd2026.firebasestorage.app",
+        messagingSenderId: "918582360831",
+        appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    window._fb = { db, collection, doc, getDocs, updateDoc };
+    window.dispatchEvent(new Event('firebase-ready'));
+    console.log('🔥 Firebase initialized for backfill');
+</script>
+
+<!-- ============================================================ -->
+<!-- BACKFILL LOGIC                                               -->
+<!-- ============================================================ -->
+<script>
+    var fb = null;
+    var employers = [];      // all docs: {id, data}
+    var changes = [];        // employers that need updating
+
+    // ── Log helpers ─────────────────────────────────────────────
+    function logLine(cls, text) {
+        const box = document.getElementById('log');
+        box.classList.add('visible');
+        const line = document.createElement('div');
+        const ts = new Date().toLocaleTimeString();
+        line.innerHTML = '<span class="t">[' + ts + ']</span> <span class="' + cls + '">' + text + '</span>';
+        box.appendChild(line);
+        box.scrollTop = box.scrollHeight;
+    }
+    const logInfo = (t) => logLine('l-info', t);
+    const logOk   = (t) => logLine('l-ok',   t);
+    const logWarn = (t) => logLine('l-warn', t);
+    const logSkip = (t) => logLine('l-skip', t);
+    const logErr  = (t) => logLine('l-err',  t);
+
+    // ── Wait for Firebase ───────────────────────────────────────
+    function waitForFirebase() {
+        return new Promise((resolve) => {
+            if (window._fb) return resolve(window._fb);
+            window.addEventListener('firebase-ready', () => resolve(window._fb), { once: true });
+        });
+    }
+
+    // ── UI helpers ──────────────────────────────────────────────
+    function setStatus(msg, ok) {
+        const s = document.getElementById('cloudStatus');
+        document.getElementById('cloudStatusText').textContent = msg;
+        s.style.borderLeftColor = ok === true ? '#28a745' : ok === false ? '#dc3545' : '#6c757d';
+    }
+    function setBar(pct) {
+        document.getElementById('barWrap').style.display = 'block';
+        const bar = document.getElementById('bar');
+        bar.style.width = pct + '%';
+        bar.textContent = Math.round(pct) + '%';
+    }
+    function setCount(id, n) { document.getElementById(id).textContent = n; }
+
+    // ── The new-format computation (must match Employers_Manager.html) ──
+    function computeNewCode(emp) {
+        var ag = String(emp.AgencyCode || '').toUpperCase().trim();
+        var id = String(emp.EmployerID || '').trim();
+        if (!ag || !id) return null;
+        return ag + '-' + id;
+    }
+
+    // ── Init ────────────────────────────────────────────────────
+    (async function init() {
+        try {
+            fb = await waitForFirebase();
+            setStatus('✅ Connected to Firestore (project: mgsd2026)', true);
+            document.getElementById('btnCheck').disabled = false;
+            logOk('Firebase ready. Click "Preview Changes" to begin.');
+        } catch (e) {
+            setStatus('❌ Firebase init failed: ' + e.message, false);
+            logErr(e.message);
+        }
+    })();
+
+    // ── Step 1: Preview ─────────────────────────────────────────
+    window.doCheck = async function() {
+        const btn = document.getElementById('btnCheck');
+        btn.disabled = true;
+        btn.textContent = '⏳ Loading...';
+        try {
+            logInfo('Loading all employers from Firestore...');
+            const snap = await fb.getDocs(fb.collection(fb.db, 'employers'));
+            employers = [];
+            snap.forEach(d => employers.push({ id: d.id, data: d.data() }));
+            logOk('Loaded ' + employers.length + ' employer(s).');
+
+            // Compare each
+            changes = [];
+            var skipped = 0;
+            var missing = 0;
+            employers.forEach(function(e) {
+                var newCode = computeNewCode(e.data);
+                if (!newCode) {
+                    missing++;
+                    return;
+                }
+                var oldCode = String(e.data.EmployerCode || '');
+                if (oldCode === newCode) {
+                    skipped++;
+                } else {
+                    changes.push({ id: e.id, oldCode: oldCode, newCode: newCode, name: e.data.EFN || e.data.EmployerName || '' });
+                }
+            });
+
+            logInfo('Analysis complete:');
+            logOk('  ✅ Already correct: ' + skipped);
+            logWarn('  🔧 Need update: ' + changes.length);
+            if (missing > 0) logErr('  ❌ Missing AgencyCode or EmployerID: ' + missing);
+
+            // Preview first 10
+            const pv = document.getElementById('previewContent');
+            pv.innerHTML = '';
+            const previewItems = changes.slice(0, 10);
+            previewItems.forEach((c, i) => {
+                const div = document.createElement('div');
+                div.className = 'row';
+                div.innerHTML =
+                    '<span><strong>#' + (i + 1) + '</strong> ID=' + c.id + ' | ' + (c.name || '(no name)') + '</span>'
+                    + '<span><span class="old">' + (c.oldCode || '(empty)') + '</span> <span class="arrow">→</span> <span class="new">' + c.newCode + '</span></span>';
+                pv.appendChild(div);
+            });
+            if (changes.length > 10) {
+                const more = document.createElement('div');
+                more.className = 'row';
+                more.style.fontStyle = 'italic';
+                more.style.color = '#888';
+                more.innerHTML = '<span>... and ' + (changes.length - 10) + ' more</span>';
+                pv.appendChild(more);
+            }
+            document.getElementById('previewTitle').textContent = '📋 Preview (' + changes.length + ' total changes)';
+            document.getElementById('previewBox').style.display = 'block';
+
+            document.getElementById('countsWrap').style.display = 'grid';
+            setCount('cTotal', employers.length);
+            setCount('cChanged', 0);
+            setCount('cSkipped', skipped);
+            setCount('cErr', 0);
+
+            document.getElementById('btnApply').disabled = changes.length === 0;
+            btn.textContent = changes.length > 0
+                ? '✅ Preview Done — Click Apply Below'
+                : '✅ Nothing to Update';
+            btn.disabled = false;
+        } catch (e) {
+            logErr('Preview failed: ' + e.message);
+            btn.textContent = '👀 1. Preview Changes';
+            btn.disabled = false;
+        }
+    };
+
+    // ── Step 2: Apply ───────────────────────────────────────────
+    window.doApply = async function() {
+        const btnA = document.getElementById('btnApply');
+        const btnC = document.getElementById('btnCheck');
+        if (!changes.length) { logErr('No changes to apply. Run Preview first.'); return; }
+        if (!confirm('Update ' + changes.length + ' employer record(s) in Firestore?\n\nOnly the EmployerCode field will change. Other data is untouched.\n\nContinue?')) return;
+
+        btnA.disabled = true;
+        btnC.disabled = true;
+        btnA.textContent = '⏳ Updating...';
+        logInfo('Starting backfill of ' + changes.length + ' record(s)...');
+
+        var done = 0, err = 0;
+        var total = changes.length;
+
+        // Concurrency: 10 parallel updates
+        var idx = 0;
+        async function worker() {
+            while (true) {
+                var myIdx = idx++;
+                if (myIdx >= total) return;
+                var c = changes[myIdx];
+                try {
+                    await fb.updateDoc(fb.doc(fb.db, 'employers', c.id), {
+                        EmployerCode: c.newCode
+                    });
+                    done++;
+                    if (done <= 5 || done % 100 === 0 || done === total) {
+                        logOk('Updated ID ' + c.id + ': ' + (c.oldCode || '(empty)') + ' → ' + c.newCode);
+                    }
+                } catch (e) {
+                    err++;
+                    logErr('Failed ID ' + c.id + ': ' + e.message);
+                }
+                setCount('cChanged', done);
+                setCount('cErr', err);
+                setBar(((done + err) / total) * 100);
+            }
+        }
+
+        var workers = [];
+        for (var w = 0; w < 10; w++) workers.push(worker());
+        await Promise.all(workers);
+
+        // Done
+        btnA.textContent = '✅ Backfill Finished';
+        if (err === 0) {
+            logOk('🎉 All ' + done + ' record(s) updated successfully.');
+            document.getElementById('doneTitle').textContent = '✅ Backfill Complete!';
+            document.getElementById('doneMsg').innerHTML =
+                'Updated <strong>' + done + '</strong> EmployerCode field(s) in Firestore.<br>' +
+                'Hard-refresh the Employers page (Ctrl+Shift+R) to verify.<br><br>' +
+                'You can now delete this file.';
+        } else {
+            logWarn('⚠️ Finished with ' + err + ' error(s).');
+            document.getElementById('doneTitle').textContent = '⚠️ Finished with Errors';
+            document.getElementById('doneMsg').innerHTML =
+                '<strong>' + done + '</strong> updated, <strong>' + err + '</strong> failed. Review the log.';
+            document.getElementById('doneBox').style.background = 'linear-gradient(135deg, #ffc107, #fd7e14)';
+        }
+        document.getElementById('doneBox').classList.add('visible');
+    };
+</script>
+
+</body>
+</html>

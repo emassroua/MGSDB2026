@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🌱 Seed Message Templates</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0d0f14; color: #e2e8f0; padding: 40px; max-width: 900px; margin: 0 auto; }
+        h1 { color: #25d366; }
+        .warn { background: rgba(245,158,11,0.1); border-left: 4px solid #f59e0b; padding: 15px; border-radius: 6px; margin: 20px 0; color: #fbbf24; }
+        button { padding: 14px 28px; background: #25d366; color: #000; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; margin: 10px 6px 10px 0; }
+        button:hover { background: #20c85a; }
+        button:disabled { background: #444; color: #888; cursor: not-allowed; }
+        button.back { background: #323b52; color: #e2e8f0; }
+        #log { background: #000; color: #e2e8f0; padding: 20px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 13px; margin-top: 20px; min-height: 200px; white-space: pre-wrap; border: 1px solid #262c3d; }
+        .ok { color: #25d366; }
+        .err { color: #ef4444; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; background: #141720; border-radius: 8px; overflow: hidden; border: 1px solid #262c3d; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid #262c3d; text-align: left; font-size: 12px; }
+        th { background: #1c2030; color: #25d366; font-weight: 700; }
+        td.mono { font-family: 'Courier New', monospace; color: #8892a4; }
+    </style>
+</head>
+<body>
+    <h1>🌱 Seed MessageTemplates Collection</h1>
+    <p>One-time import of 7 templates from Google Sheets into Firestore collection <code>MessageTemplates</code>.</p>
+
+    <div class="warn">
+        ⚠️ <strong>Warning:</strong> This will <strong>overwrite</strong> any existing documents in the <code>MessageTemplates</code> collection with the same TemplateID. If you've already added or edited templates in Firestore, they'll be reset to these values.
+    </div>
+
+    <h3>Templates to be imported:</h3>
+    <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Recipient</th><th>Trigger</th><th>Active</th></tr></thead>
+        <tbody id="preview"></tbody>
+    </table>
+
+    <button onclick="runSeed()" id="seedBtn">🌱 Seed Firestore Now</button>
+    <button class="back" onclick="window.location.href='message_templates.html'">← Back to Message Templates</button>
+
+    <div id="log">Ready to seed. Click the button above.</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+        authDomain: "mgsd2026.firebaseapp.com",
+        projectId: "mgsd2026",
+        storageBucket: "mgsd2026.firebasestorage.app",
+        messagingSenderId: "918582360831",
+        appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const TEMPLATES = [
+        {
+            TemplateID: "TPL-002",
+            TemplateName: "NewYear Greetings",
+            Category: "Reminder",
+            MessageBody: "{WorkerName}{PassportExpiry}{AgencyPhone}{Date}",
+            ImageURL: "",
+            Active: true,
+            CreatedDate: "2026-03-13 12:51:55",
+            UpdatedDate: "2026-03-14 19:36:31",
+            RecipientType: "All",
+            TriggerEvent: "Scheduled",
+            DaysBefore: 0,
+            DaysAfter: 0,
+            SendOnce: false,
+            MinDaysBetween: 330,
+            RequiredField: ""
+        },
+        {
+            TemplateID: "TPL-003",
+            TemplateName: "Ikama",
+            Category: "Alert",
+            MessageBody: "{WorkerName}{WorkerName}",
+            ImageURL: "",
+            Active: true,
+            CreatedDate: "2026-03-13 16:05:16",
+            UpdatedDate: "2026-03-14 19:36:37",
+            RecipientType: "Worker",
+            TriggerEvent: "IkamaExpiry",
+            DaysBefore: 30,
+            DaysAfter: 0,
+            SendOnce: false,
+            MinDaysBetween: 60,
+            RequiredField: ""
+        },
+        {
+            TemplateID: "TPL-004",
+            TemplateName: "Insurance",
+            Category: "Reminder",
+            MessageBody: "{DocumentType}",
+            ImageURL: "",
+            Active: true,
+            CreatedDate: "2026-03-13 16:05:44",
+            UpdatedDate: "2026-03-14 19:36:45",
+            RecipientType: "Worker",
+            TriggerEvent: "InsuranceExpiry",
+            DaysBefore: 30,
+            DaysAfter: 0,
+            SendOnce: false,
+            MinDaysBetween: 60,
+            RequiredField: ""
+        },
+        {
+            TemplateID: "TPL-005",
+            TemplateName: "Work Permit",
+            Category: "Notification",
+            MessageBody: "{WorkerName}",
+            ImageURL: "",
+            Active: true,
+            CreatedDate: "2026-03-13 17:10:54",
+            UpdatedDate: "2026-03-14 19:36:50",
+            RecipientType: "Worker",
+            TriggerEvent: "WorkPermitExpiry",
+            DaysBefore: 30,
+            DaysAfter: 0,
+            SendOnce: false,
+            MinDaysBetween: 60,
+            RequiredField: ""
+        },
+        {
+            TemplateID: "TPL-006",
+            TemplateName: "Arrival Date",
+            Category: "Notification",
+            MessageBody: "{DocumentType}{DaysUntil}",
+            ImageURL: "",
+            Active: true,
+            CreatedDate: "2026-03-13 17:13:34",
+            UpdatedDate: "2026-03-14 19:36:56",
+            RecipientType: "Employer",
+            TriggerEvent: "WorkerArrival",
+            DaysBefore: 0,
+            DaysAfter: 0,
+            SendOnce: true,
+            MinDaysBetween: "",
+            RequiredField: ""
+        },
+        {
+            TemplateID: "TPL-007",
+            TemplateName: "Passport Date",
+            Category: "Notification",
+            MessageBody: "{AgencyName}",
+            ImageURL: "",
+            Active: true,
+            CreatedDate: "2026-03-13 17:14:03",
+            UpdatedDate: "2026-03-14 19:37:02",
+            RecipientType: "Worker",
+            TriggerEvent: "PassportExpiry",
+            DaysBefore: 30,
+            DaysAfter: 0,
+            SendOnce: false,
+            MinDaysBetween: 60,
+            RequiredField: ""
+        },
+        {
+            TemplateID: "TPL-008",
+            TemplateName: "Birthday",
+            Category: "Custom",
+            MessageBody: "Happy Birthday {EFN}! 🎂 Wishing you a wonderful day!{EmployerName}",
+            ImageURL: "",
+            Active: true,
+            CreatedDate: "2026-03-12 16:14:24",
+            UpdatedDate: "2026-03-14 20:59:15",
+            RecipientType: "Employer",
+            TriggerEvent: "Birthday",
+            DaysBefore: "",
+            DaysAfter: "",
+            SendOnce: false,
+            MinDaysBetween: 330,
+            RequiredField: ""
+        }
+    ];
+
+    // Render preview table
+    const previewEl = document.getElementById('preview');
+    previewEl.innerHTML = TEMPLATES.map(t =>
+        `<tr><td class="mono">${t.TemplateID}</td><td>${t.TemplateName}</td><td>${t.Category}</td><td>${t.RecipientType}</td><td>${t.TriggerEvent}</td><td>${t.Active ? '✅' : '❌'}</td></tr>`
+    ).join('');
+
+    const logEl = document.getElementById('log');
+    function log(msg, cls = '') {
+        const line = cls ? `<span class="${cls}">${msg}</span>` : msg;
+        logEl.innerHTML += '\n' + line;
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    window.runSeed = async function() {
+        const btn = document.getElementById('seedBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Seeding...';
+        logEl.innerHTML = '';
+        log(`🌱 Starting seed of ${TEMPLATES.length} templates into MessageTemplates...`);
+
+        let ok = 0, fail = 0;
+        for (const t of TEMPLATES) {
+            try {
+                await setDoc(doc(db, 'MessageTemplates', t.TemplateID), t);
+                log(`✅ ${t.TemplateID} — ${t.TemplateName}`, 'ok');
+                ok++;
+            } catch(e) {
+                log(`❌ ${t.TemplateID} — ${e.message}`, 'err');
+                fail++;
+            }
+        }
+        log(`\n━━━━━━━━━━━━━━━━━━━━━━━━`);
+        log(`Done. ${ok} succeeded, ${fail} failed.`, fail > 0 ? 'err' : 'ok');
+        btn.disabled = false;
+        btn.textContent = '🌱 Seed Firestore Now';
+    };
+</script>
+</body>
+</html>
