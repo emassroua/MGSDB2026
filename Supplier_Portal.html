@@ -3167,6 +3167,129 @@ init();
     console.log('\u2705 Supplier Portal: Upload Files CONSOLIDATED (single render, no flicker)');
 })();
 </script>
+<!-- ═══════════════════════════════════════════════════════════════
+     DOCUMENT TYPE LOCK PATCH v2 — Supplier_Portal
+     - docType='passport' → locks 👤 Worker ID tab, hides ID Scan section
+     - docType='id'      → locks 📄 Passport tab, MOVES ID Scan into Worker ID tab
+     - Auto-switches away from a locked tab if user is on it
+═══════════════════════════════════════════════════════════════ -->
+<style>
+.tab.tab-disabled {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+    background: #f1f5f9 !important;
+    color: #94a3b8 !important;
+    border-bottom-color: transparent !important;
+    position: relative;
+}
+.tab.tab-disabled:hover {
+    color: #94a3b8 !important;
+    background: #f1f5f9 !important;
+}
+.tab.tab-disabled::after {
+    content: " 🔒";
+    font-size: 10px;
+    margin-left: 3px;
+}
+</style>
 
+<script>
+(function(){
+'use strict';
+console.log('🔒 Document Type Lock Patch v2 loading...');
+// Inject CSS at runtime so it loads AFTER the page's stylesheet and wins
+(function injectLockCSS(){
+    if(document.getElementById('docLockCSS')) return;
+    var s = document.createElement('style');
+    s.id = 'docLockCSS';
+    s.textContent =
+        '.tabs .tab.tab-disabled,' +
+        '.tabs .tab.tab-disabled:hover,' +
+        '.tabs .tab.tab-disabled.active {' +
+        '  opacity: 0.45 !important;' +
+        '  cursor: not-allowed !important;' +
+        '  background: #f1f5f9 !important;' +
+        '  color: #94a3b8 !important;' +
+        '  border-bottom-color: transparent !important;' +
+        '  pointer-events: none;' +
+        '}' +
+        '.tabs .tab.tab-disabled::after {' +
+        '  content: " 🔒";' +
+        '  font-size: 10px;' +
+        '  margin-left: 3px;' +
+        '}';
+    document.head.appendChild(s);
+})();
+
+function getPassportInfoSection(){
+    var tabDoc = document.getElementById('tab-documents');
+    if(!tabDoc) return null;
+    var s = tabDoc.querySelectorAll('div[style*="eff6ff"]');
+    return s.length > 0 ? s[0] : null;
+}
+function getPassportScanSection(){
+    var dz = document.getElementById('passportDropZone');
+    return dz ? dz.closest('div[style*="faf5ff"]') : null;
+}
+function getIDScanSection(){
+    return document.getElementById('idScanSection');
+}
+function getPassportFormGrid(){
+    var tabDoc = document.getElementById('tab-documents');
+    return tabDoc ? tabDoc.querySelector('.form-grid') : null;
+}
+function getWorkerIdFormGrid(){
+    var tabNames = document.getElementById('tab-names');
+    return tabNames ? tabNames.querySelector('.form-grid') : null;
+}
+
+function applyDocLock(docType){
+    var passBtn  = document.getElementById('tabBtn-passport');
+    var idBtn    = document.getElementById('tabBtn-nationalid');
+
+    // Reset only the 2 tabs we care about — never touch Worker Name tab
+    [passBtn, idBtn].forEach(function(b){
+        if(b){ b.classList.remove('tab-disabled'); b.title=''; }
+    });
+
+    if(docType === 'passport'){
+        if(idBtn){
+            idBtn.classList.add('tab-disabled');
+            idBtn.title = '🔒 Locked — Passport worker';
+        }
+        if(document.getElementById('tab-nationalid') &&
+           document.getElementById('tab-nationalid').classList.contains('active')){
+            switchToTab('passport');
+        }
+    } else if(docType === 'id'){
+        if(passBtn){
+            passBtn.classList.add('tab-disabled');
+            passBtn.title = '🔒 Locked — National ID worker';
+        }
+        if(document.getElementById('tab-passport') &&
+           document.getElementById('tab-passport').classList.contains('active')){
+            switchToTab('nationalid');
+        }
+    }
+}
+
+window.updateTabAccess = function(docType){
+    document.getElementById('DocumentType').value = docType || '';
+    applyDocLock(docType || '');
+};
+
+// Re-apply on every worker selection
+var _origSelectWorker = window.selectWorker;
+if(typeof _origSelectWorker === 'function'){
+    window.selectWorker = function(w){
+        var r = _origSelectWorker.apply(this, arguments);
+        try { applyDocLock((w && w.DocumentType) || ''); } catch(e){}
+        return r;
+    };
+}
+
+console.log('✅ Document Type Lock Patch v2 ready');
+})();
+</script>
 </body>
 </html>
