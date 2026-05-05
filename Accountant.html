@@ -531,9 +531,6 @@
             <button class="tab" onclick="switchTab('addinvrcpt')">📋+🧾 Add Invoice &amp; Receipt</button>
             <button class="tab" onclick="switchTab('payments')">💳 Payments</button>
             <button class="tab" onclick="switchTab('suppliercredits')" id="tab-btn-suppliercredits">🧾 Supplier Credits <span id="scPendingCount" style="background:rgba(156,39,176,0.3);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;">0</span></button>
-            <button class="tab" onclick="switchTab('suppliercredits')" id="tab-btn-suppliercredits">🧾 Supplier Credits <span id="scPendingCount" style="background:rgba(156,39,176,0.3);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;">0</span></button>
-            <button class="tab" onclick="switchTab('suppliercredits')" id="tab-btn-suppliercredits">🧾 Supplier Credits <span id="scPendingCount" style="background:rgba(156,39,176,0.3);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;">0</span></button>
-            <button class="tab" onclick="switchTab('allinvoices')">📑 All Invoices</button>
             <button class="tab" onclick="switchTab('cancelled')" id="tab-btn-cancelled">❌ Cancelled Orders <span id="cancelledCount" style="background:rgba(255,255,255,0.3);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;">0</span></button>
             <button class="tab" onclick="switchTab('settings')">⚙️ Settings</button>
         </div>
@@ -709,7 +706,7 @@
             <div id="paymentsList"></div>
         </div>
 
-        <!-- Supplier Credits Tab -->
+<!-- Supplier Credits Tab -->
         <div id="tab-suppliercredits" class="tab-content">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;flex-wrap:wrap;gap:10px;">
                 <div>
@@ -722,6 +719,11 @@
             <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center;">
                 <input type="text" id="scSearch" placeholder="🔍 Search supplier, worker, voucher..." oninput="renderSupplierCreditsList()"
                     style="flex:1;min-width:220px;padding:10px 14px;border:2px solid #ce93d8;border-radius:8px;font-size:13px;">
+                <select id="scSortBy" onchange="renderSupplierCreditsList()"
+                    style="padding:10px 14px;border:2px solid #ce93d8;border-radius:8px;font-size:13px;background:white;">
+                    <option value="date-desc">📅 Newest First</option>
+                    <option value="date-asc">📅 Oldest First</option>
+                </select>
                 <select id="scStatusFilter" onchange="renderSupplierCreditsList()"
                     style="padding:10px 14px;border:2px solid #ce93d8;border-radius:8px;font-size:13px;background:white;">
                     <option value="all">All Status</option>
@@ -1520,21 +1522,25 @@
                 try { return await gsr('gsrPost', [d]); } catch(e) { return {success:false, error:e.message}; }
             }
         };
-           // ── SUPPLIER CREDITS ──────────────────────────────────────────────────
+        
+        // ── SUPPLIER CREDITS ──────────────────────────────────────────────────
         async function renderSupplierCreditsList() {
             var container = document.getElementById('supplierCreditsList');
             var summaryBar = document.getElementById('scSummaryBar');
+            if (!container) return;
             container.innerHTML = '<div style="text-align:center;padding:30px;color:#9c27b0;">⏳ Loading...</div>';
 
             var credits = await CloudDB.loadSheet('OutgoingPayments');
-            credits = credits.filter(function(p) { return p.source === 'preapproval' && p.category === 'supplier'; });
+            credits = credits.filter(function(p) {
+                return (p.source === 'preapproval') ||
+                       (p.workerID && p.voucherNumber && (p.notes || '').indexOf('Due on arrival') >= 0);
+            });
 
-            // Summary
             var pending = credits.filter(function(c) { return c.status === 'pending'; });
             var paid    = credits.filter(function(c) { return c.status === 'paid'; });
             var voided  = credits.filter(function(c) { return c.status === 'voided'; });
-            var pendingTotal = pending.reduce(function(s, c) { return s + (parseFloat(c.amount) || 0); }, 0);
-            var paidTotal    = paid.reduce(function(s, c) { return s + (parseFloat(c.amount) || 0); }, 0);
+            var pendingTotal = pending.reduce(function(s,c){ return s+(parseFloat(c.amount)||0); }, 0);
+            var paidTotal    = paid.reduce(function(s,c){ return s+(parseFloat(c.amount)||0); }, 0);
 
             var scEl = document.getElementById('scPendingCount');
             if (scEl) scEl.textContent = pending.length;
@@ -1542,7 +1548,7 @@
             if (summaryBar) {
                 summaryBar.innerHTML =
                     '<div style="background:linear-gradient(135deg,#9c27b0,#7b1fa2);color:white;padding:18px;border-radius:10px;text-align:center;">' +
-                        '<div style="font-size:12px;opacity:0.9;">⏳ Pending Credits</div>' +
+                        '<div style="font-size:12px;opacity:0.9;">⏳ Pending</div>' +
                         '<div style="font-size:28px;font-weight:800;">' + pending.length + '</div>' +
                         '<div style="font-size:13px;font-weight:700;">$' + pendingTotal.toFixed(2) + '</div>' +
                     '</div>' +
@@ -1556,79 +1562,90 @@
                         '<div style="font-size:28px;font-weight:800;">' + voided.length + '</div>' +
                     '</div>' +
                     '<div style="background:linear-gradient(135deg,#1565c0,#0d47a1);color:white;padding:18px;border-radius:10px;text-align:center;">' +
-                        '<div style="font-size:12px;opacity:0.9;">📊 Total Credits</div>' +
+                        '<div style="font-size:12px;opacity:0.9;">📊 Total</div>' +
                         '<div style="font-size:28px;font-weight:800;">' + credits.length + '</div>' +
                     '</div>';
             }
 
-            // Apply filters
-            var search = (document.getElementById('scSearch').value || '').toLowerCase();
-            var statusF = document.getElementById('scStatusFilter').value || 'all';
+            var search = (document.getElementById('scSearch') || {}).value || '';
+            var statusF = (document.getElementById('scStatusFilter') || {}).value || 'all';
+            search = search.toLowerCase();
+
             var filtered = credits.filter(function(c) {
                 if (statusF !== 'all' && c.status !== statusF) return false;
                 if (search) {
-                    return [c.voucherNumber, c.supplierName, c.supplierCode, c.workerName, c.workerCode, c.invoiceNumber, c.workerNationality]
+                    return [c.voucherNumber, c.supplierName, c.supplierCode,
+                            c.workerName, c.workerCode, c.workerNationality,
+                            c.invoiceNumber, c.employerName, c.employerCode]
                         .join(' ').toLowerCase().indexOf(search) >= 0;
                 }
                 return true;
             });
 
-            filtered.sort(function(a, b) { return new Date(b.createdDate) - new Date(a.createdDate); });
+            filtered.sort(function(a,b) {
+                return new Date(b.createdDate||0) - new Date(a.createdDate||0);
+            });
 
             if (filtered.length === 0) {
                 container.innerHTML = '<div style="text-align:center;padding:60px;color:#aaa;"><div style="font-size:48px;">🧾</div><h3>No supplier credits found</h3></div>';
                 return;
             }
 
-            var html = '';
+            // Group by supplier
+            var groups = {};
             filtered.forEach(function(c) {
-                var isPaid   = c.status === 'paid';
-                var isVoided = c.status === 'voided';
-                var amt = parseFloat(c.amount) || 0;
-                var borderColor = isPaid ? '#28a745' : isVoided ? '#607d8b' : '#9c27b0';
-                var bgColor     = isPaid ? '#f0fff4' : isVoided ? '#f5f5f5' : 'white';
-                var statusBadge = isPaid
-                    ? '<span style="background:#d4edda;color:#155724;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:700;">✅ Paid</span>'
-                    : isVoided
-                    ? '<span style="background:#eceff1;color:#455a64;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:700;">🚫 Voided</span>'
-                    : '<span style="background:#f3e5f5;color:#7b1fa2;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:700;">⏳ Pending</span>';
+                var key = c.supplierCode || c.supplierName || 'Unknown';
+                if (!groups[key]) groups[key] = { name: c.supplierName || key, code: c.supplierCode || key, items: [] };
+                groups[key].items.push(c);
+            });
 
-                var createdStr = c.createdDate ? new Date(c.createdDate).toLocaleDateString('en-GB') : '—';
-                var paidStr    = c.paidDate    ? new Date(c.paidDate).toLocaleDateString('en-GB')    : '';
+            var html = '';
+            Object.keys(groups).forEach(function(suppKey) {
+                var sg = groups[suppKey];
+                var suppPendAmt = sg.items.filter(function(c){ return c.status==='pending'; }).reduce(function(s,c){ return s+(parseFloat(c.amount)||0); }, 0);
 
-                html += '<div style="background:' + bgColor + ';border:2px solid ' + borderColor + ';border-left:5px solid ' + borderColor + ';border-radius:10px;padding:18px;margin-bottom:14px;' + (isVoided ? 'opacity:0.6;' : '') + '">';
-
-                // Header row
-                html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">';
-                html += '<div style="display:flex;align-items:center;gap:10px;">';
-                html += '<span style="font-size:18px;font-weight:800;color:#7b1fa2;">' + (c.voucherNumber || '—') + '</span>';
-                html += statusBadge;
-                html += '<span style="font-size:12px;color:#999;">📅 ' + createdStr + '</span>';
-                if (isPaid && paidStr) html += '<span style="font-size:12px;color:#28a745;font-weight:700;">✅ Paid: ' + paidStr + '</span>';
+                html += '<div style="background:linear-gradient(135deg,#7b1fa2,#4a148c);color:white;padding:14px 20px;border-radius:10px 10px 0 0;margin-top:16px;display:flex;justify-content:space-between;align-items:center;">';
+                html += '<span style="font-size:16px;font-weight:800;">🏢 ' + sg.name + ' <span style="font-size:12px;opacity:0.8;">(' + sg.code + ')</span></span>';
+                html += '<span style="font-size:13px;">⏳ Pending: $' + suppPendAmt.toFixed(2) + ' | ' + sg.items.length + ' worker(s)</span>';
                 html += '</div>';
-                html += '<div style="font-size:26px;font-weight:800;color:' + (isPaid ? '#28a745' : '#7b1fa2') + ';">$' + amt.toFixed(2) + '</div>';
-                html += '</div>';
+                html += '<div style="border:2px solid #7b1fa2;border-top:none;border-radius:0 0 10px 10px;margin-bottom:8px;">';
 
-                // Info grid
-                html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:12px;">';
-                html += '<div style="background:#f9f0ff;padding:10px;border-radius:8px;"><div style="font-size:11px;color:#9c27b0;font-weight:700;text-transform:uppercase;margin-bottom:3px;">👤 Worker</div><div style="font-weight:700;font-size:14px;">' + (c.workerName || '—') + '</div><div style="font-size:12px;color:#666;">' + (c.workerCode || '') + ' | ' + (c.workerNationality || '—') + '</div></div>';
-                html += '<div style="background:#f3e5f5;padding:10px;border-radius:8px;"><div style="font-size:11px;color:#7b1fa2;font-weight:700;text-transform:uppercase;margin-bottom:3px;">🏢 Supplier</div><div style="font-weight:700;font-size:14px;">' + (c.supplierName || c.supplierCode || '—') + '</div><div style="font-size:12px;color:#666;">' + (c.supplierCode || '') + '</div></div>';
-                html += '<div style="background:#e8f5e9;padding:10px;border-radius:8px;"><div style="font-size:11px;color:#2e7d32;font-weight:700;text-transform:uppercase;margin-bottom:3px;">💼 Employer</div><div style="font-weight:700;font-size:14px;">' + (c.employerName || '—') + '</div><div style="font-size:12px;color:#666;">' + (c.employerCode || '') + '</div></div>';
-                html += '<div style="background:#e3f2fd;padding:10px;border-radius:8px;"><div style="font-size:11px;color:#1565c0;font-weight:700;text-transform:uppercase;margin-bottom:3px;">📋 Linked Invoice</div><div style="font-weight:700;font-size:14px;">' + (c.invoiceNumber || '—') + '</div><div style="font-size:12px;color:#666;">Due: on arrival</div></div>';
-                html += '</div>';
+                sg.items.forEach(function(c, idx) {
+                    var isPaid   = c.status === 'paid';
+                    var isVoided = c.status === 'voided';
+                    var amt = parseFloat(c.amount) || 0;
+                    var rowBg = isPaid ? '#f0fff4' : isVoided ? '#f5f5f5' : (idx%2===0 ? 'white' : '#fdf5ff');
+                    var statusBadge = isPaid
+                        ? '<span style="background:#d4edda;color:#155724;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">✅ Paid</span>'
+                        : isVoided
+                        ? '<span style="background:#eceff1;color:#455a64;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">🚫 Voided</span>'
+                        : '<span style="background:#f3e5f5;color:#7b1fa2;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">⏳ Pending</span>';
 
-                // Actions
-                if (!isVoided) {
-                    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
-                    if (!isPaid) {
-                        html += '<button onclick="markCreditPaid(\'' + c.voucherNumber + '\')" style="padding:7px 16px;background:#28a745;color:white;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:13px;">✅ Mark Paid</button>';
-                    }
-                    html += '<button onclick="printCreditPDF(\'' + c.voucherNumber + '\')" style="padding:7px 16px;background:#7b1fa2;color:white;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print PDF</button>';
-                    html += '<button onclick="viewLinkedInvoice(\'' + c.invoiceNumber + '\')" style="padding:7px 16px;background:#1565c0;color:white;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:13px;">📋 View Invoice</button>';
-                    html += '<button onclick="voidCredit(\'' + c.voucherNumber + '\')" style="padding:7px 16px;background:#b71c1c;color:white;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:13px;">🚫 Void</button>';
+                    html += '<div style="background:' + rowBg + ';padding:14px 18px;border-bottom:1px solid #e0d0f0;' + (isVoided?'opacity:0.6;':'') + '">';
+                    html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">';
+                    html += '<div style="display:flex;align-items:center;gap:8px;">';
+                    html += '<span style="font-size:15px;font-weight:800;color:#7b1fa2;">' + (c.voucherNumber||'—') + '</span>';
+                    html += statusBadge;
                     html += '</div>';
-                }
+                    html += '<span style="font-size:22px;font-weight:800;color:' + (isPaid?'#28a745':isVoided?'#aaa':'#7b1fa2') + ';">$' + amt.toFixed(2) + '</span>';
+                    html += '</div>';
 
+                    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:8px;font-size:12px;">';
+                    html += '<div><b>👤 Worker:</b> ' + (c.workerName||'—') + ' (' + (c.workerCode||'') + ') | ' + (c.workerNationality||'—') + '</div>';
+                    html += '<div><b>💼 Employer:</b> ' + (c.employerName||'—') + ' (' + (c.employerCode||'') + ')</div>';
+                    html += '<div><b>📋 Invoice:</b> ' + (c.invoiceNumber||'—') + '</div>';
+                    html += '<div><b>📅 Created:</b> ' + (c.createdDate ? new Date(c.createdDate).toLocaleDateString('en-GB') : '—') + '</div>';
+                    html += '</div>';
+
+                    if (!isVoided) {
+                        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+                        if (!isPaid) html += '<button onclick="markCreditPaid(\'' + c.voucherNumber + '\')" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;">✅ Mark Paid</button>';
+                        html += '<button onclick="editCreditAmount(\'' + c.voucherNumber + '\',' + amt + ')" style="padding:6px 14px;background:#e65100;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;">✏️ Edit Amount</button>';
+                        html += '<button onclick="voidCredit(\'' + c.voucherNumber + '\')" style="padding:6px 14px;background:#b71c1c;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;">🚫 Void</button>';
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                });
                 html += '</div>';
             });
 
@@ -1636,121 +1653,61 @@
         }
 
         async function markCreditPaid(voucherNumber) {
-            if (!await asyncConfirm('✅ Mark this supplier credit as PAID?\n\nVoucher: ' + voucherNumber + '\n\nThis confirms the recruitment fee was paid to the supplier.')) return;
+            if (!await asyncConfirm('✅ Mark this supplier credit as PAID?\n\nVoucher: ' + voucherNumber)) return;
             var credits = await CloudDB.loadSheet('OutgoingPayments');
             var credit = credits.find(function(c) { return c.voucherNumber === voucherNumber; });
             if (!credit) { alert('❌ Credit not found!'); return; }
             credit.status = 'paid';
             credit.paidDate = new Date().toISOString().split('T')[0];
             await CloudDB.saveRow('OutgoingPayments', credit);
-            alert('✅ Supplier credit marked as PAID!\n\nVoucher: ' + voucherNumber);
+            alert('✅ Marked as PAID!\n\nVoucher: ' + voucherNumber);
             renderSupplierCreditsList();
         }
 
         async function voidCredit(voucherNumber) {
-            var pwd = prompt('🔐 Admin password required to void this credit:');
+            var pwd = prompt('🔐 Admin password to void:');
             if (!pwd) return;
             if (pwd !== getAdminPassword()) { alert('❌ Wrong password!'); return; }
-            if (!await asyncConfirm('🚫 VOID this supplier credit?\n\nVoucher: ' + voucherNumber + '\n\nThe record will be kept but marked as voided.')) return;
+            if (!await asyncConfirm('🚫 VOID this credit?\n\n' + voucherNumber)) return;
             var credits = await CloudDB.loadSheet('OutgoingPayments');
             var credit = credits.find(function(c) { return c.voucherNumber === voucherNumber; });
-            if (!credit) { alert('❌ Credit not found!'); return; }
+            if (!credit) { alert('❌ Not found!'); return; }
             credit.status = 'voided';
             credit.voidedDate = new Date().toISOString().split('T')[0];
             await CloudDB.saveRow('OutgoingPayments', credit);
-            alert('🚫 Supplier credit voided.\n\nVoucher: ' + voucherNumber);
+            alert('🚫 Voided!');
             renderSupplierCreditsList();
         }
 
-        async function printCreditPDF(voucherNumber) {
-            var credits = await CloudDB.loadSheet('OutgoingPayments');
-            var c = credits.find(function(x) { return x.voucherNumber === voucherNumber; });
-            if (!c) { alert('❌ Credit not found!'); return; }
-            var { jsPDF } = window.jspdf;
-            var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-            var pageW = 210, margin = 20, col = margin, y = 0;
-            var amt = parseFloat(c.amount) || 0;
-
-            doc.setFillColor(156, 39, 176);
-            doc.rect(0, 0, pageW, 34, 'F');
-            doc.setTextColor(255,255,255);
-            doc.setFontSize(16); doc.setFont(undefined,'bold');
-            doc.text('Supplier Credit Note', pageW/2, 14, {align:'center'});
-            doc.setFontSize(10); doc.setFont(undefined,'normal');
-            doc.text('Pre-Approval — Recruitment Fee Payable on Arrival', pageW/2, 22, {align:'center'});
-            doc.text('Date: ' + new Date(c.createdDate).toLocaleDateString('en-GB'), pageW/2, 30, {align:'center'});
-            y = 44;
-
-            doc.setTextColor(50,50,50);
-
-            // Worker
-            doc.setFillColor(243,229,245);
-            doc.roundedRect(margin, y, pageW-margin*2, 36, 3, 3, 'F');
-            doc.setFontSize(11); doc.setFont(undefined,'bold'); doc.text('Worker', col+4, y+9);
-            doc.setFontSize(10); doc.setFont(undefined,'normal');
-            doc.text('Name: ' + (c.workerName||'—'), col+4, y+17);
-            doc.text('Code: ' + (c.workerCode||'—'), col+4, y+24);
-            doc.text('Nationality: ' + (c.workerNationality||'—'), col+4, y+31);
-            y += 44;
-
-            // Employer
-            doc.setFillColor(232,245,233);
-            doc.roundedRect(margin, y, pageW-margin*2, 22, 3, 3, 'F');
-            doc.setFontSize(11); doc.setFont(undefined,'bold'); doc.text('Employer', col+4, y+9);
-            doc.setFontSize(10); doc.setFont(undefined,'normal');
-            doc.text((c.employerName||'—') + ' (' + (c.employerCode||'') + ')', col+4, y+17);
-            y += 30;
-
-            // Supplier
-            doc.setFillColor(227,242,253);
-            doc.roundedRect(margin, y, pageW-margin*2, 22, 3, 3, 'F');
-            doc.setFontSize(11); doc.setFont(undefined,'bold'); doc.text('Supplier', col+4, y+9);
-            doc.setFontSize(10); doc.setFont(undefined,'normal');
-            doc.text((c.supplierName||'—') + ' (' + (c.supplierCode||'') + ')', col+4, y+17);
-            y += 30;
-
-            // Amount
-            doc.setFillColor(156,39,176);
-            doc.roundedRect(margin, y, pageW-margin*2, 30, 3, 3, 'F');
-            doc.setTextColor(255,255,255);
-            doc.setFontSize(12); doc.setFont(undefined,'bold');
-            doc.text('Recruitment Fee — Due on Arrival', pageW/2, y+12, {align:'center'});
-            doc.setFontSize(22);
-            doc.text('$' + amt.toFixed(2), pageW/2, y+25, {align:'center'});
-            y += 38;
-
-            // Status
-            doc.setTextColor(80,80,80);
-            doc.setFontSize(10); doc.setFont(undefined,'normal');
-            doc.text('Voucher: ' + (c.voucherNumber||'—'), col, y+8);
-            doc.text('Linked Invoice: ' + (c.invoiceNumber||'—'), col, y+16);
-            doc.text('Status: ' + (c.status||'pending').toUpperCase() + (c.paidDate ? ' — Paid: ' + new Date(c.paidDate).toLocaleDateString('en-GB') : ' — Payable upon worker arrival'), col, y+24);
-
-            doc.setFontSize(9); doc.setTextColor(160,160,160);
-            doc.text('Generated by MGSDB2026 — ' + new Date().toLocaleString(), pageW/2, 285, {align:'center'});
-
-            doc.save(c.voucherNumber + '_SupplierCredit_' + (c.workerCode||'') + '.pdf');
-        }
-
         function viewLinkedInvoice(invoiceNumber) {
-            if (!invoiceNumber) { alert('❌ No linked invoice found!'); return; }
+            if (!invoiceNumber) { alert('❌ No linked invoice!'); return; }
             switchTab('allinvoices');
             setTimeout(function() {
                 var el = document.getElementById('allInvSearch');
                 if (el) { el.value = invoiceNumber; renderAllInvoicesList(); }
             }, 200);
         }
+        async function editCreditAmount(voucherNumber, currentAmount) {
+            var newAmt = prompt('✏️ Edit recruitment fee for voucher ' + voucherNumber + '\n\nCurrent amount: $' + currentAmount + '\n\nEnter new amount ($):', currentAmount);
+            if (newAmt === null) return;
+            newAmt = parseFloat(newAmt);
+            if (isNaN(newAmt) || newAmt < 0) { alert('❌ Invalid amount!'); return; }
+            var credits = await CloudDB.loadSheet('OutgoingPayments');
+            var credit = credits.find(function(c) { return c.voucherNumber === voucherNumber; });
+            if (!credit) { alert('❌ Not found!'); return; }
+            credit.amount = newAmt;
+            await CloudDB.saveRow('OutgoingPayments', credit);
+            alert('✅ Amount updated to $' + newAmt.toFixed(2));
+            renderSupplierCreditsList();
+        }
         // ── END SUPPLIER CREDITS ──────────────────────────────────────────────
 
         // Initialize
-        async function init() {
-       
         async function init() {
             console.log('💰 Accountant Dashboard - INIT');
             loadData();
             renderDashboard();
             updateStats();
-            try { renderSupplierCreditsList(); } catch(e) { console.warn('SC init skip:', e); }
             populateItemsDropdown();
             populateAllInvAgencyFilter();
             loadInvoiceHeader();
@@ -3227,6 +3184,9 @@
 
             if (tabName === 'payments') {
                 renderPaymentsList();
+            }
+            if (tabName === 'suppliercredits') {
+                renderSupplierCreditsList();
             }
             if (tabName === 'allinvoices') {
                 renderAllInvoicesList();
@@ -4782,6 +4742,7 @@
             var catFilter = (document.getElementById('mpCategoryFilter') || {}).value || '';
             
             var filtered = payments.filter(function(p) {
+                if (p.source === 'preapproval' || (p.workerID && (p.notes||'').indexOf('Due on arrival') >= 0)) return false;
                 if (catFilter && p.category !== catFilter) return false;
                 if (search) {
                     var term = search.toLowerCase();
