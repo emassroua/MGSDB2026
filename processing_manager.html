@@ -287,7 +287,7 @@ var ARRIVED_STAGES = ['arrived'];
                     var localMap = {};
                     allWorkers.forEach(function(w) {
                         if ((w.Processing === true || w.Processing === 'true') || (w.Locked === true || w.Locked === 'true')) {
-                            localMap[w.WorkerID] = { Processing: w.Processing, ProcessingStage: w.ProcessingStage || 'processing', Locked: w.Locked, LockedDate: w.LockedDate, InvoiceNumber: w.InvoiceNumber, InvoiceDate: w.InvoiceDate, InvoiceAmount: w.InvoiceAmount, InvoiceNotes: w.InvoiceNotes };
+                            localMap[w.WorkerID] = { Processing: w.Processing, ProcessingStage: w.ProcessingStage || 'processing', WorkerOutcomes: w.WorkerOutcomes, Locked: w.Locked, LockedDate: w.LockedDate, InvoiceNumber: w.InvoiceNumber, InvoiceDate: w.InvoiceDate, InvoiceAmount: w.InvoiceAmount, InvoiceNotes: w.InvoiceNotes };
                         }
                     });
                     c.workers.forEach(function(w) {
@@ -296,6 +296,7 @@ var ARRIVED_STAGES = ['arrived'];
                             if (!(w.Processing === true || w.Processing === 'true') && (local.Processing === true || local.Processing === 'true')) {
                                 w.Processing = true;
                                 w.ProcessingStage = local.ProcessingStage;
+                                if (local.WorkerOutcomes) w.WorkerOutcomes = local.WorkerOutcomes;
                             }
                             if (!(w.Locked === true || w.Locked === 'true') && (local.Locked === true || local.Locked === 'true')) {
                                 w.Locked = true;
@@ -489,7 +490,11 @@ var ARRIVED_STAGES = ['arrived'];
             keys.forEach(function(empKey) {
                 var ew = groups[empKey];
                 var realEmpKey = empKey.split('_')[0]; // strip WorkerID suffix
-                var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(realEmpKey) || String(e.EmployerID) === String(realEmpKey); });
+                var emp = allEmployers.find(function(e) { 
+                    return String(e.EmployerCode) === String(realEmpKey) || 
+                           String(e.EmployerID) === String(realEmpKey) ||
+                           String(e.EmployerID) === String(ew[0].EmployerID);
+});
                 var empName = emp ? (emp.EFN || emp.EmployerName || emp.EmployerCode) : realEmpKey;
                 var empCode = emp ? emp.EmployerCode : realEmpKey;
                 var ag = null;
@@ -1547,7 +1552,7 @@ var ARRIVED_STAGES = ['arrived'];
         }
 
         async function markArrived(workerId) {
-            var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
+            var w = allWorkers.find(function(x) { return String(x.WorkerID) === String(workerId); });
             if (!w) { alert('❌ Worker not found!'); return; }
 
             var modal = document.createElement('div');
@@ -1561,7 +1566,7 @@ var ARRIVED_STAGES = ['arrived'];
                 '<button onclick="this.closest(\'.modal-arrived\') || document.querySelector(\'[id^=arrivedModal]\') && document.querySelector(\'[id^=arrivedModal]\').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:20px;cursor:pointer;border-radius:6px;padding:2px 8px;" id="closeArrivedBtn">&times;</button>' +
                 '</div>' +
                 '<div style="padding:20px;display:flex;flex-direction:column;gap:14px;">' +
-                '<div style="background:#f0fff4;padding:10px 14px;border-radius:8px;font-size:13px;color:#155724;border-left:3px solid #28a745;"><strong>Worker:</strong> ' + (w.WFullName||w.WorkerFirstName) + '</div>' +
+                '<div style="background:#f0fff4;padding:10px 14px;border-radius:8px;font-size:13px;color:#155724;border-left:3px solid #28a745;"><strong>Worker:</strong> ' + (w.WFullName||w.WorkerFirstName) + ' | Code: ' + (w.WorkerCode||w.WorkerID) + '</div>' +
                 '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
                 '<div style="display:flex;flex-direction:column;gap:4px;">' +
                 '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Arrival Date *</label>' +
@@ -1646,6 +1651,8 @@ var ARRIVED_STAGES = ['arrived'];
                 w.Processing=true; w.ProcessingStage='arrived'; w.Arrived=true;
                 w.ArrivalDate=arrivalDate;
                 w.EntryValidUntil=entryValid;
+                var ikamaDate=new Date(arrivalDate); ikamaDate.setDate(ikamaDate.getDate()+89);
+                w.IkamaExpiry=ikamaDate.toISOString().split('T')[0];
                 if(ticketNumber) w.TicketNumber=ticketNumber;
                 if(notes) w.ArrivalNotes=notes;
                 var outs=[]; try{ outs=JSON.parse(w.WorkerOutcomes||'[]'); }catch(e){}
@@ -1657,7 +1664,9 @@ var ARRIVED_STAGES = ['arrived'];
                 btn.textContent='✅ Done'; btn.style.background='#28a745';
                 setTimeout(function(){
                     document.body.removeChild(modal);
-                    alert('✅ Arrived!\n\n✈️ '+(w.WFullName||w.WorkerFirstName)+'\n📅 '+arrivalDate+'\n🗓️ Entry valid until: '+entryValid+(ticketNumber?'\n🎫 '+ticketNumber:''));
+                    var arrivedMsg='✅ Arrived!\n\n👷 Worker: '+(w.WFullName||w.WorkerFirstName)+'\n🪪 Code: '+(w.WorkerCode||(w.SupplierCode?w.SupplierCode+'-'+String(w.WorkerID).padStart(4,'0'):'ID-'+w.WorkerID))+'\n📅 Arrival Date: '+arrivalDate+'\n🗓️ Entry Valid Until: '+entryValid+'\n🪪 Ikama Expiry: '+w.IkamaExpiry+(ticketNumber?'\n🎫 Ticket Number: '+ticketNumber:'');
+                    navigator.clipboard.writeText(arrivedMsg).catch(function(){});
+                    alert(arrivedMsg+'\n\n📋 (Copied to clipboard)');
                     updateCounts(); renderTab();
                 },800);
             };
@@ -1688,7 +1697,20 @@ var ARRIVED_STAGES = ['arrived'];
             updateCounts(); renderTab();
         }
         
-        async function refreshData() { document.getElementById('loadingOverlay').style.display = 'flex'; await init(); }
+        function refreshData() {
+           var cs = document.getElementById('cloudStatus');
+          if(cs){ cs.textContent='⏳ Refreshing...'; cs.style.background='#fff3cd'; cs.style.color='#856404'; }
+          CloudDB.loadAll().then(function(c){
+              if(c.workers  && c.workers.length  > 0){ allWorkers   = c.workers;   localStorage.setItem('pm_workers',   JSON.stringify(c.workers)); }
+              if(c.employers && c.employers.length > 0){ allEmployers = c.employers; localStorage.setItem('pm_employers', JSON.stringify(c.employers)); }
+              if(c.fees     && c.fees.length     > 0){ allFees      = c.fees;      localStorage.setItem('pm_fees',      JSON.stringify(c.fees)); }
+              cloudReady = true;
+              updateCounts(); renderTab();
+              if(cs){ cs.textContent='☁️ Cloud — '+allWorkers.length+' workers'; cs.style.background='#d4edda'; cs.style.color='#155724'; }
+          }).catch(function(e){
+             if(cs){ cs.textContent='❌ Refresh failed'; cs.style.background='#f8d7da'; cs.style.color='#721c24'; }
+         });
+}
         
         function debugData() {
             var total = allWorkers.length;
@@ -3412,7 +3434,9 @@ var ARRIVED_STAGES = ['arrived'];
             var o = []; try { o = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
             var isT = o.indexOf('cancelled') >= 0 || o.indexOf('unfit') >= 0
                    || o.indexOf('runaway') >= 0 || o.indexOf('senthome') >= 0;
-            var isA = o.indexOf('arrived') >= 0, isDone = isT || isA;
+            var isA = o.indexOf('arrived') >= 0;
+            var isL = o.indexOf('local') >= 0;
+            var isDone = isT || isA || isL;
             if (filterId === 'cancelled')     return o.indexOf('cancelled') >= 0;
             if (filterId === 'unfit')         return o.indexOf('unfit') >= 0;
             if (filterId === 'runaway')       return o.indexOf('runaway') >= 0;
@@ -3420,7 +3444,7 @@ var ARRIVED_STAGES = ['arrived'];
             if (filterId === 'arrived')       return isA && !isT;
             if (filterId === 'local')         return o.indexOf('local') >= 0 && !isT;
             if (filterId === 'moved')         return o.indexOf('moved') >= 0 && !isT && !isA;
-            if (filterId === 'processing')    return w.ProcessingStage === 'processing' || !w.ProcessingStage;
+            if (filterId === 'processing')    return (w.ProcessingStage === 'processing' || !w.ProcessingStage) && o.indexOf('local') < 0;
             if (filterId === 'selected')      return !isDone; // show ALL non-terminal workers
             if (filterId === 'preapproval')   return o.indexOf('preapproval') >= 0 && o.indexOf('immigration') < 0 && !isDone;
             if (filterId === 'immigration')   return o.indexOf('immigration') >= 0 && o.indexOf('waitingvisa') < 0 && !isDone;
@@ -3444,7 +3468,8 @@ var ARRIVED_STAGES = ['arrived'];
             var outs = []; try { outs = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) {}
             var hasAdvanced = outs.indexOf('preapproval') >= 0 || outs.indexOf('waitingvisa') >= 0 ||
                 outs.indexOf('readyvisa') >= 0 || outs.indexOf('waitingticket') >= 0 ||
-                outs.indexOf('arrived') >= 0 || outs.indexOf('cancelled') >= 0 ||
+                outs.indexOf('arrived') >= 0 || outs.indexOf('local') >= 0 ||
+                outs.indexOf('cancelled') >= 0 ||
                 outs.indexOf('unfit') >= 0 || outs.indexOf('runaway') >= 0 || outs.indexOf('senthome') >= 0;
             return !hasAdvanced;
         });
@@ -3518,7 +3543,10 @@ var ARRIVED_STAGES = ['arrived'];
         });
         // Update processing pill count
         var procEl = document.getElementById('ocount-processing');
-        if (procEl) procEl.textContent = allProc.filter(function(w){ return w.ProcessingStage === 'processing' || !w.ProcessingStage; }).length;
+        if (procEl) procEl.textContent = allProc.filter(function(w){ 
+            var outs=[]; try{outs=JSON.parse(w.WorkerOutcomes||'[]')}catch(e){}
+            return (w.ProcessingStage === 'processing' || !w.ProcessingStage) && outs.indexOf('local') < 0; 
+        }).length;
 
         // Update selected pill count = ALL processing workers
         var selEl = document.getElementById('ocount-selected');
@@ -4350,6 +4378,19 @@ window.moveToStage = (function(orig) {
     };
 })(window.moveToStage);
 
+function wtAutoFillArrival(depVal) {
+    if (!depVal) return;
+    var arr = document.getElementById('wtArrivalDateTime');
+    if (!arr || arr.value) return; // don't overwrite if already set
+    // Same date, add 3 hours as default arrival
+    var d = new Date(depVal);
+    d.setHours(d.getHours() + 3);
+    var pad = function(n){ return String(n).padStart(2,'0'); };
+    arr.value = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    arr.style.borderColor = '#dc3545';
+    arr.style.background = '#fff5f5';
+}
+
 function showWaitingTicketPopup(workerId) {
     var existing = document.getElementById('wtPopup'); if (existing) existing.remove();
     var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
@@ -4391,7 +4432,7 @@ function showWaitingTicketPopup(workerId) {
                 '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
                     '<div style="display:flex;flex-direction:column;gap:4px;">' +
                         '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Departure Date & Time *</label>' +
-                        '<input type="datetime-local" id="wtDepartureDateTime" style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">' +
+                        '<input type="datetime-local" id="wtDepartureDateTime" style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;" onchange="wtAutoFillArrival(this.value)">' +
                     '</div>' +
                     '<div style="display:flex;flex-direction:column;gap:4px;">' +
                         '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Arrival Airport *</label>' +
@@ -4401,14 +4442,13 @@ function showWaitingTicketPopup(workerId) {
                 '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
                     '<div style="display:flex;flex-direction:column;gap:4px;">' +
                         '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Arrival Date & Time *</label>' +
-                        '<input type="datetime-local" id="wtArrivalDateTime" style="padding:9px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">' +
+                        '<input type="datetime-local" id="wtArrivalDateTime" style="padding:9px 12px;border:2px solid #dc3545;border-radius:8px;font-size:14px;background:#fff5f5;color:#dc3545;font-weight:700;">' +
                     '</div>' +
                     '<div></div>' +
                 '</div>' +
-                '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#e0f7fa;border-radius:8px;border:2px solid #e0e0e0;">' +
-                    '<input type="checkbox" id="wtConfirmCheck" style="width:20px;height:20px;accent-color:#00bcd4;cursor:pointer;flex-shrink:0;">' +
-                    '<label for="wtConfirmCheck" style="font-size:13px;font-weight:600;color:#00838f;cursor:pointer;margin:0;">I confirm all flight details are correct</label>' +
-                '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:6px;">' +
+                   '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Ticket Document</label>' +
+                  '</div>' +
                 '<div style="display:flex;flex-direction:column;gap:6px;">' +
                     '<label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;">Ticket Document</label>' +
                     '<div id="wtDropZone" ondragover="event.preventDefault();this.style.background=\'#e0f7fa\';this.style.borderColor=\'#00bcd4\';" ondragleave="this.style.background=\'#fafafa\';this.style.borderColor=\'#ccc\';" ondrop="event.preventDefault();this.style.background=\'#fafafa\';this.style.borderColor=\'#ccc\';handleWTDrop(event.dataTransfer.files);" onclick="document.getElementById(\'wtFileInput\').click();" style="border:2px dashed #ccc;border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fafafa;transition:all 0.2s;">' +
@@ -4567,6 +4607,181 @@ async function confirmWTAndMove(workerId) {
     }, 800);
 }
 </script>
+<script>
+// ── FAST LOAD PATCH — show cached data instantly, sync in background ──
+(function(){
+  // Step 1: Show UI immediately from localStorage cache
+  var cachedW = []; var cachedE = []; var cachedF = [];
+  try { cachedW = JSON.parse(localStorage.getItem('pm_workers')||'[]'); } catch(e){}
+  try { cachedE = JSON.parse(localStorage.getItem('pm_employers')||'[]'); } catch(e){}
+  try { cachedF = JSON.parse(localStorage.getItem('pm_fees')||'[]'); } catch(e){}
 
+  if (cachedW.length > 0) {
+    allWorkers   = cachedW;
+    allEmployers = cachedE;
+    allFees      = cachedF;
+    document.getElementById('loadingOverlay').style.display = 'none';
+    updateCounts();
+    renderTab();
+    var cs = document.getElementById('cloudStatus');
+    if(cs){ cs.textContent = '⏳ Syncing...'; cs.style.background='#fff3cd'; cs.style.color='#856404'; }
+  }
+
+  // Step 2: Load from cloud in background
+  CloudDB.loadAll().then(function(c){
+    var changed = false;
+    if(c.workers  && c.workers.length  > 0){ allWorkers   = c.workers;   localStorage.setItem('pm_workers',   JSON.stringify(c.workers));   changed = true; }
+    if(c.employers&& c.employers.length> 0){ allEmployers = c.employers; localStorage.setItem('pm_employers', JSON.stringify(c.employers)); changed = true; }
+    if(c.fees     && c.fees.length     > 0){ allFees      = c.fees;      localStorage.setItem('pm_fees',      JSON.stringify(c.fees));      changed = true; }
+
+    cloudReady = true;
+    if (!window._autoSyncStarted) { startAutoSync(); window._autoSyncStarted = true; }
+
+    var cs = document.getElementById('cloudStatus');
+    if(cs){ cs.textContent = '☁️ Cloud — '+allWorkers.length+' workers'; cs.style.background='#d4edda'; cs.style.color='#155724'; }
+
+    if (changed) { updateCounts(); renderTab(); }
+    document.getElementById('loadingOverlay').style.display = 'none';
+
+    // Load agencies + suppliers in background (non-blocking)
+    // Auto-refresh every 30 seconds in background
+    if(!window._pmAutoRefresh){
+        window._pmAutoRefresh = setInterval(function(){
+           CloudDB.loadAll().then(function(c){
+               if(c.workers  && c.workers.length  > 0){ allWorkers   = c.workers;   localStorage.setItem('pm_workers',   JSON.stringify(c.workers)); }
+               if(c.employers && c.employers.length > 0){ allEmployers = c.employers; localStorage.setItem('pm_employers', JSON.stringify(c.employers)); }
+               if(c.fees     && c.fees.length     > 0){ allFees      = c.fees;      localStorage.setItem('pm_fees',      JSON.stringify(c.fees)); }
+               updateCounts(); renderTab();
+               var cs = document.getElementById('cloudStatus');
+               if(cs){ cs.textContent='☁️ Auto — '+allWorkers.length+' workers'; cs.style.background='#d4edda'; cs.style.color='#155724'; }
+          }).catch(function(){});
+      }, 30000);
+}
+    CloudDB.loadBackground().then(function(bg){
+      if(bg.agencies  && bg.agencies.length  > 0) allAgencies  = bg.agencies;
+      if(bg.suppliers && bg.suppliers.length > 0) allSuppliers = bg.suppliers;
+    }).catch(function(){});
+
+  }).catch(function(e){
+    console.error('Cloud load failed:', e);
+    document.getElementById('loadingOverlay').style.display = 'none';
+    var cs = document.getElementById('cloudStatus');
+    if(cs){ cs.textContent = '❌ Load failed'; cs.style.background='#f8d7da'; cs.style.color='#721c24'; }
+  });
+})();
+</script>
+<script>
+// ── PAGINATION PATCH — 15 cards per tab/pill ──────────────
+(function(){
+  var PAGE_SIZE = 15;
+  var _pages = {}; // { 'tab_pill': currentPage }
+
+  function _pageKey(){ return currentTab + '_' + (currentOutcomeTab||'all'); }
+
+  function _getPage(){
+    var k = _pageKey();
+    if (!_pages[k]) _pages[k] = 1;
+    return _pages[k];
+  }
+
+  function _setPage(n){ _pages[_pageKey()] = n; }
+
+  // Reset page when tab or pill changes
+  var _origSwitchTab = window.switchTab;
+  window.switchTab = function(tab){
+    currentTab = tab;
+    _pages[_pageKey()] = 1;
+    if(_origSwitchTab) _origSwitchTab(tab);
+    else { updateCounts(); renderTab(); }
+  };
+
+  var _origSwitchOutcomeTab = window.switchOutcomeTab;
+  window.switchOutcomeTab = function(tab){
+    currentOutcomeTab = tab;
+    _pages[_pageKey()] = 1;
+    if(_origSwitchOutcomeTab) _origSwitchOutcomeTab(tab);
+    else { updateCounts(); renderTab(); }
+  };
+
+  // Search resets page
+  var sb = document.getElementById('searchBox');
+  if(sb){ sb.addEventListener('input', function(){ _pages = {}; }); }
+
+  // Override renderTab to slice keys and inject pagination UI
+  var _origRenderTab = window.renderTab;
+  window.renderTab = function(){
+    // Call original to build full HTML
+    _origRenderTab();
+
+    var content = document.getElementById('tabContent');
+    if(!content) return;
+
+    // Find all employer-card divs
+    var cards = content.querySelectorAll('.employer-card');
+    if(cards.length <= PAGE_SIZE){
+      // No pagination needed — remove any existing pagination
+      var old = document.getElementById('pmPagination');
+      if(old) old.remove();
+      return;
+    }
+
+    var totalCards = cards.length;
+    var totalPages = Math.ceil(totalCards / PAGE_SIZE);
+    var page = _getPage();
+    if(page > totalPages) { page = 1; _setPage(1); }
+
+    var start = (page-1)*PAGE_SIZE;
+    var end   = start + PAGE_SIZE;
+
+    // Hide/show cards
+    cards.forEach(function(c, i){
+      c.style.display = (i >= start && i < end) ? '' : 'none';
+    });
+
+    // Remove old pagination bar if exists
+    var old = document.getElementById('pmPagination');
+    if(old) old.remove();
+
+    // Build pagination bar
+    var bar = document.createElement('div');
+    bar.id = 'pmPagination';
+    bar.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 0 6px;';
+
+    // Prev button
+    var prev = document.createElement('button');
+    prev.textContent = '◀ Prev';
+    prev.disabled = (page <= 1);
+    prev.style.cssText = 'padding:8px 18px;border:2px solid #667eea;border-radius:8px;background:'+(page<=1?'#e9ecef':'white')+';color:'+(page<=1?'#aaa':'#667eea')+';font-weight:700;font-size:13px;cursor:'+(page<=1?'not-allowed':'pointer')+';';
+    prev.onclick = function(){
+      _setPage(page-1);
+      window.renderTab();
+      window.scrollTo({top:0,behavior:'smooth'});
+    };
+
+    // Page info
+    var info = document.createElement('span');
+    info.style.cssText = 'font-size:13px;font-weight:700;color:#495057;padding:0 8px;';
+    info.textContent = 'Page '+page+' of '+totalPages+' ('+totalCards+' employers)';
+
+    // Next button
+    var next = document.createElement('button');
+    next.textContent = 'Next ▶';
+    next.disabled = (page >= totalPages);
+    next.style.cssText = 'padding:8px 18px;border:2px solid #667eea;border-radius:8px;background:'+(page>=totalPages?'#e9ecef':'#667eea')+';color:'+(page>=totalPages?'#aaa':'white')+';font-weight:700;font-size:13px;cursor:'+(page>=totalPages?'not-allowed':'pointer')+';';
+    next.onclick = function(){
+      _setPage(page+1);
+      window.renderTab();
+      window.scrollTo({top:0,behavior:'smooth'});
+    };
+
+    bar.appendChild(prev);
+    bar.appendChild(info);
+    bar.appendChild(next);
+    content.appendChild(bar);
+  };
+
+  console.log('✅ Pagination patch loaded — '+PAGE_SIZE+' cards per page');
+})();
+</script>
 </body>
 </html>
