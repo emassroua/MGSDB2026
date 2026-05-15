@@ -2149,87 +2149,48 @@
             }
         }
         
-        // Google Drive Upload Function
+        // Firebase Storage Upload (was Google Apps Script)
         async function uploadToGoogleDrive(file, folderName, fileName) {
-            try {
-                // Show progress
-                const statusMsg = document.getElementById('uploadStatus');
-                if (statusMsg) {
-                    statusMsg.textContent = '\uD83D\uDCE4 Uploading to Google Drive...';
-                    statusMsg.style.display = 'block';
-                }
-                
-                // Convert file to base64
-                const base64Data = await fileToBase64(file);
-                
-                // Prepare data for Google Apps Script
-                const requestData = {
-                    action: 'uploadFile',
-                    folderName: folderName,
-                    fileName: fileName,
-                    fileData: base64Data,
-                    mimeType: file.type,
-                    parentFolder: 'workers'
-                };
-                
-                // Upload to Google Drive via Apps Script
-                const response = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify(requestData)
-                });
-                
-                // Try to read response
-                let result = null;
-                let responseText = '';
-                try {
-                    responseText = await response.text();
-                    result = JSON.parse(responseText);
-                } catch(e) {
-                    // Response might not be JSON (redirect page), that's OK
-                    console.log('Response (non-JSON):', responseText.substring(0, 200));
-                }
-                
-                // Check for errors
-                if (result && result.error) {
-                    // If it's a permission error, file was likely created
-                    if (result.error.includes('permission')) {
-                        console.warn('\u26A0\uFE0F File uploaded but permission setting failed:', result.error);
-                        if (statusMsg) {
-                            statusMsg.textContent = '\u2705 Uploaded! (permission warning ignored)';
-                            statusMsg.style.color = '#28a745';
-                            setTimeout(() => { statusMsg.style.display = 'none'; }, 3000);
-                        }
-                        return { success: true, warning: result.error, fileUrl: result.fileUrl || '' };
-                    }
-                    throw new Error(result.error);
-                }
-                
-                if (statusMsg) {
-                    statusMsg.textContent = '\u2705 Uploaded to Google Drive!';
-                    statusMsg.style.color = '#28a745';
-                    setTimeout(() => { statusMsg.style.display = 'none'; }, 3000);
-                }
-                
-                return {
-                    success: true,
-                    fileUrl: (result && (result.fileUrl || result.url)) || '',
-                    message: 'File uploaded to Google Drive successfully!'
-                };
-                
-            } catch (error) {
-                console.error('Google Drive upload error:', error);
-                const statusMsg = document.getElementById('uploadStatus');
-                if (statusMsg) {
-                    statusMsg.textContent = '\u274C Upload failed: ' + error.message;
-                    statusMsg.style.color = '#dc3545';
-                }
-                return {
-                    success: false,
-                    error: error.message
-                };
-            }
+           try {
+             const statusMsg = document.getElementById('uploadStatus');
+            if (statusMsg) {
+            statusMsg.textContent = '📤 Uploading to Firebase Storage...';
+            statusMsg.style.display = 'block';
+            statusMsg.style.color = '#856404';
         }
+
+        // Path matches the rest of the system: workers/{folderName}/{fileName}
+        const path = 'workers/' + folderName + '/' + fileName;
+        const result = await CloudStorage.uploadFile(path, file);
+
+        if (!result || !result.success) {
+            throw new Error((result && result.error) || 'Upload failed');
+        }
+
+        if (statusMsg) {
+            statusMsg.textContent = '✅ Uploaded to Firebase Storage!';
+            statusMsg.style.color = '#28a745';
+            setTimeout(() => { statusMsg.style.display = 'none'; }, 3000);
+        }
+
+        console.log('☁️ File uploaded to:', path, '→', result.url);
+
+        return {
+            success: true,
+            fileUrl: result.url || result.fileUrl || '',
+            path: path,
+            message: 'File uploaded to Firebase Storage successfully!'
+        };
+    } catch (error) {
+        console.error('❌ Firebase upload error:', error);
+        const statusMsg = document.getElementById('uploadStatus');
+        if (statusMsg) {
+            statusMsg.textContent = '❌ Upload failed: ' + error.message;
+            statusMsg.style.color = '#dc3545';
+        }
+        return { success: false, error: error.message };
+    }
+}
         
         // Helper function to convert file to base64
         function fileToBase64(file) {
@@ -9406,8 +9367,7 @@ console.log('✅ Stage transition buttons patch loaded');
         // Use DateAdded (never changes after creation) — fall back to today only if missing
         var dateStr = worker.DateAdded || new Date().toISOString().split('T')[0];
         // Final format: TTHO (0001) WILI OBA MEKONNEN 2026-04-23 PASS
-        var computed = code + ' (' + wid + ') ' + sanitizePathSegment(full).toUpperCase() + ' ' + dateStr + ' ' + suffix;
-        return computed;
+       var computed = code + '-' + wid + '-' + sanitizePathSegment(full).replace(/\s+/g, '_').toUpperCase() + '-' + dateStr + '-' + suffix;        return computed;
     }
     function getFileExt(fileName) {
         var m = /\.([a-z0-9]+)$/i.exec(fileName || '');
@@ -9619,6 +9579,7 @@ console.log('✅ Stage transition buttons patch loaded');
         if (!Array.isArray(existing)) existing = (existing && typeof existing === 'object') ? [existing] : [];
 
         var folder = workerFolderKeyFor(currentWorker);
+        if (!currentWorker.WorkerFolder) currentWorker.WorkerFolder = folder;
         // Short prefix for file names (code-id), keep full folder name for the folder itself
         var sup = getSupplierFor(currentWorker);
         var supCode = (sup && (sup.SupplierCODE || sup.SupplierCode)) || 'WRK';
@@ -10152,6 +10113,39 @@ console.log('✅ Stage transition buttons patch loaded');
     console.log('\u2705 All Files modal (clean final) installed');
 })();
 </script>
+<!-- ========================================================================
+     🔥 FIREBASE MIGRATION AUTO-REGISTER
+     Self-registers this page so Admin Dashboard shows 🔥 badge.
+     ======================================================================== -->
+<script type="module">
+import { initializeApp, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+const PAGE_NAME = 'workers_manager';   // ← page name (matches "page" in MODULES array)
+
+setTimeout(async () => {
+  try {
+    let app;
+    try { app = getApp(); } catch(e) {
+      app = initializeApp({
+        apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+        authDomain: "mgsd2026.firebaseapp.com",
+        projectId: "mgsd2026",
+        storageBucket: "mgsd2026.firebasestorage.app",
+        messagingSenderId: "918582360831",
+        appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+      });
+    }
+    const db = getFirestore(app);
+    const data = { value: {}, updatedAt: new Date().toISOString() };
+    data.value[PAGE_NAME] = true;
+    await setDoc(doc(db, 'mgs_admin_settings', 'migrated_modules'), data, { merge: true });
+    console.log('🔥 Registered as Firebase-migrated:', PAGE_NAME);
+  } catch(e) {
+    console.warn('Auto-register failed:', e.message);
+  }
+}, 2500);
+</script>
+<!-- ======================================================================== -->
 </body>
 </html>
