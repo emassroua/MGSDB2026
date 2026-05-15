@@ -1948,6 +1948,38 @@ function computeEmployerCode(emp) {
 // ====================================================================
 document.addEventListener('DOMContentLoaded', init);
 </script>
+<!-- ========================================================================
+     🔥 FIREBASE MIGRATION AUTO-REGISTER
+     ======================================================================== -->
+<script type="module">
+import { initializeApp, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+const PAGE_NAME = 'employers_manager';
+
+setTimeout(async () => {
+  try {
+    let app;
+    try { app = getApp(); } catch(e) {
+      app = initializeApp({
+        apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+        authDomain: "mgsd2026.firebaseapp.com",
+        projectId: "mgsd2026",
+        storageBucket: "mgsd2026.firebasestorage.app",
+        messagingSenderId: "918582360831",
+        appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+      });
+    }
+    const db = getFirestore(app);
+    const data = { value: {}, updatedAt: new Date().toISOString() };
+    data.value[PAGE_NAME] = true;
+    await setDoc(doc(db, 'mgs_admin_settings', 'migrated_modules'), data, { merge: true });
+    console.log('🔥 Registered as Firebase-migrated:', PAGE_NAME);
+  } catch(e) {
+    console.warn('Auto-register failed:', e.message);
+  }
+}, 2500);
+</script>
+<!-- ======================================================================== -->
 </body>
 </html>
