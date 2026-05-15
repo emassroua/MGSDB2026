@@ -27,6 +27,23 @@ function sanitizeDates(obj) {
 }
 
 function doGet(e) {
+  // ═══════════════════════════════════════════════════════════
+  // META WEBHOOK VERIFICATION
+  // Meta sends a GET with hub.mode=subscribe to verify our URL.
+  // We must echo back the hub.challenge value if the token matches.
+  // ═══════════════════════════════════════════════════════════
+  try {
+    var _wp = (e && e.parameter) || {};
+    if (_wp['hub.mode'] === 'subscribe') {
+      var _expected = 'mgs_whatsapp_2026_secret';
+      if (_wp['hub.verify_token'] === _expected) {
+        return ContentService.createTextOutput(_wp['hub.challenge'] || '')
+          .setMimeType(ContentService.MimeType.TEXT);
+      }
+      return ContentService.createTextOutput('Forbidden')
+        .setMimeType(ContentService.MimeType.TEXT);
+    }
+  } catch(_webhookGetErr) { /* fall through to existing doGet logic */ }
   try {
     var params = e.parameter || {};
 
@@ -167,7 +184,15 @@ function handleRequest(params) {
     case 'getPDFThumbnail':          return actionGetPDFThumbnail(params);
     case 'setup':                    return actionSetup(params);
     case 'syncContacts':             return actionSyncContacts(params);
+    case 'syncSingleAgency':         return syncAgencyOnlyBatch(params.agencyCode);
+    case 'hasContactsForAgency': return actionHasContactsForAgency(params);
+    case 'cleanupStorage': return dailyJanitorCleanup();
     case 'getSyncProgress':          return actionGetSyncProgress(params);
+    case 'searchContactsByName':     return actionSearchContactsByName(params);
+    case 'syncContactByResourceName':return actionSyncContactByResourceName(params);
+    case 'searchContactsByName':     return actionSearchContactsByName(params);
+    case 'syncContactByResourceName':return actionSyncContactByResourceName(params);
+    case 'syncEmployerContact':      return actionSyncEmployerContact(params);
     case 'uploadEmployerFile':       return uploadEmployerFile(params);
     case 'cleanupEmployerFiles':     return cleanupEmployerFiles(params);
     case 'saveMessagingAssignments': return saveMessagingAssignments(params.data);
@@ -181,6 +206,11 @@ function handleRequest(params) {
     case 'saveTemplate':             return saveTemplate(params);
     case 'toggleTemplate':           return toggleTemplate(params);
     case 'deleteTemplate':           return deleteTemplate(params);
+    case 'submitMetaTemplate':       return submitMetaTemplate(params);
+    case 'checkMetaTemplateStatus':  return checkMetaTemplateStatus(params);
+    case 'testSendTemplate':         return testSendTemplate(params);
+    case 'sendMetaTemplate':         return sendMetaTemplate(params);
+    case 'sendMetaFreeText':         return sendMetaFreeText(params);
     case 'getSystemStats':           return getSystemStats();
     default: return { success: false, error: 'Unknown action: ' + action };
   }
@@ -1611,6 +1641,123 @@ function getSystemStats() {
 }
 
 // ============================================================
+// ACTIONS — single-contact sync (for Firebase page buttons)
+// ============================================================
+
+/**
+ * Search Google Contacts by name (used by ⚡ Instant Sync).
+ * Returns matching contacts with resourceName for picking.
+ */
+function actionSearchContactsByName(params) {
+  try {
+    var searchName = (params.name || '').trim();
+    if (!searchName) return { success: false, error: 'Missing name parameter' };
+
+    var token = getValidAccessToken();
+    if (!token) return { success: false, error: 'Not authorized. Run getAuthorizationUrl() once.' };
+
+    var matches = [];
+    var pageToken = null;
+    do {
+      var url = 'https://people.googleapis.com/v1/people/me/connections'
+        + '?personFields=names,phoneNumbers'
+        + '&pageSize=1000'
+        + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
+
+      var resp = UrlFetchApp.fetch(url, {
+        headers: { Authorization: 'Bearer ' + token },
+        muteHttpExceptions: true
+      });
+
+      var data = JSON.parse(resp.getContentText());
+      (data.connections || []).forEach(function(p) {
+        var name = (p.names && p.names[0]) ? p.names[0].displayName : '';
+        if (name && name.toLowerCase().indexOf(searchName.toLowerCase()) !== -1) {
+          var phone = (p.phoneNumbers && p.phoneNumbers[0]) ? p.phoneNumbers[0].value : '';
+          matches.push({ resourceName: p.resourceName, name: name, phone: phone });
+        }
+      });
+      pageToken = data.nextPageToken || null;
+    } while (pageToken);
+
+    return { success: true, contacts: matches };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Sync ONE specific contact by its resourceName.
+ * Used after the user picks from search results.
+ */
+function actionSyncContactByResourceName(params) {
+  try {
+    var resourceName = (params.resourceName || '').trim();
+    if (!resourceName) return { success: false, error: 'Missing resourceName' };
+
+    var token = getValidAccessToken();
+    if (!token) return { success: false, error: 'Not authorized.' };
+
+    var url = 'https://people.googleapis.com/v1/' + resourceName
+      + '?personFields=names,phoneNumbers,emailAddresses,addresses,organizations,biographies,userDefined,birthdays';
+
+    var resp = UrlFetchApp.fetch(url, {
+      headers: { Authorization: 'Bearer ' + token },
+      muteHttpExceptions: true
+    });
+
+    if (resp.getResponseCode() !== 200) {
+      return { success: false, error: 'People API error: ' + resp.getContentText() };
+    }
+
+    var person = JSON.parse(resp.getContentText());
+
+    // Process this single contact through processContacts (handles dual-write to Firestore)
+    var ss          = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet       = ss.getSheetByName('Employers') || ss.insertSheet('Employers');
+    var existingMap = buildExistingEmployerMap(sheet);
+    var stats       = { inserted: 0, updated: 0, inactive: 0, folders: 0, errors: 0, total: 1 };
+
+    processContacts([person], existingMap, stats);
+
+    return {
+      success:  true,
+      inserted: stats.inserted,
+      updated:  stats.updated,
+      folders:  stats.folders,
+      errors:   stats.errors
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Sync ONE existing employer (by EmployerID) — looks up their GoogleContactID
+ * in Sheets, then syncs that contact. Used by 🔄 "Sync This Contact" button.
+ */
+function actionSyncEmployerContact(params) {
+  try {
+    var employerId = String(params.employerId || '').trim();
+    if (!employerId) return { success: false, error: 'Missing employerId' };
+
+    // Find the employer in Sheets to get their GoogleContactID
+    var employers = actionGetAll({ sheet: 'Employers' });
+    if (!employers || !employers.data) return { success: false, error: 'Could not load Employers' };
+
+    var emp = employers.data.find(function(e) {
+      return String(e.EmployerID) === employerId;
+    });
+    if (!emp) return { success: false, error: 'Employer ' + employerId + ' not found' };
+    if (!emp.GoogleContactID) return { success: false, error: 'Employer has no GoogleContactID — was not added via sync' };
+
+    // Delegate to syncContactByResourceName
+    return actionSyncContactByResourceName({ resourceName: emp.GoogleContactID });
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+// ============================================================
 // AUTO TRIGGERS — BATCH VERSION
 // ============================================================
 
@@ -1862,6 +2009,25 @@ function handleStatusCallback(params) {
 // ============================================================
 
 function doPost(e) {
+  // ═══════════════════════════════════════════════════════════
+  // META WEBHOOK RECEIVER (incoming WhatsApp messages)
+  // Webhook payloads arrive as JSON in postData.contents.
+  // Must run BEFORE the regular form-action dispatcher.
+  // ═══════════════════════════════════════════════════════════
+  try {
+    if (e && e.postData && e.postData.contents) {
+      var _raw = e.postData.contents;
+      if (_raw && _raw.charAt(0) === '{') {
+        var _payload = null;
+        try { _payload = JSON.parse(_raw); } catch(_pe) {}
+        if (_payload && _payload.object === 'whatsapp_business_account') {
+          return handleMetaWebhook(_payload);
+        }
+      }
+    }
+  } catch(_webhookPostErr) {
+    Logger.log('Webhook detection error: ' + _webhookPostErr.message);
+  }
   try {
     if (e.parameter && e.parameter.method === 'OPTIONS') {
       return buildResponse({ success: true });
@@ -1899,6 +2065,9 @@ function doPost(e) {
     }
     if (body.action === 'statusCallback') {
       return buildResponse(handleStatusCallback(body));
+    }
+    if (body.action === 'pushContactToGoogle') {
+      return buildResponse(pushContactToGoogle_(body.contact || body));
     }
     var result = handleRequest(body);
     return buildResponse(result);
@@ -2618,4 +2787,116 @@ function fixMigratedIkamaRecords() {
   } catch(e) {
     return 'Error: ' + e.message;
   }
+}
+// ============================================================
+// ACTIONS — single-contact sync (for Firebase page buttons)
+// ============================================================
+
+function actionSearchContactsByName(params) {
+  try {
+    var searchName = (params.name || '').trim();
+    if (!searchName) return { success: false, error: 'Missing name parameter' };
+
+    var token = getValidAccessToken();
+    if (!token) return { success: false, error: 'Not authorized. Run getAuthorizationUrl() once.' };
+
+    var matches = [];
+    var pageToken = null;
+    do {
+      var url = 'https://people.googleapis.com/v1/people/me/connections'
+        + '?personFields=names,phoneNumbers'
+        + '&pageSize=1000'
+        + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
+
+      var resp = UrlFetchApp.fetch(url, {
+        headers: { Authorization: 'Bearer ' + token },
+        muteHttpExceptions: true
+      });
+
+      var data = JSON.parse(resp.getContentText());
+      (data.connections || []).forEach(function(p) {
+        var name = (p.names && p.names[0]) ? p.names[0].displayName : '';
+        if (name && name.toLowerCase().indexOf(searchName.toLowerCase()) !== -1) {
+          var phone = (p.phoneNumbers && p.phoneNumbers[0]) ? p.phoneNumbers[0].value : '';
+          matches.push({ resourceName: p.resourceName, name: name, phone: phone });
+        }
+      });
+      pageToken = data.nextPageToken || null;
+    } while (pageToken);
+
+    return { success: true, contacts: matches };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function actionSyncContactByResourceName(params) {
+  try {
+    var resourceName = (params.resourceName || '').trim();
+    if (!resourceName) return { success: false, error: 'Missing resourceName' };
+
+    var token = getValidAccessToken();
+    if (!token) return { success: false, error: 'Not authorized.' };
+
+    var url = 'https://people.googleapis.com/v1/' + resourceName
+      + '?personFields=names,phoneNumbers,emailAddresses,addresses,organizations,biographies,userDefined,birthdays';
+
+    var resp = UrlFetchApp.fetch(url, {
+      headers: { Authorization: 'Bearer ' + token },
+      muteHttpExceptions: true
+    });
+
+    if (resp.getResponseCode() !== 200) {
+      return { success: false, error: 'People API error: ' + resp.getContentText() };
+    }
+
+    var person = JSON.parse(resp.getContentText());
+
+    var ss          = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet       = ss.getSheetByName('Employers') || ss.insertSheet('Employers');
+    var existingMap = buildExistingEmployerMap(sheet);
+    var stats       = { inserted: 0, updated: 0, inactive: 0, folders: 0, errors: 0, total: 1 };
+
+    processContacts([person], existingMap, stats);
+
+    return {
+      success:  true,
+      inserted: stats.inserted,
+      updated:  stats.updated,
+      folders:  stats.folders,
+      errors:   stats.errors
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function actionSyncEmployerContact(params) {
+  try {
+    var employerId = String(params.employerId || '').trim();
+    if (!employerId) return { success: false, error: 'Missing employerId' };
+
+    var employers = actionGetAll({ sheet: 'Employers' });
+    if (!employers || !employers.data) return { success: false, error: 'Could not load Employers' };
+
+    var emp = employers.data.find(function(e) {
+      return String(e.EmployerID) === employerId;
+    });
+    if (!emp) return { success: false, error: 'Employer ' + employerId + ' not found' };
+    if (!emp.GoogleContactID) return { success: false, error: 'Employer has no GoogleContactID — was not added via sync' };
+
+    return actionSyncContactByResourceName({ resourceName: emp.GoogleContactID });
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function checkToken() {
+  var t = PropertiesService.getScriptProperties().getProperty('META_WEBHOOK_VERIFY_TOKEN');
+  Logger.log('Token value: [' + t + ']');
+}
+
+function debugTestSearch() {
+  var result = actionSearchContactsByName({name: 'lahoud'});
+  Logger.log(JSON.stringify(result, null, 2));
 }
