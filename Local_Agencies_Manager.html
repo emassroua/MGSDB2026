@@ -722,12 +722,21 @@ const CloudDB = {
 
     async saveRow(sheetName, rowData) {
         await this._waitReady();
+        const keyName = this._key(sheetName);
+        const rawId   = rowData[keyName] !== undefined ? rowData[keyName] : rowData.id;
+        const id      = (rawId === undefined || rawId === null) ? '' : String(rawId).trim();
+        if (!id || id === 'NaN' || id === 'undefined' || id === 'null') {
+            const msg = '❌ saveRow aborted: invalid key "' + id + '" for ' + sheetName + ' (field: ' + keyName + ')';
+            console.error(msg, rowData);
+            throw new Error(msg);
+        }
         try {
-            const id = String(rowData[this._key(sheetName)] || rowData.id || '');
-            if (!id) { console.warn('saveRow missing key:', sheetName); return null; }
             await this._db.collection(this._coll(sheetName)).doc(id).set(rowData);
-            return { success: true, action: 'saved' };
-        } catch(e) { console.error('saveRow error:', sheetName, e); return null; }
+            return { success: true, action: 'saved', id: id };
+        } catch(e) {
+            console.error('saveRow Firestore error:', sheetName, id, e);
+            throw e;
+        }
     },
 
     async deleteRow(sheetName, id) {
@@ -803,42 +812,47 @@ async function init() {
     try {
         const cloudData = await CloudDB.loadAll();
 
-        if (cloudData.agencies  && cloudData.agencies.length  > 0) agencies  = cloudData.agencies;
-        if (cloudData.employers && cloudData.employers.length > 0) {
-        employers = cloudData.employers;
-        employers.forEach(function(emp) {
-        emp.Disabled = emp.Disabled === true || emp.Disabled === 'true' || emp.Disabled === 'TRUE';
-    });
-}
+        // Firestore is source of truth — replace local arrays unconditionally on successful load,
+        // even when cloud returns zero records (drops stale localStorage entries).
+        if (cloudData) {
+            agencies = cloudData.agencies || [];
+            employers = cloudData.employers || [];
+            employers.forEach(function(emp) {
+                emp.Disabled = emp.Disabled === true || emp.Disabled === 'true' || emp.Disabled === 'TRUE';
+            });
+            // Refresh localStorage to match Firestore so it stops drifting
+            localStorage.setItem('mgsdb_local_agencies', JSON.stringify(agencies));
+            console.log('☁️ Cloud is authoritative — agencies:', agencies.length, 'employers:', employers.length);
 
-if (cloudData.workers && cloudData.workers.length > 0) {
-    const localProcMap = {};
-    allWorkers.forEach(w => {
-        if ((w.Processing === true || w.Processing === 'true') ||
-            (w.Locked     === true || w.Locked     === 'true')) {
-            localProcMap[w.WorkerID] = {
-                Processing:     w.Processing,
-                ProcessingStage:w.ProcessingStage || 'processing',
-                Locked:         w.Locked,
-                LockedDate:     w.LockedDate,
-                InvoiceNumber:  w.InvoiceNumber
-            };
-        }
-            });
-            cloudData.workers.forEach(w => {
-                const lp = localProcMap[w.WorkerID];
-                if (lp) {
-                    if (!(w.Processing===true||w.Processing==='true') && (lp.Processing===true||lp.Processing==='true')) {
-                        w.Processing = true; w.ProcessingStage = lp.ProcessingStage;
+            if (cloudData.workers && cloudData.workers.length > 0) {
+                const localProcMap = {};
+                allWorkers.forEach(w => {
+                    if ((w.Processing === true || w.Processing === 'true') ||
+                        (w.Locked     === true || w.Locked     === 'true')) {
+                        localProcMap[w.WorkerID] = {
+                            Processing:     w.Processing,
+                            ProcessingStage:w.ProcessingStage || 'processing',
+                            Locked:         w.Locked,
+                            LockedDate:     w.LockedDate,
+                            InvoiceNumber:  w.InvoiceNumber
+                        };
                     }
-                    if (!(w.Locked===true||w.Locked==='true') && (lp.Locked===true||lp.Locked==='true')) {
-                        w.Locked = true; w.LockedDate = lp.LockedDate; w.InvoiceNumber = lp.InvoiceNumber;
+                });
+                cloudData.workers.forEach(w => {
+                    const lp = localProcMap[w.WorkerID];
+                    if (lp) {
+                        if (!(w.Processing===true||w.Processing==='true') && (lp.Processing===true||lp.Processing==='true')) {
+                            w.Processing = true; w.ProcessingStage = lp.ProcessingStage;
+                        }
+                        if (!(w.Locked===true||w.Locked==='true') && (lp.Locked===true||lp.Locked==='true')) {
+                            w.Locked = true; w.LockedDate = lp.LockedDate; w.InvoiceNumber = lp.InvoiceNumber;
+                        }
                     }
-                }
-            });
-            allWorkers = cloudData.workers;
-            localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
-            console.log('☁️ Workers from cloud:', allWorkers.length);
+                });
+                allWorkers = cloudData.workers;
+                localStorage.setItem('mgsdb_workers', JSON.stringify(allWorkers));
+                console.log('☁️ Workers from cloud:', allWorkers.length);
+            }
         }
     } catch(e) {
         console.warn('☁️ Cloud sync failed, using localStorage:', e.message);
@@ -887,29 +901,11 @@ function updateAutoSaveStatus(msg) {
 }
 
 function startAutoSave() {
-    _autoSaveInterval = setInterval(() => {
-        if (_hasUnsavedChanges && currentAgency) {
-            const agencyName = document.getElementById('AgencyName').value.trim();
-            if (agencyName) {
-                currentAgency.AgencyCode    = document.getElementById('AgencyCode').value.trim().toUpperCase();
-                currentAgency.AgencyName    = agencyName;
-                currentAgency.LicenseNumber = document.getElementById('LicenseNumber').value;
-                currentAgency.OwnerName      = document.getElementById('OwnerName').value;
-                currentAgency.AgencyPassword = document.getElementById('AgencyPassword').value.trim();
-                currentAgency.ContactNumber = document.getElementById('ContactNumber').value;
-                currentAgency.EmailAddress  = document.getElementById('EmailAddress').value;
-                currentAgency.Address       = document.getElementById('Address').value;
-                currentAgency.City          = document.getElementById('City').value;
-                currentAgency.Country       = document.getElementById('Country').value;
-                currentAgency.Notes         = document.getElementById('Notes').value;
-                const idx = agencies.findIndex(a => a.AgencyID === currentAgency.AgencyID);
-                if (idx >= 0) agencies[idx] = currentAgency;
-                saveAgenciesToStorage();
-            }
-            markAsSaved();
-            console.log('⏰ Auto-save complete');
-        }
-    }, 30000);
+    // DISABLED: the old auto-save mutated currentAgency from the form every 30s,
+    // which corrupted the in-memory `agencies` array whenever currentAgency was a
+    // reference to an existing item. All persistence now happens only via the explicit
+    // Save button (saveAgency), which validates and pushes to Firestore.
+    _autoSaveInterval = null;
 }
 
 // ==========================================
@@ -953,27 +949,10 @@ function loadAgencies() {
 }
 
 function saveAgenciesToStorage() {
-    localStorage.setItem('mgsdb_local_agencies', JSON.stringify(agencies));
-    console.log('💾 Saved', agencies.length, 'agencies to localStorage');
-    if (currentAgency) {
-        updateAutoSaveStatus('☁️ Syncing to cloud...');
-        console.log('📤 Sending to Google Sheets:', JSON.stringify(currentAgency));
-        CloudDB.saveRow('Local_Agencies', currentAgency).then(r => {
-            console.log('📥 Google Sheets response:', JSON.stringify(r));
-            if (r && r.success) {
-                console.log('☁️ Agency synced to Google Sheets:', currentAgency.AgencyID);
-                console.log('🔑 Password sent:', currentAgency.AgencyPassword || '(empty!)');
-                CloudDB.ready = true;
-                updateAutoSaveStatus('☁️ Synced to Google Sheets ✅');
-            } else {
-                console.warn('⚠️ Cloud sync failed:', JSON.stringify(r));
-                updateAutoSaveStatus('⚠️ Saved locally only (cloud unreachable)');
-            }
-        }).catch(e => {
-            console.warn('⚠️ Cloud sync error:', e.message);
-            updateAutoSaveStatus('⚠️ Saved locally only (cloud unreachable)');
-        });
-    }
+    // No-op. Firestore is the only source of truth.
+    // Cloud sync happens ONLY via explicit Save button click (saveAgency).
+    // The auto-save timer no longer persists anything anywhere.
+    updateAutoSaveStatus('');
 }
 
 function renderAgencyList() {
@@ -1006,8 +985,9 @@ function renderAgencyList() {
         item.onclick = () => selectAgency(agency);
 
         const empCount = employers.filter(e =>
-            String(e.AgencyID)   === String(agency.AgencyID) ||
-            String(e.AgencyCode) === String(agency.AgencyCode)
+            (String(e.AgencyID)   === String(agency.AgencyID) ||
+             String(e.AgencyCode) === String(agency.AgencyCode)) &&
+            !(e.Disabled === true || e.Disabled === 'true')
         ).length;
 
         item.innerHTML =
@@ -1108,7 +1088,7 @@ function validateLicense() {
     return true;
 }
 
-function saveAgency() {
+async function saveAgency() {
     const agencyId = document.getElementById('AgencyID').value;
     const code     = document.getElementById('AgencyCode').value.trim().toUpperCase();
     const name     = document.getElementById('AgencyName').value.trim();
@@ -1126,8 +1106,54 @@ function saveAgency() {
     if (!validateCode())   { alert('❌ Agency Code is duplicate or invalid!'); return; }
     if (!validateLicense()){ alert('❌ License Number is duplicate!'); return; }
 
+    // === Hard validation: AgencyID must be a sane numeric string ===
+    const idNum = parseInt(agencyId, 10);
+    if (!Number.isFinite(idNum) || idNum <= 0) {
+        alert('❌ Internal error: AgencyID is invalid (' + agencyId + '). Click "New Agency" again.');
+        return;
+    }
+
+    // === Fresh Firestore duplicate check (catches stale localStorage / multi-tab races) ===
+    let freshAgencies = [];
+    try {
+        freshAgencies = await CloudDB.loadSheet('Local_Agencies');
+    } catch(e) {
+        alert('❌ Could not reach Firestore to verify uniqueness. Save aborted.\n\n' + (e.message || e));
+        return;
+    }
+    const dupCode = freshAgencies.find(a =>
+        String(a.AgencyCode || '').trim().toUpperCase() === code &&
+        String(a.AgencyID) !== String(idNum)
+    );
+    if (dupCode) {
+        alert('❌ Agency Code "' + code + '" is already used by: ' + (dupCode.AgencyName || dupCode.AgencyID) + '\n\n(Detected in Firestore, not local cache.)');
+        return;
+    }
+    const dupLic = freshAgencies.find(a =>
+        String(a.LicenseNumber || '').trim() === license &&
+        String(a.AgencyID) !== String(idNum)
+    );
+    if (dupLic) {
+        alert('❌ License Number "' + license + '" is already used by: ' + (dupLic.AgencyName || dupLic.AgencyID) + '\n\n(Detected in Firestore, not local cache.)');
+        return;
+    }
+
+    // === Overwrite guard: if AgencyID already exists in Firestore with a DIFFERENT code,
+    //     the user probably forgot to click "New Agency" before entering this one ===
+    const existingSameId = freshAgencies.find(a => String(a.AgencyID) === String(idNum));
+    if (existingSameId && String(existingSameId.AgencyCode || '').trim().toUpperCase() !== code) {
+        const ok = confirm(
+            '⚠️ This will OVERWRITE an existing agency in Firestore:\n\n' +
+            'Existing: ' + existingSameId.AgencyCode + ' — ' + (existingSameId.AgencyName || '(no name)') + '\n' +
+            'New:       ' + code + ' — ' + name + '\n\n' +
+            'Did you forget to click "➕ New Agency" before entering this one?\n\n' +
+            'Click Cancel to abort, then click "➕ New Agency" first.'
+        );
+        if (!ok) return;
+    }
+
     const agency = {
-        AgencyID:      parseInt(agencyId),
+        AgencyID:      idNum,
         AgencyCode:    code,
         AgencyName:    name,
         LicenseNumber: license,
@@ -1141,15 +1167,29 @@ function saveAgency() {
         Notes:          document.getElementById('Notes').value
     };
 
+    // === Save to Firestore FIRST (await the real result before declaring success) ===
+    let cloudResult = null;
+    try {
+        cloudResult = await CloudDB.saveRow('Local_Agencies', agency);
+    } catch(e) {
+        alert('❌ Cloud save FAILED:\n' + (e.message || e) + '\n\nAgency was NOT saved to Firestore.');
+        return;
+    }
+    if (!cloudResult || !cloudResult.success) {
+        alert('❌ Cloud save FAILED (no success response from Firestore).\nAgency was NOT saved.');
+        return;
+    }
+
+    // Only after Firestore confirms, update local state
     const existingIndex = agencies.findIndex(a => a.AgencyID === agency.AgencyID);
     if (existingIndex >= 0) agencies[existingIndex] = agency; else agencies.push(agency);
 
     currentAgency = agency;
-    saveAgenciesToStorage();
+    localStorage.setItem('mgsdb_local_agencies', JSON.stringify(agencies));
     renderAgencyList();
     setStatus('✅ Saved: ' + agency.AgencyName);
     markAsSaved();
-    alert('✅ Agency saved successfully!');
+    alert('✅ Agency saved successfully to Firestore!');
 }
 
 async function deleteAgency() {
@@ -2005,7 +2045,7 @@ var dis=ag.AgencyStatus==='disabled';var act=currentAgency&&currentAgency.Agency
 if(dis&&!hd&&_agencyListFilter==='all'){hd=true;var sp=document.createElement('div');sp.style.cssText='padding:8px 14px;margin:12px 0 6px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;border-top:1px solid #334155;';sp.textContent='🚫 Disabled Agencies';lc.appendChild(sp);}
 var it=document.createElement('div');it.className='agency-item'+(act?' active':'');it.onclick=function(){selectAgency(ag);};
 if(dis){it.style.opacity='0.45';it.style.borderLeftColor='#ef4444';}
-var epc=employers.filter(function(e){return String(e.AgencyID)===String(ag.AgencyID)||String(e.AgencyCode)===String(ag.AgencyCode);}).length;
+var epc=employers.filter(function(e){return (String(e.AgencyID)===String(ag.AgencyID)||String(e.AgencyCode)===String(ag.AgencyCode))&&!(e.Disabled===true||e.Disabled==='true');}).length;
 var sb2=dis?'<span style="background:#dc2626;color:white;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:6px;">DISABLED</span>':'';
 it.innerHTML='<h4>'+(ag.AgencyCode||'—')+' – '+(ag.AgencyName||'Unnamed')+sb2+'</h4><p>License: '+(ag.LicenseNumber||'N/A')+'</p><p>Owner: '+(ag.OwnerName||'N/A')+'</p><p style="color:#667eea;font-weight:600;font-size:12px;">💼 '+epc+' Employer'+(epc!==1?'s':'')+'</p>';
 lc.appendChild(it);
@@ -2411,6 +2451,7 @@ var _empTab = 'all';
 
 window.setEmpTab = function(tab) {
     _empTab = tab;
+    window._empTabGlobal = tab;
     var tabs = ['all', 'active', 'disabled'];
     tabs.forEach(function(t) {
         var btn = document.getElementById('empTab-' + t);
@@ -3648,4 +3689,690 @@ window.openTab = function(tabName) {
 console.log('✅ Per-Agency Sync Button Patch ready');
 })();
 </script>
+<!-- ═══════════════════════════════════════════════════════════════
+     PATCH v4.1: Employer Row Layout (Manager) — matches Portal style
+═══════════════════════════════════════════════════════════════ -->
+<style>
+.emp-list-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.emp-list-row:hover {
+    border-color: #6366f1;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.1);
+    transform: translateY(-1px);
+}
+.emp-list-row.disabled {
+    opacity: 0.55;
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+.emp-list-row.disabled:hover {
+    transform: none;
+    border-color: #fecaca;
+    box-shadow: none;
+}
+.emp-list-checkbox { flex-shrink: 0; }
+.emp-list-checkbox input { width: 15px; height: 15px; cursor: pointer; accent-color: #ef4444; }
+.emp-list-code {
+    font-size: 13px;
+    font-weight: 800;
+    color: #6366f1;
+    font-family: 'Courier New', monospace;
+    min-width: 110px;
+    flex-shrink: 0;
+}
+.emp-list-row.disabled .emp-list-code { color: #dc2626; }
+.emp-list-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.emp-list-badges {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+}
+.emp-list-badge {
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+.emp-badge-w { background: #d1fae5; color: #065f46; }
+.emp-badge-s { background: #fef3c7; color: #92400e; }
+.emp-badge-d { background: #fee2e2; color: #991b1b; }
+.emp-list-contact {
+    font-size: 12px;
+    color: #64748b;
+    min-width: 130px;
+    flex-shrink: 0;
+    text-align: right;
+}
+.emp-list-actions {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+}
+.emp-list-actions button, .emp-list-actions a {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    color: white;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+.emp-list-actions button:hover, .emp-list-actions a:hover { filter: brightness(1.1); }
+.emp-list-actions button:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-l-worker { background: #28a745; }
+.btn-l-files  { background: #17a2b8; }
+.btn-l-docs   { background: #fd7e14; }
+.btn-l-folder { background: #6366f1; }
+@media (max-width: 900px) {
+    .emp-list-row { flex-wrap: wrap; }
+    .emp-list-contact { text-align: left; min-width: 0; flex: 1; }
+    .emp-list-actions { flex-basis: 100%; justify-content: flex-end; }
+}
+</style>
+
+<script>
+(function(){
+'use strict';
+console.log('🎨 Employer Row Layout Patch v4.1 loading…');
+
+window.renderEmployersTable = function() {
+    if (!currentAgency) return;
+
+    var st = (document.getElementById('employerSearchBox') || {value:''}).value.toLowerCase();
+    var list = employers.filter(function(e) {
+        return (currentAgency.AgencyID && e.AgencyID && String(e.AgencyID) === String(currentAgency.AgencyID)) ||
+               (currentAgency.AgencyCode && e.AgencyCode && String(e.AgencyCode) === String(currentAgency.AgencyCode));
+    });
+
+    if (st) {
+        var stClean = st.trim();
+        list = list.filter(function(e) {
+            var haystack = [
+                String(e.EmployerID  || ''), String(e.EmployerCode || ''),
+                String(e.EmployerName || ''), String(e.EFN || ''),
+                String(e.MobileNumber || ''), String(e.ContactNumber || ''),
+                String(e.ContactPerson || ''), String(e.EmployerContact || ''),
+                String(e.EmployerEmail || ''), String(e.EmployerCity || ''),
+                String(e.City || ''), String(e.AgencyCode || '')
+            ].join(' ').toLowerCase();
+            return haystack.includes(stClean);
+        });
+    }
+
+    var empTab = window._empTabGlobal || (typeof _empTab !== 'undefined' ? _empTab : 'all');
+    if (empTab === 'disabled') {
+        list = list.filter(function(e) { return e.Disabled === true || e.Disabled === 'true'; });
+    } else if (empTab === 'active') {
+        list = list.filter(function(e) {
+            var notDisabled = !(e.Disabled === true || e.Disabled === 'true');
+            var hasWorkers = allWorkers.some(function(w) {
+                return (w.Selected === true || w.Selected === 'true') &&
+                       (String(w.EmployerID) === String(e.EmployerID) ||
+                        (w.EmployerCode && String(w.EmployerCode) === String(e.EmployerCode)));
+            });
+            return notDisabled && hasWorkers;
+        });
+    } else {
+        list = list.filter(function(e) { return !(e.Disabled === true || e.Disabled === 'true'); });
+    }
+
+    list.sort(function(a, b) {
+        return (parseInt(b.EmployerID) || 0) - (parseInt(a.EmployerID) || 0);
+    });
+
+    // Update sub-tab badges
+    var allCount = employers.filter(function(e) {
+        return (currentAgency.AgencyID && String(e.AgencyID) === String(currentAgency.AgencyID)) ||
+               (currentAgency.AgencyCode && String(e.AgencyCode) === String(currentAgency.AgencyCode));
+    }).length;
+    var disabledCount = employers.filter(function(e) {
+        var match = (currentAgency.AgencyID && String(e.AgencyID) === String(currentAgency.AgencyID)) ||
+                    (currentAgency.AgencyCode && String(e.AgencyCode) === String(currentAgency.AgencyCode));
+        return match && (e.Disabled === true || e.Disabled === 'true');
+    }).length;
+    var activeCount = employers.filter(function(e) {
+        var match = (currentAgency.AgencyID && String(e.AgencyID) === String(currentAgency.AgencyID)) ||
+                    (currentAgency.AgencyCode && String(e.AgencyCode) === String(currentAgency.AgencyCode));
+        var notDis = !(e.Disabled === true || e.Disabled === 'true');
+        var hasW = allWorkers.some(function(w) {
+            return (w.Selected === true || w.Selected === 'true') &&
+                   (String(w.EmployerID) === String(e.EmployerID) ||
+                    (w.EmployerCode && String(w.EmployerCode) === String(e.EmployerCode)));
+        });
+        return match && notDis && hasW;
+    }).length;
+    var btnAll = document.getElementById('empTab-all');
+    var btnAct = document.getElementById('empTab-active');
+    var btnDis = document.getElementById('empTab-disabled');
+    if (btnAll) btnAll.textContent = '💼 All (' + allCount + ')';
+    if (btnAct) btnAct.textContent = '✅ Active (' + activeCount + ')';
+    if (btnDis) btnDis.textContent = '🚫 Disabled (' + disabledCount + ')';
+
+    // Pagination
+    var PAGE = 25;
+    var totalPages = Math.ceil(list.length / PAGE) || 1;
+    if (!window._currentPage) window._currentPage = 1;
+    if (window._currentPage > totalPages) window._currentPage = 1;
+    var start = (window._currentPage - 1) * PAGE;
+    var page = list.slice(start, start + PAGE);
+
+    var tbody = document.getElementById('employersTableBody');
+    if (!tbody) return;
+
+    // Hide table head and styling
+    var thead = document.querySelector('#employersTable thead');
+    if (thead) thead.style.display = 'none';
+    var table = document.getElementById('employersTable');
+    if (table) {
+        table.style.display = 'block';
+        table.style.background = 'transparent';
+        table.style.boxShadow = 'none';
+    }
+
+    if (list.length === 0) {
+        var emptyMsg = empTab === 'disabled' ? '✅ No disabled employers.'
+                     : empTab === 'active'   ? '📭 No active employers with selected workers.'
+                     : 'No employers for this agency.';
+        tbody.innerHTML = '<tr><td colspan="6"><div style="padding:50px 20px;text-align:center;color:#94a3b8;font-size:14px;">' + emptyMsg + '</div></td></tr>';
+        var oldPager = document.getElementById('empPager'); if (oldPager) oldPager.remove();
+        return;
+    }
+
+    // Build row list
+    var rowsHtml = '<tr><td colspan="6" style="padding:0;border:none;background:transparent;">';
+    page.forEach(function(emp) {
+        var isDisabled = emp.Disabled === true || emp.Disabled === 'true';
+        var displayCode = emp.EmployerCode || ((emp.AgencyCode || '') + '(' + emp.EmployerID + ')');
+        var name = (emp.EFN || emp.EmployerName || 'No Name');
+        var contact = emp.MobileNumber || emp.ContactNumber || emp.EmployerContact || '—';
+        
+        var workerCount = allWorkers.filter(function(w) {
+            if (!w.EmployerID && !w.EmployerCode) return false;
+            return (emp.EmployerID && String(w.EmployerID) === String(emp.EmployerID)) ||
+                   (emp.EmployerCode && w.EmployerCode && String(w.EmployerCode) === String(emp.EmployerCode));
+        }).length;
+        
+        var selectedCount = allWorkers.filter(function(w) {
+            return (w.Selected === true || w.Selected === 'true') &&
+                   ((emp.EmployerID && String(w.EmployerID) === String(emp.EmployerID)) ||
+                    (emp.EmployerCode && w.EmployerCode && String(w.EmployerCode) === String(emp.EmployerCode)));
+        }).length;
+        
+        var folderId = emp.EmployerFolderID || '';
+        var folderName = emp.EmployerFolderName || emp.EmployerFolder || '';
+        var hasFolder = !!(folderId || folderName);
+        var folderHref = folderId ? 'https://drive.google.com/drive/folders/' + folderId 
+                       : (emp.EmployerFolderUrl || (folderName ? 'https://drive.google.com/drive/search?q=' + encodeURIComponent(folderName) : '#'));
+
+        var badges = '';
+        if (workerCount > 0) badges += '<span class="emp-list-badge emp-badge-w">👥 ' + workerCount + '</span>';
+        if (selectedCount > 0) badges += '<span class="emp-list-badge emp-badge-s">⏳ ' + selectedCount + '</span>';
+        if (isDisabled) badges += '<span class="emp-list-badge emp-badge-d">🚫</span>';
+
+        var actions = '<button class="btn-l-worker" onclick="event.stopPropagation();quickAddWorker(' + emp.EmployerID + ')"' + (isDisabled ? ' disabled' : '') + '>👷 Worker</button>'
+                    + '<button class="btn-l-files"  onclick="event.stopPropagation();openEmployerAllFiles(' + emp.EmployerID + ')">📂 Files</button>'
+                    + '<button class="btn-l-docs"   onclick="event.stopPropagation();openEmployerDocs(' + emp.EmployerID + ')">📄 Docs</button>'
+                    + (hasFolder ? '<a class="btn-l-folder" href="' + folderHref + '" target="_blank" onclick="event.stopPropagation()">📁 Folder</a>' : '');
+
+        rowsHtml += '<div class="emp-list-row' + (isDisabled ? ' disabled' : '') + '" data-emp-id="' + emp.EmployerID + '">'
+            + '<div class="emp-list-checkbox">'
+                + '<input type="checkbox" title="' + (isDisabled ? 'Re-enable' : 'Disable') + '" ' + (isDisabled ? 'checked' : '')
+                + ' onchange="event.stopPropagation();toggleEmployerDisabled(' + emp.EmployerID + ',this)" '
+                + ' onclick="event.stopPropagation()">'
+            + '</div>'
+            + '<div class="emp-list-code">' + displayCode + '</div>'
+            + '<div class="emp-list-name" title="' + name.replace(/"/g, '&quot;') + '">' + name + '</div>'
+            + (badges ? '<div class="emp-list-badges">' + badges + '</div>' : '')
+            + '<div class="emp-list-contact">📞 ' + contact + '</div>'
+            + '<div class="emp-list-actions">' + actions + '</div>'
+        + '</div>';
+    });
+    rowsHtml += '</td></tr>';
+    
+    tbody.innerHTML = rowsHtml;
+    
+    tbody.querySelectorAll('.emp-list-row').forEach(function(row) {
+        row.addEventListener('click', function(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.type === 'checkbox' || e.target.closest('button') || e.target.closest('a')) return;
+            var empId = row.getAttribute('data-emp-id');
+            if (typeof editEmployer === 'function') editEmployer(parseInt(empId));
+        });
+    });
+
+    window._filteredEmps = list;
+    
+    var oldPager = document.getElementById('empPager'); if (oldPager) oldPager.remove();
+    if (list.length > 0) {
+        var endItem = Math.min(window._currentPage * PAGE, list.length);
+        var startItem = (window._currentPage - 1) * PAGE + 1;
+        var pagerDiv = document.createElement('div');
+        pagerDiv.id = 'empPager';
+        pagerDiv.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:12px;margin-top:14px;padding:10px 16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;';
+        pagerDiv.innerHTML = '<span style="font-size:12px;color:#64748b;font-weight:600;">' + startItem + '–' + endItem + ' of ' + list.length + ' employers</span>'
+            + '<div style="display:flex;gap:6px;align-items:center;">'
+            + '<button onclick="changePage(-1)" ' + (window._currentPage <= 1 ? 'disabled' : '') + ' style="padding:6px 14px;background:' + (window._currentPage > 1 ? '#6366f1' : '#cbd5e1') + ';color:white;border:none;border-radius:6px;cursor:' + (window._currentPage > 1 ? 'pointer' : 'not-allowed') + ';font-size:12px;font-weight:700;">◀ Prev</button>'
+            + '<span style="font-size:12px;font-weight:700;color:#334155;padding:0 8px;">' + window._currentPage + ' / ' + totalPages + '</span>'
+            + '<button onclick="changePage(1)" ' + (window._currentPage >= totalPages ? 'disabled' : '') + ' style="padding:6px 14px;background:' + (window._currentPage < totalPages ? '#6366f1' : '#cbd5e1') + ';color:white;border:none;border-radius:6px;cursor:' + (window._currentPage < totalPages ? 'pointer' : 'not-allowed') + ';font-size:12px;font-weight:700;">Next ▶</button>'
+            + '</div>';
+        var tabContent = document.querySelector('#tab-employers > div:nth-child(3)');
+        if (tabContent) tabContent.after(pagerDiv);
+    }
+};
+
+setTimeout(function() {
+    if (currentAgency) renderEmployersTable();
+}, 1700);
+
+console.log('✅ Employer Row Layout Patch v4.1 ready');
+})();
+</script>
+<!-- ═══════════════════════════════════════════════════════════════
+     PATCH v4.2: Click-to-Reenable Disabled Employer (with password)
+═══════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+'use strict';
+console.log('🔧 Re-enable Disabled Employer Patch v4.2 loading…');
+
+window.reenableDisabledEmployer = async function(employerId) {
+    var emp = employers.find(function(e) { return String(e.EmployerID) === String(employerId); });
+    if (!emp) { alert('❌ Employer not found!'); return; }
+    
+    if (!(emp.Disabled === true || emp.Disabled === 'true')) {
+        alert('ℹ️ This employer is already active.');
+        return;
+    }
+    
+    var pwd = prompt(
+        '🔓 Re-enable Employer\n\n' +
+        '💼 ' + (emp.EFN || emp.EmployerName) + ' (' + emp.EmployerCode + ')\n\n' +
+        'Are you sure you want to re-enable this employer?\n' +
+        'Enter admin password:'
+    );
+    
+    if (pwd === null) return; // user cancelled
+    if (pwd !== 'masr3434') {
+        alert('❌ Wrong password!');
+        return;
+    }
+    
+    emp.Disabled = false;
+    emp.DisabledAt = null;
+    emp.ReenabledAt = new Date().toISOString();
+    
+    var idx = employers.findIndex(function(e) { return String(e.EmployerID) === String(employerId); });
+    if (idx >= 0) employers[idx] = emp;
+    localStorage.setItem('mgsdb_employers', JSON.stringify(employers));
+    
+    try {
+        await CloudDB.saveRow('Employers', emp);
+        console.log('✅ Employer re-enabled:', employerId);
+    } catch(e) {
+        console.error('Cloud save failed:', e);
+    }
+    
+    alert('✅ Employer re-enabled!\n\n💼 ' + (emp.EFN || emp.EmployerName) + ' is now active.');
+    renderEmployersTable();
+};
+
+// Override the click behavior on disabled rows
+var _origRender42 = window.renderEmployersTable;
+window.renderEmployersTable = function() {
+    _origRender42.apply(this, arguments);
+    
+    var tbody = document.getElementById('employersTableBody');
+    if (!tbody) return;
+    
+    var empTab = window._empTabGlobal || 'all';
+    if (empTab !== 'disabled') return;
+    
+    // For disabled tab — replace row click with re-enable action
+    tbody.querySelectorAll('.emp-list-row.disabled').forEach(function(row) {
+        var newRow = row.cloneNode(true);
+        row.parentNode.replaceChild(newRow, row);
+        
+        // Re-attach checkbox handler
+        var checkbox = newRow.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+            checkbox.addEventListener('change', function(e) {
+                e.stopPropagation();
+                var empId = newRow.getAttribute('data-emp-id');
+                toggleEmployerDisabled(parseInt(empId), checkbox);
+            });
+            checkbox.addEventListener('click', function(e) { e.stopPropagation(); });
+        }
+        
+        // Re-attach button click stoppers
+        newRow.querySelectorAll('button, a').forEach(function(btn) {
+            btn.addEventListener('click', function(e) { e.stopPropagation(); });
+        });
+        
+        // Row click → re-enable prompt
+        newRow.addEventListener('click', function(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || 
+                e.target.type === 'checkbox' || e.target.closest('button') || e.target.closest('a')) return;
+            var empId = newRow.getAttribute('data-emp-id');
+            reenableDisabledEmployer(parseInt(empId));
+        });
+        
+        // Add visual hint
+        newRow.style.cursor = 'pointer';
+        newRow.title = 'Click to re-enable this employer';
+    });
+};
+
+console.log('✅ Patch v4.2 ready — click disabled row to re-enable (password protected)');
+})();
+</script>
+<!-- ============================================================
+     v4.3 — Auto-sync popup on new agency creation
+     Hooks into Save Agency success. If the saved agency is NEW
+     (not an edit), checks if any Google Contacts are tagged with
+     that agency code. If yes, prompts to sync immediately.
+     Backend untouched, 15-min trigger untouched.
+     ============================================================ -->
+<script>
+(function() {
+  var AS_URL = 'https://script.google.com/macros/s/AKfycbxEbNo287tvEezLwy8vYHrNWxPXELlzzsGVg9yeA6XXDIkXdR0ILEKOTWbG88PxHiIf/exec';
+
+  // Track existing agency codes BEFORE save, so we can detect new ones
+  var _knownCodesBeforeSave = new Set();
+
+  function snapshotKnownCodes() {
+    _knownCodesBeforeSave.clear();
+    if (typeof agencies !== 'undefined' && Array.isArray(agencies)) {
+      agencies.forEach(function(a) {
+        if (a && a.AgencyCode) {
+          _knownCodesBeforeSave.add(String(a.AgencyCode).trim().toUpperCase());
+        }
+      });
+    }
+  }
+
+  // Snapshot on page load and whenever the save modal opens
+  document.addEventListener('DOMContentLoaded', snapshotKnownCodes);
+  setTimeout(snapshotKnownCodes, 1500); // safety net for late-loading agencies
+
+  // Wrap saveEmployer / saveAgency — intercept the SAVE call result
+  var _origSaveAgency = window.saveAgency;
+  if (typeof _origSaveAgency === 'function') {
+    window.saveAgency = async function() {
+      // Snapshot before save so we can compare after
+      snapshotKnownCodes();
+
+      // Capture the code being saved (from form input)
+      var codeInput = document.getElementById('AgencyCode')
+        || document.querySelector('input[name="AgencyCode"]')
+        || document.querySelector('#editAgencyCode');
+      var savedCode = codeInput ? String(codeInput.value || '').trim().toUpperCase() : '';
+
+      // Run the original save
+      var result = await _origSaveAgency.apply(this, arguments);
+
+      // After save, check if this code was NEW
+      if (savedCode && !_knownCodesBeforeSave.has(savedCode)) {
+        // Refresh list, then trigger the popup flow
+        setTimeout(function() {
+          checkAndPromptAutoSync(savedCode);
+        }, 800);
+      }
+
+      return result;
+    };
+  }
+
+  // Check backend for tagged contacts, then show popup if yes
+  function checkAndPromptAutoSync(agencyCode) {
+    var checkUrl = AS_URL + '?action=hasContactsForAgency&agencyCode=' + encodeURIComponent(agencyCode);
+
+    // Show subtle "checking" indicator
+    showAutoSyncToast('Checking Google Contacts for ' + agencyCode + '…', 'info');
+
+    fetch(checkUrl)
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        hideAutoSyncToast();
+        if (!res || !res.success) {
+          console.warn('hasContactsForAgency failed:', res);
+          return; // silent fail — don't block user
+        }
+        if (res.hasContacts) {
+          showSyncPopup(agencyCode);
+        }
+        // If no contacts → no popup, no message (user just created the agency, that's fine)
+      })
+      .catch(function(err) {
+        hideAutoSyncToast();
+        console.warn('Auto-sync check error:', err);
+      });
+  }
+
+  // Popup UI
+  function showSyncPopup(agencyCode) {
+    var overlay = document.createElement('div');
+    overlay.id = 'autoSyncPopupOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:99999;';
+
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.3);font-family:system-ui,sans-serif;';
+    box.innerHTML =
+      '<h3 style="margin:0 0 12px;color:#0a4d2e;font-size:18px;">Found Google Contacts for ' + agencyCode + '</h3>' +
+      '<p style="margin:0 0 20px;color:#333;line-height:1.5;font-size:14px;">' +
+        'There are existing Google Contacts tagged with <b>' + agencyCode + '</b>. ' +
+        'Do you want to sync them to Employers now?' +
+      '</p>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
+        '<button id="autoSyncLater" style="padding:8px 16px;border:1px solid #ccc;background:#f5f5f5;border-radius:6px;cursor:pointer;font-size:14px;">Later</button>' +
+        '<button id="autoSyncNow" style="padding:8px 16px;border:none;background:#0a7d4a;color:#fff;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;">Sync now</button>' +
+      '</div>';
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    document.getElementById('autoSyncLater').onclick = function() {
+      document.body.removeChild(overlay);
+    };
+    document.getElementById('autoSyncNow').onclick = function() {
+      document.body.removeChild(overlay);
+      kickOffAgencySync(agencyCode);
+    };
+  }
+
+  // Kick off the per-agency sync (same backend as manual button)
+  function kickOffAgencySync(agencyCode) {
+    showAutoSyncToast('Syncing ' + agencyCode + '…', 'info');
+    var url = AS_URL + '?action=syncSingleAgency&agencyCode=' + encodeURIComponent(agencyCode);
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        hideAutoSyncToast();
+        if (res && res.success) {
+          var msg = 'Sync started for ' + agencyCode + '.';
+          if (typeof res.processed === 'number') msg += ' Processed: ' + res.processed;
+          if (res.inProgress) msg += ' (More batches will run automatically.)';
+          showAutoSyncToast(msg, 'success', 6000);
+        } else {
+          showAutoSyncToast('Sync failed: ' + (res && res.error || 'unknown'), 'error', 6000);
+        }
+      })
+      .catch(function(err) {
+        hideAutoSyncToast();
+        showAutoSyncToast('Sync error: ' + err.message, 'error', 6000);
+      });
+  }
+
+  // Toast UI
+  function showAutoSyncToast(message, type, duration) {
+    hideAutoSyncToast();
+    var colors = { info: '#1e3a8a', success: '#0a7d4a', error: '#a32d2d' };
+    var bg = colors[type] || colors.info;
+    var toast = document.createElement('div');
+    toast.id = 'autoSyncToast';
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:' + bg + ';color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;font-size:14px;z-index:99998;max-width:360px;';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    if (duration) {
+      setTimeout(hideAutoSyncToast, duration);
+    }
+  }
+
+  function hideAutoSyncToast() {
+    var t = document.getElementById('autoSyncToast');
+    if (t) t.remove();
+  }
+
+  console.log('[v4.3] Auto-sync-on-new-agency popup loaded');
+})();
+</script>
+<!-- v4.4 — Default to Enabled tab on page load -->
+<script>
+(function() {
+  // Wait for agencies to load (they're loaded async from Firestore),
+  // then set the filter to 'enabled' instead of 'all'.
+  function applyDefaultFilter() {
+    if (typeof setAgencyListFilter === 'function') {
+      setAgencyListFilter('enabled');
+      console.log('[v4.4] Default tab set to Enabled');
+    } else {
+      // Function not yet defined, retry shortly
+      setTimeout(applyDefaultFilter, 200);
+    }
+  }
+  // Wait a moment for initial render, then switch
+ setTimeout(applyDefaultFilter, 500);
+})();
+</script>
+
+<!-- ========================================================================
+     🔥 FIREBASE MIGRATION AUTO-REGISTER
+     ======================================================================== -->
+<script type="module">
+import { initializeApp, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const PAGE_NAME = 'local_agencies_manager';
+
+setTimeout(async () => {
+  try {
+    let app;
+    try { app = getApp(); } catch(e) {
+      app = initializeApp({
+        apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+        authDomain: "mgsd2026.firebaseapp.com",
+        projectId: "mgsd2026",
+        storageBucket: "mgsd2026.firebasestorage.app",
+        messagingSenderId: "918582360831",
+        appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+      });
+    }
+    const db = getFirestore(app);
+    const data = { value: {}, updatedAt: new Date().toISOString() };
+    data.value[PAGE_NAME] = true;
+    await setDoc(doc(db, 'mgs_admin_settings', 'migrated_modules'), data, { merge: true });
+    console.log('🔥 Registered as Firebase-migrated:', PAGE_NAME);
+  } catch(e) {
+    console.warn('Auto-register failed:', e.message);
+  }
+}, 2500);
+</script>
+<!-- ======================================================================== -->
+<!-- ========================================================================
+     🔄 FIRESTORE-FIRST SYNC PATCH v1.0
+     Hydrates localStorage cache from Firestore on page load,
+     so clearing Firestore via Reset Manager actually takes effect.
+     Safe additive patch — does not modify any existing load/save logic.
+     ======================================================================== -->
+<script>
+(function() {
+  'use strict';
+  console.log('🔄 Firestore-First Sync Patch loading...');
+
+  const LS_KEY = 'mgsdb_local_agencies';
+
+  function waitForCloudDB(timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const check = () => {
+        if (typeof CloudDB !== 'undefined' && CloudDB && typeof CloudDB.loadSheet === 'function') {
+          resolve();
+        } else if (Date.now() - start > timeoutMs) {
+          reject(new Error('CloudDB never became ready'));
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      check();
+    });
+  }
+
+  async function hydrateFromFirestore() {
+    try {
+      await waitForCloudDB(15000);
+      console.log('🔄 Fetching agencies from Firestore...');
+
+      const rows = await CloudDB.loadSheet('Local_Agencies');
+      if (!Array.isArray(rows)) {
+        console.warn('⚠️ Firestore returned non-array, skipping sync');
+        return;
+      }
+
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify(rows));
+      } catch(e) {
+        console.warn('⚠️ Could not write localStorage:', e.message);
+      }
+
+      if (typeof loadAgencies === 'function') loadAgencies();
+      if (typeof renderAgencyList === 'function') renderAgencyList();
+
+      console.log('✅ Firestore-First Sync complete:', rows.length, 'agencies from cloud');
+
+      try {
+        const status = document.getElementById('autoSaveStatus');
+        if (status) {
+          const prev = status.textContent;
+          status.textContent = '☁️ Synced from cloud (' + rows.length + ')';
+          setTimeout(() => { if (status.textContent.startsWith('☁️ Synced')) status.textContent = prev || ''; }, 3000);
+        }
+      } catch(e) {}
+    } catch(e) {
+      console.warn('⚠️ Firestore-First Sync skipped:', e.message);
+      // Silent fallback — page keeps working from localStorage
+    }
+  }
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(hydrateFromFirestore, 800);
+  } else {
+    window.addEventListener('DOMContentLoaded', () => setTimeout(hydrateFromFirestore, 800));
+  }
+
+  console.log('✅ Firestore-First Sync Patch v1.0 ready');
+})();
+</script>
+<!-- ======================================================================== -->
+</body>
 </html>
