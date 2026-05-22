@@ -93,7 +93,7 @@ tr:nth-child(even):hover td{background:#f1f5f9;}
 .cs-service-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:5px;}
 .cs-service-value{font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;}
 .cs-service-date{font-size:11px;color:var(--muted);}
-.cs-add-btn{font-size:10px;padding:4px 10px;border-radius:5px;background:var(--accent);color:white;border:none;cursor:pointer;font-family:inherit;font-weight:700;margin-top:6px;}
+.cs-add-btn{font-size:10px;padding:4px 10px;border-radius:5px;background:var(--accent);color:white;border:none;cursor:pointer;font-family:inherit;font-weight:700;margin-top:auto;}
 .cs-add-btn:hover{opacity:0.85;}
 .cs-edit-btn{font-size:10px;padding:4px 10px;border-radius:5px;background:#f1f5f9;color:var(--text);border:1px solid var(--border);cursor:pointer;font-family:inherit;font-weight:700;margin-top:6px;margin-left:4px;}
 .cs-not-enrolled{color:#94a3b8;font-size:11px;font-style:italic;}
@@ -268,17 +268,74 @@ tr:nth-child(even):hover td{background:#f1f5f9;}
 
   <!-- TAB: INSURANCE -->
   <div id="tab-insurance" style="display:none;">
-    <div class="coming-soon"><div class="coming-soon-icon">🛡️</div><h3>Insurance</h3><p>Coming soon — insurance policy tracking</p></div>
+    <div class="stats" style="grid-template-columns:repeat(4,1fr);">
+      <div class="sc"><div class="sv" id="ins-stat-total">—</div><div class="sl">Total Workers</div></div>
+      <div class="sc" style="border-top:3px solid #10b981;"><div class="sv" style="color:#10b981;" id="ins-stat-enrolled">—</div><div class="sl">Enrolled</div></div>
+      <div class="sc" style="border-top:3px solid #f59e0b;"><div class="sv" style="color:#f59e0b;" id="ins-stat-expiring">—</div><div class="sl">Expiring Soon</div></div>
+      <div class="sc" style="border-top:3px solid #ef4444;"><div class="sv" style="color:#ef4444;" id="ins-stat-expired">—</div><div class="sl">Expired</div></div>
+    </div>
+    <div class="filters">
+      <div class="fg"><label>Search:</label><input type="text" id="insSearch" class="fi" placeholder="Name, employer..." oninput="renderInsurance()"></div>
+      <div class="fg"><label>Status:</label>
+        <select id="insFilter" class="fi" onchange="renderInsurance()">
+          <option value="">All</option>
+          <option value="none">Not Enrolled</option>
+          <option value="active">Active</option>
+          <option value="expiring">Expiring Soon</option>
+          <option value="expired">Expired</option>
+        </select>
+      </div>
+      <span class="fcount" id="insCount"></span>
+    </div>
+    <div id="insBody"><div class="loading"><div class="spin"></div><div>Loading...</div></div></div>
   </div>
 
   <!-- TAB: IKAMA -->
   <div id="tab-ikama" style="display:none;">
-    <div class="coming-soon"><div class="coming-soon-icon">🪪</div><h3>Ikama</h3><p>Coming soon — Ikama expiry monitoring</p></div>
+    <div class="stats" style="grid-template-columns:repeat(4,1fr);">
+      <div class="sc"><div class="sv" id="ika-stat-total">—</div><div class="sl">Total Workers</div></div>
+      <div class="sc" style="border-top:3px solid #8b5cf6;"><div class="sv" style="color:#8b5cf6;" id="ika-stat-enrolled">—</div><div class="sl">Enrolled</div></div>
+      <div class="sc" style="border-top:3px solid #f59e0b;"><div class="sv" style="color:#f59e0b;" id="ika-stat-expiring">—</div><div class="sl">Expiring Soon</div></div>
+      <div class="sc" style="border-top:3px solid #ef4444;"><div class="sv" style="color:#ef4444;" id="ika-stat-expired">—</div><div class="sl">Expired</div></div>
+    </div>
+    <div class="filters">
+      <div class="fg"><label>Search:</label><input type="text" id="ikaSearch" class="fi" placeholder="Name, employer..." oninput="renderIkama()"></div>
+      <div class="fg"><label>Status:</label>
+        <select id="ikaFilter" class="fi" onchange="renderIkama()">
+          <option value="">All</option>
+          <option value="none">Not Enrolled</option>
+          <option value="active">Active</option>
+          <option value="expiring">Expiring Soon</option>
+          <option value="expired">Expired</option>
+        </select>
+      </div>
+      <span class="fcount" id="ikaCount"></span>
+    </div>
+    <div id="ikaBody"><div class="loading"><div class="spin"></div><div>Loading...</div></div></div>
   </div>
 
   <!-- TAB: PASSPORT EXPIRY -->
   <div id="tab-passport" style="display:none;">
-    <div class="coming-soon"><div class="coming-soon-icon">🛂</div><h3>Passport Expiry</h3><p>Coming soon — passport expiry alerts for workers in Lebanon</p></div>
+    <div class="stats" style="grid-template-columns:repeat(4,1fr);">
+      <div class="sc"><div class="sv" id="pass-stat-total">—</div><div class="sl">Total Workers</div></div>
+      <div class="sc" style="border-top:3px solid #ef4444;"><div class="sv" style="color:#ef4444;" id="pass-stat-enrolled">—</div><div class="sl">Enrolled</div></div>
+      <div class="sc" style="border-top:3px solid #f59e0b;"><div class="sv" style="color:#f59e0b;" id="pass-stat-expiring">—</div><div class="sl">Expiring Soon</div></div>
+      <div class="sc" style="border-top:3px solid #dc2626;"><div class="sv" style="color:#dc2626;" id="pass-stat-expired">—</div><div class="sl">Expired</div></div>
+    </div>
+    <div class="filters">
+      <div class="fg"><label>Search:</label><input type="text" id="passSearch" class="fi" placeholder="Name, employer..." oninput="renderPassport()"></div>
+      <div class="fg"><label>Status:</label>
+        <select id="passFilter" class="fi" onchange="renderPassport()">
+          <option value="">All</option>
+          <option value="none">Not Enrolled</option>
+          <option value="active">Active</option>
+          <option value="expiring">Expiring Soon</option>
+          <option value="expired">Expired</option>
+        </select>
+      </div>
+      <span class="fcount" id="passCount"></span>
+    </div>
+    <div id="passBody"><div class="loading"><div class="spin"></div><div>Loading...</div></div></div>
   </div>
 
   <!-- TAB: COMPLIANCE SERVICES -->
@@ -301,7 +358,6 @@ tr:nth-child(even):hover td{background:#f1f5f9;}
           <option value="PassportRenewal">🛂 Passport Renewal</option>
         </select>
       </div>
-      <button class="btn btn-primary" onclick="openCSModal(null,'WorkPermit')">+ Add Record</button>
       <span class="fcount" id="csCount"></span>
     </div>
     <div id="csBody"><div class="loading"><div class="spin"></div><div>Loading compliance data...</div></div></div>
@@ -396,6 +452,7 @@ var SCRIPT_URL=(function(){var m=window.location.href.match(/(https:\/\/script\.
 
 var allWorkers=[],allEmployers=[];
 var allWP=[],allIns=[],allIka=[],allPass=[];
+var allFees=[];
 var allFees=[], activeFees=[];
 var _filtered=[];
 
@@ -419,10 +476,21 @@ function setCloud(ok,msg){document.getElementById('cloudDot').className='cloud-d
 function openPage(page){window.open(SCRIPT_URL+'?page='+page,'_blank');}
 function startClock(){function tick(){var el=document.getElementById('clock');if(el)el.textContent=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}tick();setInterval(tick,1000);}
 
+var allWorkerCompliance={};
+
 async function init(){
   setCloud(false,'Loading...');
-  var r=await Promise.all([gsLoad('Workers'),gsLoad('Employers'),gsComplianceLoad('WorkPermit'),gsComplianceLoad('Insurance'),gsComplianceLoad('Ikama'),gsComplianceLoad('PassportRenewal')]);
+  var r=await Promise.all([gsLoad('Workers'),gsLoad('Employers'),gsComplianceLoad('WorkPermit'),gsComplianceLoad('Insurance'),gsComplianceLoad('Ikama'),gsComplianceLoad('PassportRenewal'),gsLoad('Processing_Costs')]);
   allWorkers=r[0];allEmployers=r[1];allWP=r[2];allIns=r[3];allIka=r[4];allPass=r[5];
+  allFees=r[6]||[];
+  var ids=allWorkers.map(function(w){return String(w.WorkerID);});
+  if(ids.length){
+    try {
+      var resp=await fetch(SCRIPT_URL+'?action=getWorkersComplianceBatch&workerIDs='+ids.join(','));
+      var data=await resp.json();
+      if(data) allWorkerCompliance=data;
+    } catch(e){}
+  }
   setCloud(true,allWorkers.length+' workers');
   populateNatFilter();
   populateCSWorkerSelect();
@@ -431,7 +499,7 @@ async function init(){
   updatePrintMeta();
 }
 
-function refreshData(){setCloud(false,'Refreshing...');init();}
+function refreshData(){setCloud(false,'Refreshing...');init().then(function(){renderCompliance();updateBadges();});}
 function getEmp(w){return allEmployers.find(function(e){return String(e.EmployerID)===String(w.EmployerID)||String(e.EmployerCode)===String(w.EmployerCode);});}
 function getInLebanon(){return allWorkers.filter(function(w){return isT(w.Arrived)||isT(w.ArrivalConfirmed)||(w.ProcessingStage==='local');});}
 function wCode(w){return w.WorkerCode||(w.SupplierCode?w.SupplierCode+'-'+String(w.WorkerID).padStart(4,'0'):'ID-'+w.WorkerID);}
@@ -503,18 +571,52 @@ function openLocalEditModal(workerId){
 function saveLocalWorker(workerId){
   var w=allWorkers.find(function(x){return String(x.WorkerID)===String(workerId);});
   if(!w){alert('Worker not found');return;}
+  var emp=getEmp(w);
   var arrival=document.getElementById('lm-arrival').value;
   var startWork=document.getElementById('lm-startwork').value;
   var ikama=document.getElementById('lm-ikama').value;
   if(arrival) w.ArrivalDate=arrival;
   if(startWork) w.StartWorkDate=startWork;
-  if(ikama) w.IkamaExpiry=ikama;
+  // NOTE: w.IkamaExpiry no longer written — Ikama goes to compliance sheet
+
+  var now=new Date().toISOString();
+  var ikamaRecord=ikama?{
+    RecordID:'IKA-'+Date.now(),
+    WorkerID:w.WorkerID,
+    WorkerCode:wCode(w),
+    WorkerName:wName(w),
+    EmployerID:emp?(emp.EmployerID||''):'',
+    EmployerCode:w.EmployerCode||'',
+    EmployerName:emp?(emp.EFN||emp.EmployerName||''):'',
+    IkamaNumber:'',
+    IssueDate:'',
+    ExpiryDate:ikama,
+    RenewalDate:'',
+    Status:'Initial',
+    Cost:0,
+    PaidBy:'',
+    Notes:'Local worker — manual Ikama entry',
+    DocumentURL:'',
+    CreatedDate:now,
+    ModifiedDate:now
+  }:null;
+
   google.script.run
     .withSuccessHandler(function(result){
       if(result&&result.success){
-        document.getElementById('localEditModal').remove();
-        alert('✅ Saved successfully!');
-        renderLocalTab();
+        if(ikamaRecord){
+          google.script.run
+            .withSuccessHandler(function(){
+              document.getElementById('localEditModal').remove();
+              alert('✅ Saved successfully!');
+              renderLocalTab();
+            })
+            .gsrSaveComplianceRecord('Ikama',ikamaRecord);
+        } else {
+          document.getElementById('localEditModal').remove();
+          alert('✅ Saved successfully!');
+          renderLocalTab();
+        }
       } else {
         alert('❌ Save failed: '+(result?result.error:'Unknown error'));
       }
@@ -533,9 +635,10 @@ function switchSubTab(tab){
   if(el) el.style.display='';
   var activeBtn=document.getElementById('subtab-btn-'+tab);
   if(activeBtn){activeBtn.style.background='#1976d2';activeBtn.style.color='white';activeBtn.style.borderBottom='2px solid #1976d2';}
-  if(tab==='local') renderLocalTab();
-  if(tab==='moved') renderMovedTab();
-  if(tab==='left') renderLeftTab();
+  if(tab==='arrived') renderMain();
+  if(tab==='local') renderTabCards('Local');
+  if(tab==='moved') renderTabCards('Moved');
+  if(tab==='left') renderTabCards('Left');
 }
 
 function getLocalWorkers(){
@@ -635,7 +738,6 @@ function renderWorkerCards(wrapId,workers,icon,color,type){
       html+='<div style="font-size:12px;color:#555;margin-top:3px;">📅 Arrival: <b>'+(arrDate?fmtDate(arrDate):'—')+'</b></div>';
       html+='<div style="margin-top:5px;"><span style="background:'+color+'22;color:'+color+';padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;">'+label+'</span></div>';
       html+='</div>';
-      html+='<button onclick="undoWorkPermitType(\''+w.WorkerID+'\')" style="background:#eee;color:#333;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">↩️ Undo</button>';
       html+='</div>';
     });
     html+='</div></div>';
@@ -805,7 +907,12 @@ function renderCompliance(){
   document.getElementById('cs-stat-ins').textContent=allIns.length;
   document.getElementById('cs-stat-ika').textContent=allIka.length;
   document.getElementById('cs-stat-pass').textContent=allPass.length;
-  document.getElementById('badge-compliance').textContent=allWP.length+allIns.length+allIka.length+allPass.length;
+  var inLeb=getInLebanon();
+  var compCount=inLeb.filter(function(w){
+    var inv=[];try{inv=JSON.parse(w.ComplianceInvoiced||'[]');}catch(e){}
+    return inv.length>0||allWP.some(function(r){return String(r.WorkerID)===String(w.WorkerID);})||allIns.some(function(r){return String(r.WorkerID)===String(w.WorkerID);})||allIka.some(function(r){return String(r.WorkerID)===String(w.WorkerID);})||allPass.some(function(r){return String(r.WorkerID)===String(w.WorkerID);});
+  }).length;
+  document.getElementById('badge-compliance').textContent=compCount;
 
   var filtered=inLeb.filter(function(w){
     if(!q) return true;
@@ -829,28 +936,94 @@ function renderCompliance(){
     var ikaRec=allIka.find(function(r){return String(r.WorkerID)===wid;});
     var passRec=allPass.find(function(r){return String(r.WorkerID)===wid;});
 
-    // Skip if no services and filter is set
+    console.log('Worker:',wCode(w),'wpRec:',!!wpRec,'insRec:',!!insRec,'ikaRec:',!!ikaRec,'passRec:',!!passRec,'ComplianceInvoiced:',w.ComplianceInvoiced);
+    // Skip if no records at all
+    if(!wpRec&&!insRec&&!ikaRec&&!passRec){
+      var inv2=[];try{inv2=JSON.parse(w.ComplianceInvoiced||'[]');}catch(e){}
+      if(!inv2.length) return'';
+    }
+    // Skip if no records at all
+    if(!wpRec&&!insRec&&!ikaRec&&!passRec){
+      var inv2=[];try{inv2=JSON.parse(w.ComplianceInvoiced||'[]');}catch(e){}
+      if(!inv2.length) return'';
+    }
     if(svc==='WorkPermit'&&!wpRec) return'';
     if(svc==='Insurance'&&!insRec) return'';
     if(svc==='Ikama'&&!ikaRec) return'';
     if(svc==='PassportRenewal'&&!passRec) return'';
 
     function svcCell(rec,sheet,icon,label,numField,expiryField){
-      if(!rec) return '<div class="cs-service">'+
+      var invoiced=[];
+      try{invoiced=JSON.parse(w.ComplianceInvoiced||'[]');}catch(e){}
+      var svcKey={WorkPermit:'WorkPermit',Insurance:'Insurance',Ikama:'Ikama',PassportRenewal:'Passport'}[sheet];
+      var isInvoiced=invoiced.indexOf(svcKey)>=0||invoiced.indexOf(sheet)>=0;
+      var btnLabel={WorkPermit:'Work Permit',Insurance:'Insurance',Ikama:'Ikama',PassportRenewal:'Passport'}[sheet]||'Details';
+
+      // NOT invoiced, no record → greyed out
+      if(!rec&&!isInvoiced) return '<div class="cs-service" style="opacity:0.4;display:flex;flex-direction:column;">'+
         '<div class="cs-service-title">'+icon+' '+label+'</div>'+
-        '<div class="cs-not-enrolled">Not enrolled</div>'+
-        '<button class="cs-add-btn" onclick="openCSModal('+w.WorkerID+',\''+sheet+'\')">+ Enroll</button>'+
+        '<div class="cs-not-enrolled" style="font-size:10px;color:#999;">Not invoiced</div>'+
         '</div>';
-      var d=daysUntil(rec[expiryField]||rec.ExpiryDate);
-      var statusCls=rec.Status==='Active'?'status-active':rec.Status==='Expired'?'status-expired':rec.Status==='Renewed'?'status-renewed':'status-pending';
-      var daysHtml=d===null?'':d<0?'<span style="color:#dc2626;font-size:10px;">Expired '+Math.abs(d)+'d ago</span>':d<=30?'<span style="color:#f59e0b;font-size:10px;">Expires in '+d+'d ⚠️</span>':'<span style="color:#16a34a;font-size:10px;">'+d+' days left</span>';
-      return '<div class="cs-service">'+
+
+      // INVOICED, no record → show fallback expiry + Add button
+      if(!rec&&isInvoiced){
+        var fallbackExp='';
+        if(sheet==='WorkPermit') fallbackExp=w.EntryValidUntil||w.ArrivalDate||'';
+        if(sheet==='Ikama') fallbackExp=w.IkamaExpiry||'';
+        if(sheet==='PassportRenewal') fallbackExp=w.PassportExpiryDate||'';
+        var fallbackDays=fallbackExp?daysUntil(fallbackExp):null;
+        var fallbackHtml=fallbackExp?'<div class="cs-service-date" style="margin-top:4px;">'+fmtDate(fallbackExp)+'</div>'+(fallbackDays!==null?'<div>'+(fallbackDays<0?'<span style="color:#dc2626;font-size:10px;">Expired</span>':fallbackDays<=30?'<span style="color:#f59e0b;font-size:10px;">'+fallbackDays+'d left ⚠️</span>':'<span style="color:#16a34a;font-size:10px;">'+fallbackDays+'d left</span>')+'</div>':''):'';
+        var nextHtml='';
+        return '<div class="cs-service" style="display:flex;flex-direction:column;">'+
+          '<div>'+
+          '<div class="cs-service-title">'+icon+' '+label+'</div>'+
+          '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;">✅ Invoiced</span>'+
+          fallbackHtml+nextHtml+
+          '</div>'+
+          '<button class="cs-add-btn" style="margin-top:auto;" onclick="openCSEditModal(\''+w.WorkerID+'\',\''+sheet+'\',null)">✏️ Add '+btnLabel+'</button>'+
+          '<button class="cs-add-btn" style="margin-top:4px;background:#0f172a;" onclick="openCSDocsPopup(\''+w.WorkerID+'\',\''+sheet+'\')">📂 Docs</button>'+
+          '</div>';
+      }
+
+      // HAS RECORD but no expiry yet → Pending details
+      var expDate=rec[expiryField]||rec.ExpiryDate||'';
+      if(!expDate){
+        return '<div class="cs-service" style="display:flex;flex-direction:column;">'+
+          '<div>'+
+          '<div class="cs-service-title">'+icon+' '+label+'</div>'+
+          '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;">✅ Invoiced</span>'+
+          '<div class="cs-not-enrolled" style="margin-top:6px;">Pending details</div>'+
+          '</div>'+
+          '<button class="cs-add-btn" style="margin-top:auto;" onclick="openCSEditModal(\''+w.WorkerID+'\',\''+sheet+'\',\''+rec.RecordID+'\')">✏️ Add '+btnLabel+'</button>'+
+          '</div>';
+      }
+
+      // HAS RECORD + has expiry → full display
+      var d=daysUntil(expDate);
+      var daysHtml=d<0?'<span style="color:#dc2626;font-size:10px;">Expired '+Math.abs(d)+'d ago</span>':d<=30?'<span style="color:#f59e0b;font-size:10px;">Expires in '+d+'d ⚠️</span>':'<span style="color:#16a34a;font-size:10px;">'+d+' days left</span>';
+      var statusCls=d<0?'status-expired':d<=30?'status-pending':'status-active';
+      var statusLbl=d<0?'Expired':d<=30?'Expiring':'Active';
+
+      // WorkPermit: show current (from Workers sheet) + next (from compliance record) separately
+      var currentExp=sheet==='WorkPermit'?(w.EntryValidUntil||''):'';
+      var currentHtml='';
+      if(sheet==='WorkPermit'&&currentExp){
+        var cd=daysUntil(currentExp);
+        currentHtml='<div style="font-size:11px;color:#555;margin-top:4px;">Current: <b>'+fmtDate(currentExp)+'</b> '+(cd<0?'<span style="color:#dc2626;font-size:10px;">Expired</span>':cd<=30?'<span style="color:#f59e0b;font-size:10px;">'+cd+'d left ⚠️</span>':'<span style="color:#16a34a;font-size:10px;">'+cd+'d left</span>')+'</div>';
+      }
+      var nextHtml2='';
+      var dateHtml=sheet==='WorkPermit'?currentHtml+nextHtml2:'<div class="cs-service-date" style="margin-top:4px;">'+fmtDate(expDate)+'</div><div>'+daysHtml+'</div>';
+
+      return '<div class="cs-service" style="display:flex;flex-direction:column;">'+
+        '<div>'+
         '<div class="cs-service-title">'+icon+' '+label+'</div>'+
-        '<span class="status-badge '+statusCls+'">'+rec.Status+'</span>'+
-        '<div class="cs-service-value" style="margin-top:6px;">'+(rec[numField]||'—')+'</div>'+
-        '<div class="cs-service-date">'+fmtDate(rec[expiryField]||rec.ExpiryDate)+'</div>'+
-        daysHtml+
-        '<div><button class="cs-edit-btn" onclick="editCSRecord(\''+rec.RecordID+'\',\''+sheet+'\')">✏️ Edit</button></div>'+
+        '<span class="status-badge '+statusCls+'">'+statusLbl+'</span>'+
+        dateHtml+
+        (sheet==='WorkPermit'?'<div>'+daysHtml+'</div>':'')+
+        '<div class="cs-service-value" style="margin-top:4px;">'+(rec[numField]||'—')+'</div>'+
+        '</div>'+
+        '<button class="cs-edit-btn" style="margin-top:auto;" onclick="openCSEditModal(\''+w.WorkerID+'\',\''+sheet+'\',\''+rec.RecordID+'\')">✏️ Edit '+btnLabel+'</button>'+
+        '<button class="cs-add-btn" style="margin-top:4px;background:#0f172a;" onclick="openCSDocsPopup(\''+w.WorkerID+'\',\''+sheet+'\')">📂 Docs</button>'+
         '</div>';
     }
 
@@ -859,20 +1032,51 @@ function renderCompliance(){
         '<div><div class="cs-worker-name">'+wn+'</div><div class="cs-worker-meta">'+en+' | '+ec+'</div></div>'+
         '<span class="cs-worker-code">'+wc2+'</span>'+
       '</div>'+
-      '<div class="cs-services-grid">'+
+      '<div class="cs-services-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">'+
         svcCell(wpRec,'WorkPermit','📜','Work Permit','PermitNumber','ExpiryDate')+
         svcCell(insRec,'Insurance','🛡️','Insurance','PolicyNumber','ExpiryDate')+
         svcCell(ikaRec,'Ikama','🪪','Ikama','IkamaNumber','ExpiryDate')+
-        svcCell(passRec,'PassportRenewal','🛂','Passport Renewal','PassportNumber','NewExpiry')+
+        svcCell(passRec,'PassportRenewal','🛂','Passport Renewal','PassportNumber','ExpiryDate')+
+      '</div>'+
+      '<div id="cs-summary-'+wid+'" style="background:#f0f9ff;border-top:1px solid #bae6fd;padding:8px 14px;font-size:12px;color:#0c4a6e;display:flex;gap:18px;flex-wrap:wrap;">'+
+        '<span style="font-weight:700;color:#94a3b8;">⏳ Loading next dates...</span>'+
       '</div>'+
     '</div>';
   }).join('');
 
   document.getElementById('csBody').innerHTML=html||'<div class="empty"><div class="empty-icon">🔧</div><div>No records match filter</div></div>';
+  if(filtered.length){
+    function fillCsBars(allData){
+      if(!allData) return;
+      filtered.forEach(function(w){
+        var wid=String(w.WorkerID);
+        var bar=document.getElementById('cs-summary-'+wid);
+        var data=allData[wid];
+        if(!bar||!data) return;
+        function fmt(rec,label,field){
+          if(!rec||!rec[field]) return label+': —';
+          return label+': <b>'+fmtDate(rec[field])+'</b>';
+        }
+        bar.innerHTML=
+          '<span style="font-weight:700;">🆕 Next:</span>'+
+          '<span>'+fmt(data.WorkPermit,'📜 WP','ExpiryDate')+'</span>'+
+          '<span>'+fmt(data.Insurance,'🛡️ INS','ExpiryDate')+'</span>'+
+          '<span>'+fmt(data.Ikama,'🪪 IKA','ExpiryDate')+'</span>'+
+          '<span>'+fmt(data.PassportRenewal,'🛂 PASS','NewExpiry')+'</span>';
+      });
+    }
+    if(Object.keys(allWorkerCompliance).length) fillCsBars(allWorkerCompliance);
+    else {
+      var ids=filtered.map(function(w){return String(w.WorkerID);});
+      fetch(SCRIPT_URL+'?action=getWorkersComplianceBatch&workerIDs='+ids.join(','))
+        .then(function(r){return r.json();})
+        .then(fillCsBars);
+    }
+  }
 }
 
 // ── COMPLIANCE MODAL ──
-function openCSModal(workerID, sheet){
+function _openCSRecordModal(workerID, sheet){
   document.getElementById('csRecordID').value='';
   document.getElementById('csSheetName').value=sheet||'WorkPermit';
   document.getElementById('csServiceType').value=sheet||'WorkPermit';
@@ -889,6 +1093,398 @@ function openCSModal(workerID, sheet){
   document.getElementById('csModalTitle').textContent='Add Compliance Record';
   updateCSForm();
   document.getElementById('csModal').classList.add('show');
+}
+
+function openCSModal(workerID, sheet){
+  if(!workerID){_openCSRecordModal(workerID,sheet);return;}
+  var w=allWorkers.find(function(x){return String(x.WorkerID)===String(workerID);});
+  if(!w){alert('Worker not found');return;}
+  // Show invoice popup first
+  var emp=getEmp(w);
+  var empName=emp?(emp.EFN||emp.EmployerName||w.EmployerCode):(w.EmployerCode||'N/A');
+  var wn=wName(w),wc=wCode(w);
+  var today=new Date().toISOString().split('T')[0];
+  var year=new Date().getFullYear();
+  google.script.run
+    .withSuccessHandler(function(invoices){
+      var maxNum=0;
+      var invList=Array.isArray(invoices)?invoices:(invoices&&invoices.data?invoices.data:[]);
+      invList.forEach(function(inv){
+        var m=String(inv.InvoiceNumber||inv.invoiceNumber||'').match(/^INV-(\d{4})$/);
+        if(m){var n=parseInt(m[1]);if(n>maxNum)maxNum=n;}
+      });
+      var autoInv='INV-'+String(maxNum+1).padStart(4,'0');
+      _showCSInvoiceModal(w,emp,empName,wn,wc,today,year,autoInv,sheet);
+    })
+    .withFailureHandler(function(){
+      _showCSInvoiceModal(w,emp,empName,wn,wc,today,year,'INV-0001',sheet);
+    })
+    .gsrGetAll('Invoices');
+}
+
+var _csActiveFees=[];
+
+function _showCSInvoiceModal(w,emp,empName,wn,wc,today,year,autoInv,sheet){
+  _csActiveFees=allFees.filter(function(f){return !(f.Discontinued===true||f.Discontinued==='true');});
+  var feesHtml='';
+  if(_csActiveFees.length>0){
+    _csActiveFees.forEach(function(fee,i){
+      feesHtml+='<tr id="csFeeRow'+i+'">'+
+        '<td style="padding:8px;border:1px solid #e0e0e0;text-align:center;">'+
+          '<input type="checkbox" id="csFeeChk'+i+'" onchange="calcCSTotal()" style="width:18px;height:18px;">'+
+        '</td>'+
+        '<td style="padding:8px;border:1px solid #e0e0e0;font-size:13px;">'+
+          '<div style="font-weight:600;">'+(fee.FeeNameEN||'')+'</div>'+
+          '<div style="font-size:11px;color:#666;direction:rtl;">'+(fee.FeeNameAR||'')+'</div>'+
+        '</td>'+
+        '<td style="padding:8px;border:1px solid #e0e0e0;text-align:center;">'+
+          '<input type="number" id="csFeeQty'+i+'" value="'+(fee.FeeQty||1)+'" min="1" style="width:60px;padding:5px;border:1px solid #ccc;border-radius:4px;text-align:center;" onchange="calcCSTotal()">'+
+        '</td>'+
+        '<td style="padding:8px;border:1px solid #e0e0e0;text-align:center;">'+
+          '<input type="number" id="csFeePrice'+i+'" value="'+(fee.FeePrice||0)+'" step="0.01" min="0" style="width:90px;padding:5px;border:1px solid #ccc;border-radius:4px;text-align:center;" onchange="calcCSTotal()">'+
+        '</td>'+
+        '<td style="padding:8px;border:1px solid #e0e0e0;text-align:center;font-weight:700;" id="csFeeSubtotal'+i+'">$'+((fee.FeeQty||1)*(fee.FeePrice||0)).toFixed(2)+'</td>'+
+      '</tr>';
+    });
+  } else {
+    feesHtml='<tr><td colspan="5" style="padding:20px;text-align:center;color:#999;">No active fees found.</td></tr>';
+  }
+
+  var overlay=document.createElement('div');
+  overlay.id='csInvoiceOverlay';
+  overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:10000;display:flex;justify-content:center;align-items:center;padding:20px;overflow-y:auto;';
+  overlay.innerHTML='<div style="background:white;border-radius:15px;padding:0;max-width:700px;width:100%;box-shadow:0 15px 40px rgba(0,0,0,0.3);overflow:hidden;max-height:95vh;overflow-y:auto;">'+
+    '<div style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;padding:20px 25px;position:sticky;top:0;z-index:1;">'+
+      '<h2 style="margin:0;font-size:18px;">🔧 Compliance Services Invoice</h2>'+
+      '<div style="font-size:12px;opacity:0.9;margin-top:4px;">Select fees then issue invoice</div>'+
+    '</div>'+
+    '<div style="padding:25px;">'+
+      '<div style="background:#e0f7fa;padding:12px 15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #0891b2;">'+
+        '<div style="font-weight:700;font-size:15px;">👷 '+wn+'</div>'+
+        '<div style="font-size:12px;color:#555;margin-top:3px;">Code: <b>'+wc+'</b> | Employer: <b>'+empName+'</b></div>'+
+        '<div style="font-size:12px;color:#555;margin-top:3px;">Service: <b>'+(sheet||'Compliance')+'</b></div>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;">'+
+        '<div><label style="font-weight:600;font-size:12px;color:#333;display:block;margin-bottom:4px;">Invoice Number</label>'+
+        '<input type="text" id="csInvNumber" value="'+autoInv+'" style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:7px;font-size:13px;font-weight:700;"></div>'+
+        '<div><label style="font-weight:600;font-size:12px;color:#333;display:block;margin-bottom:4px;">Year</label>'+
+        '<input type="text" id="csInvYear" value="'+year+'" style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:7px;font-size:13px;font-weight:700;"></div>'+
+        '<div><label style="font-weight:600;font-size:12px;color:#333;display:block;margin-bottom:4px;">Invoice Date</label>'+
+        '<input type="date" id="csInvDate" value="'+today+'" style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:7px;font-size:13px;"></div>'+
+      '</div>'+
+      '<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px;margin-bottom:16px;">'+
+        '<div style="font-weight:700;font-size:13px;color:#0891b2;margin-bottom:10px;">🔧 Services Included in this Invoice:</div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:10px;">'+
+          '<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #bae6fd;border-radius:7px;cursor:pointer;background:white;font-size:12px;font-weight:600;">'+
+            '<input type="checkbox" id="csChkWP" style="accent-color:#0891b2;width:15px;height:15px;"> 📜 Work Permit</label>'+
+          '<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #bae6fd;border-radius:7px;cursor:pointer;background:white;font-size:12px;font-weight:600;">'+
+            '<input type="checkbox" id="csChkIns" style="accent-color:#10b981;width:15px;height:15px;"> 🛡️ Insurance</label>'+
+          '<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #bae6fd;border-radius:7px;cursor:pointer;background:white;font-size:12px;font-weight:600;">'+
+            '<input type="checkbox" id="csChkIka" style="accent-color:#8b5cf6;width:15px;height:15px;"> 🪪 Ikama</label>'+
+          '<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #bae6fd;border-radius:7px;cursor:pointer;background:white;font-size:12px;font-weight:600;">'+
+            '<input type="checkbox" id="csChkPass" style="accent-color:#ef4444;width:15px;height:15px;"> 🛂 Passport</label>'+
+          '<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #bae6fd;border-radius:7px;cursor:pointer;background:white;font-size:12px;font-weight:600;">'+
+            '<input type="checkbox" id="csChkOffice" style="accent-color:#f59e0b;width:15px;height:15px;"> 🏢 Office Charges</label>'+
+        '</div>'+
+      '</div>'+
+      '<label style="font-weight:700;font-size:13px;color:#333;display:block;margin-bottom:8px;">💲 Select Services</label>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">'+
+        '<thead><tr style="background:#e0f7fa;">'+
+          '<th style="padding:8px;border:1px solid #e0e0e0;width:40px;">✓</th>'+
+          '<th style="padding:8px;border:1px solid #e0e0e0;text-align:left;">Fee Item</th>'+
+          '<th style="padding:8px;border:1px solid #e0e0e0;width:70px;">Qty</th>'+
+          '<th style="padding:8px;border:1px solid #e0e0e0;width:100px;">Price ($)</th>'+
+          '<th style="padding:8px;border:1px solid #e0e0e0;width:90px;">Subtotal</th>'+
+        '</tr></thead>'+
+        '<tbody>'+feesHtml+'</tbody>'+
+        '<tfoot><tr style="background:#e8f5e9;font-weight:700;">'+
+          '<td colspan="4" style="padding:10px;border:1px solid #e0e0e0;text-align:right;font-size:15px;">TOTAL:</td>'+
+          '<td style="padding:10px;border:1px solid #e0e0e0;text-align:center;font-size:15px;color:#2e7d32;" id="csInvTotal">$0.00</td>'+
+        '</tr></tfoot>'+
+      '</table>'+
+      '<div style="margin-bottom:16px;"><label style="font-weight:600;font-size:12px;color:#333;display:block;margin-bottom:4px;">Notes</label>'+
+      '<textarea id="csInvNotes" rows="2" placeholder="Optional notes..." style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:7px;font-size:13px;resize:vertical;"></textarea></div>'+
+      '<div style="display:flex;gap:10px;">'+
+        '<button onclick="submitCSInvoice(\''+w.WorkerID+'\',\''+sheet+'\')" style="flex:1;padding:12px;background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;">✅ Issue Invoice & Save Record</button>'+
+        '<button onclick="document.getElementById(\'csInvoiceOverlay\').remove()" style="padding:12px 20px;background:#e0e0e0;color:#333;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Cancel</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+
+  document.body.appendChild(overlay);
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+  setTimeout(calcCSTotal,100);
+}
+
+function calcCSTotal(){
+  var total=0;
+  _csActiveFees.forEach(function(fee,i){
+    var chk=document.getElementById('csFeeChk'+i);
+    var qty=parseFloat(document.getElementById('csFeeQty'+i).value)||0;
+    var price=parseFloat(document.getElementById('csFeePrice'+i).value)||0;
+    var sub=qty*price;
+    var el=document.getElementById('csFeeSubtotal'+i);
+    if(el) el.textContent='$'+sub.toFixed(2);
+    if(chk&&chk.checked) total+=sub;
+    var row=document.getElementById('csFeeRow'+i);
+    if(row) row.style.opacity=(chk&&chk.checked)?'1':'0.4';
+  });
+  var gt=document.getElementById('csInvTotal');
+  if(gt) gt.textContent='$'+total.toFixed(2);
+}
+
+function submitCSInvoice(workerID,sheet){
+  var invNumber=document.getElementById('csInvNumber').value.trim();
+  var invYear=document.getElementById('csInvYear').value.trim();
+  var invDate=document.getElementById('csInvDate').value;
+  var invNotes=document.getElementById('csInvNotes').value.trim();
+  if(!invNumber){alert('❌ Invoice Number required');return;}
+  if(!invDate){alert('❌ Invoice Date required');return;}
+  var selectedFees=[];
+  var invoicedServices=[];
+  if(document.getElementById('csChkWP')&&document.getElementById('csChkWP').checked) invoicedServices.push('WorkPermit');
+  if(document.getElementById('csChkIns')&&document.getElementById('csChkIns').checked) invoicedServices.push('Insurance');
+  if(document.getElementById('csChkIka')&&document.getElementById('csChkIka').checked) invoicedServices.push('Ikama');
+  if(document.getElementById('csChkPass')&&document.getElementById('csChkPass').checked) invoicedServices.push('Passport');
+  if(document.getElementById('csChkOffice')&&document.getElementById('csChkOffice').checked) invoicedServices.push('Office');
+  var totalAmount=0;
+  _csActiveFees.forEach(function(fee,i){
+    var chk=document.getElementById('csFeeChk'+i);
+    if(chk&&chk.checked){
+      var qty=parseInt(document.getElementById('csFeeQty'+i).value)||1;
+      var price=parseFloat(document.getElementById('csFeePrice'+i).value)||0;
+      var sub=qty*price;
+      totalAmount+=sub;
+      selectedFees.push({feeId:fee.FeeID,nameEN:fee.FeeNameEN,nameAR:fee.FeeNameAR,qty:qty,unitPrice:price,subtotal:sub});
+    }
+  });
+  function _generateCSInvoicePDF(data){
+  if(!window.jspdf){
+    var s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload=function(){_generateCSInvoicePDF(data);};
+    document.head.appendChild(s);
+    return;
+  }
+  function _numToWords(num){
+  if(!num||num===0) return 'Zero Dollars';
+  var ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  var tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function convert(n){
+    if(n<20) return ones[n];
+    if(n<100) return tens[Math.floor(n/10)]+(n%10?' '+ones[n%10]:'');
+    if(n<1000) return ones[Math.floor(n/100)]+' Hundred'+(n%100?' and '+convert(n%100):'');
+    if(n<1000000) return convert(Math.floor(n/1000))+' Thousand'+(n%1000?' '+convert(n%1000):'');
+    return convert(Math.floor(n/1000000))+' Million'+(n%1000000?' '+convert(n%1000000):'');
+  }
+  var whole=Math.floor(Math.abs(num));
+  var cents=Math.round((Math.abs(num)-whole)*100);
+  var result=convert(whole)+' Dollar'+(whole!==1?'s':'');
+  if(cents>0) result+=' and '+convert(cents)+' Cent'+(cents!==1?'s':'');
+  return result;
+}
+  try{
+    var {jsPDF}=window.jspdf;
+    var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    var pageW=210,margin=15,rightX=pageW-margin;
+    var y=20;
+    doc.setFillColor(8,145,178);
+    doc.rect(0,0,pageW,30,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(16);doc.setFont('helvetica','bold');
+    doc.text('COMPLIANCE SERVICES INVOICE',margin,14);
+    doc.setFontSize(9);doc.setFont('helvetica','normal');
+    doc.text('MGS - Massroua General Services | '+data.sheet,margin,21);
+    doc.setFontSize(11);doc.setFont('helvetica','bold');
+    doc.text(data.fullInvRef,rightX,14,{align:'right'});
+    doc.setFontSize(9);doc.setFont('helvetica','normal');
+    doc.text('Date: '+data.invDate,rightX,21,{align:'right'});
+    y=40;
+    doc.setTextColor(50,50,50);
+    doc.setFillColor(224,247,250);
+    doc.rect(margin,y,rightX-margin,22,'F');
+    doc.setFontSize(10);doc.setFont('helvetica','bold');
+    doc.text('Worker:',margin+3,y+7);doc.setFont('helvetica','normal');
+    var localMark=data.isLocal?' [LOCAL]':'';
+    doc.text(data.wn+' ('+data.wc+')'+localMark,margin+22,y+7);
+    doc.setFont('helvetica','bold');
+    doc.text('Employer:',margin+3,y+16);doc.setFont('helvetica','normal');
+    doc.text(data.empName+' ('+data.empCode+')',margin+22,y+16);
+    y+=30;
+    doc.setFillColor(8,145,178);
+    doc.rect(margin,y,rightX-margin,8,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(9);doc.setFont('helvetica','bold');
+    doc.text('Fee Item',margin+3,y+5.5);
+    doc.text('Qty',margin+110,y+5.5,{align:'center'});
+    doc.text('Unit Price',margin+135,y+5.5,{align:'center'});
+    doc.text('Subtotal',rightX-3,y+5.5,{align:'right'});
+    y+=8;
+    doc.setTextColor(50,50,50);doc.setFont('helvetica','normal');
+    data.selectedFees.forEach(function(fee,i){
+      var bg=i%2===0?[255,255,255]:[240,252,254];
+      doc.setFillColor(bg[0],bg[1],bg[2]);
+      doc.rect(margin,y,rightX-margin,8,'F');
+      doc.setFontSize(9);
+      doc.text(fee.nameEN||'',margin+3,y+5.5);
+      doc.text(String(fee.qty),margin+110,y+5.5,{align:'center'});
+      doc.text('$'+(fee.unitPrice||0).toFixed(2),margin+135,y+5.5,{align:'center'});
+      doc.text('$'+(fee.subtotal||0).toFixed(2),rightX-3,y+5.5,{align:'right'});
+      y+=8;
+    });
+    y+=3;
+    doc.setFillColor(232,245,233);
+    doc.rect(margin,y,rightX-margin,10,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(11);
+    doc.setTextColor(46,125,50);
+    doc.text('TOTAL',margin+3,y+7);
+    doc.text('$'+data.totalAmount.toFixed(2),rightX-3,y+7,{align:'right'});
+    y+=14;
+    doc.setFillColor(232,244,253);
+    doc.rect(margin,y,rightX-margin,10,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(30,80,160);
+    doc.text('Amount in Words: '+_numToWords(data.totalAmount),margin+3,y+7);
+    y+=18;
+    if(data.notes){
+      doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(120,120,120);
+      doc.text('Notes: '+data.notes,margin,y);
+      y+=8;
+    }
+    doc.setDrawColor(200,200,200);doc.line(margin,y,rightX,y);y+=5;
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(160,160,160);
+    doc.text('Generated by MGSDB2026 — Massroua General Services',pageW/2,y,{align:'center'});
+
+    var pdfBase64=doc.output('datauristring').split(',')[1];
+    var fileName=data.fullInvRef.replace(/\//g,'-')+'_'+data.empCode+'_Compliance.pdf';
+    fetch(SCRIPT_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({
+        action:'uploadFile',
+        folderId:data.folderId,
+        folderName:data.folderName,
+        fileName:fileName,
+        fileData:pdfBase64,
+        mimeType:'application/pdf',
+        parentType:'employers'
+      })
+    }).then(function(r){return r.json();}).then(function(res){
+      if(res.success) console.log('📄 CS Invoice PDF uploaded:',res.fileUrl);
+      else console.warn('📄 CS Invoice PDF failed:',res.error);
+    }).catch(function(e){console.warn('📄 CS PDF error:',e);});
+  }catch(e){console.warn('📄 CS PDF generation error:',e);}
+}
+  if(selectedFees.length===0&&_csActiveFees.length>0){alert('⚠️ Please select at least one fee!');return;}
+  var w=allWorkers.find(function(x){return String(x.WorkerID)===String(workerID);});
+  if(!w){alert('Worker not found');return;}
+  var emp=getEmp(w);
+  var empName=emp?(emp.EFN||emp.EmployerName||w.EmployerCode):(w.EmployerCode||'');
+  var wn=wName(w),wc=wCode(w);
+  var fullInvRef=invNumber+' / '+invYear;
+  var newInv={
+    InvoiceNumber:invNumber, InvoiceYear:invYear, InvoiceRef:fullInvRef,
+    InvoiceDate:invDate, EmployerID:emp?(emp.EmployerID||''):'',
+    EmployerCode:w.EmployerCode||'', EmployerName:empName,
+    WorkerID:w.WorkerID, WorkerCode:wc, WorkerName:wn,
+    TotalAmount:totalAmount,
+    Notes:'Compliance: '+(sheet||'')+' | '+wn+' ('+wc+')'+(invNotes?' | '+invNotes:''),
+    Status:'pending', Source:'compliance', ServiceType:sheet||'',
+    CreatedDate:new Date().toISOString(),
+    InvoicedServices:JSON.stringify(invoicedServices)
+  };
+  // Save invoiced services to worker
+  var ww=allWorkers.find(function(x){return String(x.WorkerID)===String(workerID);});
+  if(ww){
+    ww.ComplianceInvoiced=JSON.stringify(invoicedServices);
+    google.script.run.gsrSaveRow('Workers',ww);
+  }
+  google.script.run
+    .withSuccessHandler(function(r){console.log('✅ CS Invoice saved:',r);})
+    .withFailureHandler(function(e){console.warn('⚠️ CS Invoice save failed:',e);})
+    .gsrSaveRow('Invoices',newInv);
+  var ov=document.getElementById('csInvoiceOverlay');
+  if(ov) ov.remove();
+  // Generate & upload PDF to employer folder
+  _generateCSInvoicePDF({
+    invNumber:invNumber, invYear:invYear, fullInvRef:fullInvRef,
+    invDate:invDate, wn:wn, wc:wc, empName:empName,
+    empCode:w.EmployerCode||'',
+    folderId:emp?(emp.EmployerFolderID||''):'',
+    folderName:emp?(emp.EFN||emp.EmployerName||w.EmployerCode||''):(w.EmployerCode||''),
+    selectedFees:selectedFees, totalAmount:totalAmount,
+    notes:invNotes, sheet:sheet,
+    isLocal:w.ProcessingStage==='local'
+  });
+  // Auto-create compliance records for checked services
+  var today2=new Date().toISOString().split('T')[0];
+  invoicedServices.forEach(function(svc){
+    var sheetMap={WorkPermit:'WorkPermit',Insurance:'Insurance',Ikama:'Ikama',Passport:'PassportRenewal'};
+    var targetSheet=sheetMap[svc];
+    if(!targetSheet) return;
+    // Pre-fill expiry from Workers sheet
+    var autoExpiry='';
+    if(svc==='WorkPermit') autoExpiry=w.EntryValidUntil||w.ArrivalDate||'';
+    if(svc==='Ikama') autoExpiry=w.IkamaExpiry||'';
+    if(svc==='Passport') autoExpiry=w.PassportExpiryDate||'';
+    var record={
+      RecordID:svc.substring(0,3).toUpperCase()+'-'+Date.now(),
+      WorkerID:w.WorkerID,
+      WorkerCode:wc,
+      WorkerName:wn,
+      EmployerID:emp?(emp.EmployerID||''):'',
+      EmployerCode:w.EmployerCode||'',
+      EmployerName:empName,
+      IssueDate:today2,
+      ExpiryDate:autoExpiry,
+      NewExpiry:svc==='Passport'?autoExpiry:'',
+      Status:'Pending',
+      Cost:totalAmount,
+      Notes:'Auto-created from invoice '+fullInvRef,
+      InvoiceRef:fullInvRef,
+      CreatedDate:new Date().toISOString()
+    };
+    google.script.run
+      .withSuccessHandler(function(r){console.log('✅ Compliance record saved:',svc,r);})
+      .withFailureHandler(function(e){console.warn('⚠️ Compliance record failed:',svc,e);})
+      .gsrSaveComplianceRecord(targetSheet,record);
+  });
+  var ov2=document.getElementById('csInvoiceOverlay');
+  if(ov2) ov2.remove();
+  // Show progress
+  var prog=document.createElement('div');
+  prog.id='csProgress';
+  prog.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+  prog.innerHTML='<div style="background:white;border-radius:14px;padding:28px;width:380px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'+
+    '<div style="font-size:32px;margin-bottom:12px;">⏳</div>'+
+    '<div style="font-weight:800;font-size:16px;color:#0891b2;margin-bottom:8px;">Processing Invoice...</div>'+
+    '<div id="csProgMsg" style="font-size:13px;color:#555;">💾 Saving invoice...</div>'+
+    '<div style="margin-top:16px;background:#e0f7fa;border-radius:8px;height:8px;overflow:hidden;">'+
+    '<div id="csProgBar" style="background:#0891b2;height:100%;width:0%;transition:width 0.5s;border-radius:8px;"></div>'+
+    '</div>'+
+  '</div>';
+  document.body.appendChild(prog);
+  var pct=0;
+  var msgs=['💾 Saving invoice...','📋 Creating compliance records...','📄 Generating PDF...','☁️ Uploading to Drive...','✅ Done!'];
+  var mi=0;
+  var pt=setInterval(function(){
+    pct=Math.min(pct+20,95);
+    var bar=document.getElementById('csProgBar');
+    var msg=document.getElementById('csProgMsg');
+    if(bar) bar.style.width=pct+'%';
+    if(msg&&mi<msgs.length) msg.textContent=msgs[mi++];
+  },600);
+  setTimeout(function(){
+    clearInterval(pt);
+    var bar=document.getElementById('csProgBar');
+    var msg=document.getElementById('csProgMsg');
+    if(bar) bar.style.width='100%';
+    if(msg) msg.textContent='✅ All done!';
+    setTimeout(function(){
+      var p=document.getElementById('csProgress');
+      if(p) p.remove();
+      refreshData();
+    },800);
+  },3500);
 }
 
 function editCSRecord(recordID, sheet){
@@ -935,7 +1531,7 @@ function saveCSRecord(){
   var numVal=document.getElementById('csNumber').value;
   var expVal=document.getElementById('csExpiryDate').value;
   var numFields={WorkPermit:'PermitNumber',Insurance:'PolicyNumber',Ikama:'IkamaNumber',PassportRenewal:'PassportNumber'};
-  var expFields={WorkPermit:'ExpiryDate',Insurance:'ExpiryDate',Ikama:'ExpiryDate',PassportRenewal:'NewExpiry'};
+  var expFields={WorkPermit:'ExpiryDate',Insurance:'ExpiryDate',Ikama:'ExpiryDate',PassportRenewal:'ExpiryDate'};
 
   var record={
     RecordID:document.getElementById('csRecordID').value||'',
@@ -968,20 +1564,180 @@ function saveCSRecord(){
     .withFailureHandler(function(e){alert('Save failed: '+e.message);})
     .gsrSaveComplianceRecord(sheet, record);
 }
+function openCSEditModal(workerID, sheet, recordID){
+  var w=allWorkers.find(function(x){return String(x.WorkerID)===String(workerID);});
+  if(!w){alert('Worker not found');return;}
+  var emp=getEmp(w);
+  var allData={WorkPermit:allWP,Insurance:allIns,Ikama:allIka,PassportRenewal:allPass};
+  var rec=(allData[sheet]||[]).find(function(r){return String(r.RecordID)===String(recordID);})||{};
+  var wn=wName(w),wc=wCode(w);
+  var labels={WorkPermit:'📜 Work Permit',Insurance:'🛡️ Insurance',Ikama:'🪪 Ikama',PassportRenewal:'🛂 Passport Renewal'};
+  var numLabels={WorkPermit:'Permit Number',Insurance:'Policy Number',Ikama:'Ikama Number',PassportRenewal:'Passport Number'};
+  var expLabels={WorkPermit:'Expiry Date',Insurance:'Expiry Date',Ikama:'Expiry Date',PassportRenewal:'New Expiry Date'};
+  var numFields={WorkPermit:'PermitNumber',Insurance:'PolicyNumber',Ikama:'IkamaNumber',PassportRenewal:'PassportNumber'};
+  var expFields={WorkPermit:'ExpiryDate',Insurance:'ExpiryDate',Ikama:'ExpiryDate',PassportRenewal:'NewExpiry'};
+
+  var modal=document.createElement('div');
+  modal.id='csEditModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML='<div style="background:white;border-radius:14px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'+
+    '<div style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;padding:16px 20px;border-radius:14px 14px 0 0;">'+
+      '<div style="font-weight:800;font-size:16px;">'+(labels[sheet]||sheet)+' Details</div>'+
+      '<div style="font-size:12px;opacity:0.85;margin-top:3px;">👷 '+wn+' | '+wc+'</div>'+
+    '</div>'+
+    '<div style="padding:20px;display:flex;flex-direction:column;gap:12px;">'+
+      '<div><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">'+(numLabels[sheet]||'Reference Number')+'</label>'+
+      '<input id="csEd-num" type="text" value="'+(rec[numFields[sheet]]||'')+'" placeholder="Enter number..." style="width:100%;padding:9px;border:1px solid #bae6fd;border-radius:7px;font-size:13px;box-sizing:border-box;"></div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'+
+        '<div><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">Issue Date</label>'+
+        '<input id="csEd-issue" type="date" value="'+(rec.IssueDate?rec.IssueDate.split('T')[0]:new Date().toISOString().split('T')[0])+'" style="width:100%;padding:9px;border:1px solid #bae6fd;border-radius:7px;font-size:13px;box-sizing:border-box;"></div>'+
+        '<div><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">'+(expLabels[sheet]||'Expiry Date')+'</label>'+
+        '<input id="csEd-expiry" type="date" value="'+(rec[expFields[sheet]]?rec[expFields[sheet]].split('T')[0]:(function(){var d=new Date();d.setFullYear(d.getFullYear()+1);return d.toISOString().split('T')[0];}()))+'" style="width:100%;padding:9px;border:1px solid #bae6fd;border-radius:7px;font-size:13px;box-sizing:border-box;"></div>'+
+      '</div>'+
+      '<div><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">📎 Upload Document</label>'+
+      '<div id="csEd-dropzone" ondragover="event.preventDefault();this.style.background=\'#e0f7fa\';" ondragleave="this.style.background=\'#f9fafb\';" ondrop="event.preventDefault();this.style.background=\'#f9fafb\';handleCSEdDrop(event.dataTransfer.files);" onclick="document.getElementById(\'csEd-file\').click();" style="border:2px dashed #bae6fd;border-radius:8px;padding:16px;text-align:center;cursor:pointer;background:#f9fafb;">'+
+        '<div style="font-size:22px;margin-bottom:4px;">📎</div>'+
+        '<div style="font-size:12px;font-weight:600;color:#555;">Drag & drop or click to browse</div>'+
+        '<div id="csEd-filename" style="font-size:11px;color:#0891b2;margin-top:4px;font-weight:700;"></div>'+
+      '</div>'+
+      '<input type="file" id="csEd-file" accept="image/*,.pdf" style="display:none;" onchange="handleCSEdDrop(this.files)"></div>'+
+      '<div><label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px;">Notes</label>'+
+      '<input id="csEd-notes" type="text" value="'+(rec.Notes||'')+'" placeholder="Optional notes..." style="width:100%;padding:9px;border:1px solid #bae6fd;border-radius:7px;font-size:13px;box-sizing:border-box;"></div>'+
+      '<div style="display:flex;gap:10px;justify-content:flex-end;">'+
+        '<button onclick="document.getElementById(\'csEditModal\').remove()" style="background:#eee;color:#333;border:none;padding:9px 18px;border-radius:7px;cursor:pointer;font-weight:700;">Cancel</button>'+
+        '<button onclick="saveCSEditRecord(\''+workerID+'\',\''+sheet+'\',\''+recordID+'\')" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;padding:9px 18px;border-radius:7px;cursor:pointer;font-weight:700;">💾 Save</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+  document.body.appendChild(modal);
+}
+
+var _csEdFile=null;
+function handleCSEdDrop(files){
+  if(!files||!files.length) return;
+  _csEdFile=files[0];
+  var fn=document.getElementById('csEd-filename');
+  if(fn) fn.textContent='📎 '+_csEdFile.name;
+}
+
+function saveCSEditRecord(workerID,sheet,recordID){
+  var allData={WorkPermit:allWP,Insurance:allIns,Ikama:allIka,PassportRenewal:allPass};
+  var numFields={WorkPermit:'PermitNumber',Insurance:'PolicyNumber',Ikama:'IkamaNumber',PassportRenewal:'PassportNumber'};
+  var expFields={WorkPermit:'ExpiryDate',Insurance:'ExpiryDate',Ikama:'ExpiryDate',PassportRenewal:'NewExpiry'};
+  var existing=(allData[sheet]||[]).find(function(r){return String(r.RecordID)===String(recordID);})||{};
+  var existingDocURL=existing.DocumentURL||'';
+  var w=allWorkers.find(function(x){return String(x.WorkerID)===String(workerID);});
+  var emp=w?getEmp(w):null;
+  var record=Object.assign({},existing,{
+    RecordID:existing.RecordID||(sheet.substring(0,3).toUpperCase()+'-'+Date.now()),
+    WorkerID:workerID,
+    WorkerCode:w?wCode(w):'',
+    WorkerName:w?wName(w):'',
+    EmployerID:emp?(emp.EmployerID||''):'',
+    EmployerCode:w?(w.EmployerCode||''):'',
+    EmployerName:emp?(emp.EFN||emp.EmployerName||''):'',
+    IssueDate:document.getElementById('csEd-issue').value,
+    Notes:document.getElementById('csEd-notes').value,
+    ModifiedDate:new Date().toISOString()
+  });
+  record[numFields[sheet]]=document.getElementById('csEd-num').value;
+  record[expFields[sheet]]=document.getElementById('csEd-expiry').value;
+
+  if(_csEdFile&&w&&emp){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var base64=e.target.result.split(',')[1];
+      var ext=_csEdFile.name.split('.').pop()||'pdf';
+      var fileName=sheet+'_'+wCode(w)+'_'+wName(w).replace(/\s+/g,'_')+'_'+Date.now()+'.'+ext;
+      var dz=document.getElementById('csEd-dropzone');
+      if(dz) dz.innerHTML='<div style="font-size:12px;font-weight:700;color:#0891b2;">⏳ Uploading...</div><div style="background:#e0f2fe;border-radius:4px;height:6px;margin-top:8px;"><div id="csEd-bar" style="background:#0891b2;height:6px;border-radius:4px;width:0%;transition:width 0.4s;"></div></div>';
+      var bar=document.getElementById('csEd-bar');
+      var pct=0;
+      var sim=setInterval(function(){pct=Math.min(pct+10,85);if(bar)bar.style.width=pct+'%';},300);
+      fetch(SCRIPT_URL,{
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({
+          action:'uploadFile',
+          folderId:emp.EmployerFolderID||'',
+          folderName:emp.EFN||emp.EmployerName||w.EmployerCode||'',
+          fileName:fileName,
+          fileData:base64,
+          mimeType:_csEdFile.type||'application/pdf',
+          parentType:'employers'
+        })
+      }).then(function(r){return r.json();}).then(function(res){
+        clearInterval(sim);if(bar)bar.style.width='100%';
+        if(res.success){
+          var newUrl=res.fileUrl||res.url||'';
+          record.DocumentURL=existingDocURL?existingDocURL+','+newUrl:newUrl;
+          google.script.run.gsrSaveComplianceDocument({
+            RecordID:record.RecordID||'',
+            WorkerID:workerID,
+            WorkerCode:w?wCode(w):'',
+            WorkerName:w?wName(w):'',
+            EmployerID:w?(w.EmployerID||''):'',
+            EmployerCode:w?(w.EmployerCode||''):'',
+            Sheet:sheet,
+            DocType:sheet,
+            FileName:fileName,
+            FileURL:newUrl
+          });
+          google.script.run
+            .withSuccessHandler(function(){
+              document.getElementById('csEditModal').remove();
+              alert('✅ Record saved with document!');
+              _csEdFile=null;
+              var arr=sheet==='WorkPermit'?allWP:sheet==='Insurance'?allIns:sheet==='Ikama'?allIka:allPass;
+              var idx=arr.findIndex(function(r){return String(r.RecordID)===String(record.RecordID);});
+              if(idx>=0) arr[idx]=record; else arr.push(record);
+              renderCompliance();
+              updateBadges();
+            })
+            .gsrSaveComplianceRecord(sheet,record);
+        }
+      });
+    };
+    reader.readAsDataURL(_csEdFile);
+  } else {
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(r&&r.success){
+          document.getElementById('csEditModal').remove();
+          alert('✅ Record saved!');
+          gsComplianceLoad(sheet).then(function(data){
+            if(sheet==='WorkPermit') allWP=data||[];
+            if(sheet==='Insurance') allIns=data||[];
+            if(sheet==='Ikama') allIka=data||[];
+            if(sheet==='PassportRenewal') allPass=data||[];
+            renderCompliance();
+            updateBadges();
+          });
+        } else {alert('❌ Save failed');}
+      })
+      .withFailureHandler(function(e){alert('❌ Error: '+e.message);})
+      .gsrSaveComplianceRecord(sheet,record);
+  }
+}
 
 function updateBadges(){
   var inLeb=getInLebanon();
   document.getElementById('badge-inlebanon').textContent=inLeb.length;
   var ikamaWarn=inLeb.filter(function(w){var arr=w.ArrivalDate||w.ExpectedArrivalDate;if(!arr)return false;var exp=new Date(arr);exp.setDate(exp.getDate()+89);var d=Math.round((exp-new Date())/86400000);return d<=30;}).length;
   var ib=document.getElementById('badge-ikama');ib.textContent=ikamaWarn;ib.style.background=ikamaWarn>0?'#ef4444':'#8b5cf6';
-  var passWarn=inLeb.filter(function(w){if(!w.PassportExpiryDate)return false;var d=Math.round((new Date(w.PassportExpiryDate)-new Date())/86400000);return d>=0&&d<=180;}).length;
-  var pb=document.getElementById('badge-passport');pb.textContent=passWarn;pb.style.background=passWarn>0?'#f59e0b':'#ef4444';
-  document.getElementById('badge-compliance').textContent=allWP.length+allIns.length+allIka.length+allPass.length;
+  var passTotal=inLeb.filter(function(w){return w.PassportExpiryDate||allPass.some(function(r){return String(r.WorkerID)===String(w.WorkerID);});}).length;
+  var pb=document.getElementById('badge-passport');pb.textContent=passTotal;pb.style.background=passTotal>0?'#ef4444':'#ef4444';
   var wpWorkers=allWorkers.filter(function(w){return w.ProcessingStage==='arrived'||w.ProcessingStage==='local'||isT(w.Arrived)||isT(w.ArrivalConfirmed);});
   var wpBadge=document.getElementById('badge-workpermit');
   if(wpBadge) wpBadge.textContent=wpWorkers.length;
   var insBadge=document.getElementById('badge-insurance');
-  if(insBadge) insBadge.textContent=wpWorkers.length;
+  if(insBadge) insBadge.textContent=inLeb.length;
+  var compCount=inLeb.filter(function(w){
+    var inv=[];try{inv=JSON.parse(w.ComplianceInvoiced||'[]');}catch(e){}
+    return inv.length>0||allWP.some(function(r){return String(r.WorkerID)===String(w.WorkerID);})||allIns.some(function(r){return String(r.WorkerID)===String(w.WorkerID);})||allIka.some(function(r){return String(r.WorkerID)===String(w.WorkerID);})||allPass.some(function(r){return String(r.WorkerID)===String(w.WorkerID);});
+  }).length;
+  var cb=document.getElementById('badge-compliance');
+  if(cb) cb.textContent=compCount;
 }
 
 function updatePrintMeta(){var el=document.getElementById('printMeta');if(el)el.innerHTML='Generated: '+new Date().toLocaleDateString('en-GB')+' '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+'<br>Total: '+getInLebanon().length+' workers';}
@@ -992,7 +1748,16 @@ function switchTab(id,btn){
   document.getElementById(id).style.display='block';
   btn.classList.add('active');
   if(id==='tab-compliance') renderCompliance();
-  if(id==='tab-workpermit') loadWorkPermitTab();
+  if(id==='tab-workpermit'){
+    gsComplianceLoad('WorkPermit').then(function(data){
+      allWorkPermits=data||[];
+      renderTabCards('WorkPermit');
+    });
+  }
+  if(id==='tab-insurance') renderTabCards('Insurance');
+  if(id==='tab-ikama') renderTabCards('Ikama');
+  if(id==='tab-passport') renderTabCards('PassportRenewal');
+  if(id==='tab-inlebanon') renderMain();
 }
 
 function exportCSV(){
@@ -1092,7 +1857,8 @@ function renderWorkPermit(){
       html+='<div style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">';
       var hasLocal=ew.some(function(x){return x.ProcessingStage==='local';});
       var localEmpTag=hasLocal?'<span style="background:#1976d2;color:white;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800;margin-left:8px;">🏠 LOCAL</span>':'';
-      html+='<span style="font-weight:700;font-size:14px;">💼 '+en+' <span style="font-size:12px;opacity:0.8;">'+ec+'</span>'+localEmpTag+'</span>';
+      var eC=emp?(emp.MobileNumber||emp.ContactNumber||'—'):'—';
+      html+='<span style="font-weight:700;font-size:14px;">💼 '+en+' <span style="font-size:12px;opacity:0.8;">'+ec+'</span>'+localEmpTag+'</span><span style="font-size:12px;opacity:0.85;margin-left:10px;">📞 '+eC+'</span>';
       html+='<span style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;">'+ew.length+' worker(s)</span>';
       html+='</div><div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">';
 
@@ -1117,7 +1883,8 @@ function renderWorkPermit(){
           actionBtn='<button onclick="openWPModal(\''+w.WorkerID+'\')" style="background:#d97706;color:white;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">✏️ Edit</button>';
         } else {
           statusBadge='<span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;">✅ Active</span>';
-          actionBtn='<button onclick="openWPModal(\''+w.WorkerID+'\')" style="background:#166534;color:white;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">✏️ Edit</button>';
+          var invMark=w.ComplianceInvoiced?'<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;margin-right:6px;">✅ Invoiced</span>':'';
+          actionBtn=invMark+'<button onclick="openWPModal(\''+w.WorkerID+'\')" style="background:#166534;color:white;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">✏️ Edit</button>';
         }
 
         html+='<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">';
@@ -1129,7 +1896,7 @@ function renderWorkPermit(){
           html+='<div style="font-size:12px;color:#555;margin-top:3px;">📜 Permit No: <b>'+(permit.PermitNumber||'—')+'</b> | Issue: <b>'+(permit.IssueDate?fmtDate(permit.IssueDate):'—')+'</b> | Expiry: <b>'+(permit.ExpiryDate?fmtDate(permit.ExpiryDate):'—')+'</b>'+(daysLeft!==null?' | <b style="color:'+(daysLeft<0?'#dc2626':daysLeft<30?'#d97706':'#166534')+';">'+(daysLeft<0?Math.abs(daysLeft)+' days ago':daysLeft+' days left')+'</b>':'')+'</div>';
         }
         html+='</div>';
-        html+='<div style="display:flex;gap:8px;align-items:center;">'+statusBadge+actionBtn+'</div>';
+        html+='<div style="display:flex;gap:8px;align-items:center;">'+statusBadge+'</div>';
         html+='</div>';
       });
       html+='</div></div>';
@@ -1261,8 +2028,524 @@ function saveWPRecord(workerId){
     .withFailureHandler(function(e){ alert('❌ Error: '+e.message); })
     .gsrSaveComplianceRecord('WorkPermit', record);
 }
+function loadInsuranceTab(){
+  var workers=getInLebanon();
+  var now=new Date();
+  var enrolled=0,expiring=0,expired=0;
+  workers.forEach(function(w){
+    var rec=allIns.find(function(r){return String(r.WorkerID)===String(w.WorkerID);});
+    if(!rec) return;
+    enrolled++;
+    var d=rec.ExpiryDate?Math.ceil((new Date(rec.ExpiryDate)-now)/86400000):null;
+    if(d!==null&&d<0) expired++;
+    else if(d!==null&&d<=30) expiring++;
+  });
+  document.getElementById('ins-stat-total').textContent=workers.length;
+  document.getElementById('ins-stat-enrolled').textContent=enrolled;
+  document.getElementById('ins-stat-expiring').textContent=expiring;
+  document.getElementById('ins-stat-expired').textContent=expired;
+  renderInsurance();
+}
+
+function renderInsurance(){
+  var workers=getInLebanon();
+  var q=(document.getElementById('insSearch').value||'').toLowerCase();
+  var statusFilter=document.getElementById('insFilter').value;
+  var now=new Date();
+  var filtered=workers.filter(function(w){
+    var rec=allIns.find(function(r){return String(r.WorkerID)===String(w.WorkerID);});
+    var d=rec&&rec.ExpiryDate?Math.ceil((new Date(rec.ExpiryDate)-now)/86400000):null;
+    var pStatus=!rec?'none':d===null?'active':d<0?'expired':d<=30?'expiring':'active';
+    if(statusFilter==='none'&&rec) return false;
+    if(statusFilter==='active'&&pStatus!=='active') return false;
+    if(statusFilter==='expiring'&&pStatus!=='expiring') return false;
+    if(statusFilter==='expired'&&pStatus!=='expired') return false;
+    if(q){var emp=getEmp(w);var empN=emp?(emp.EFN||emp.EmployerName||''):'';var str=[w.WFullName,w.WorkerFirstName,w.WorkerLastName,w.PassportNumber,empN,w.EmployerCode].join(' ').toLowerCase();if(!str.includes(q))return false;}
+    return true;
+  });
+  document.getElementById('insCount').textContent=filtered.length+' workers';
+  renderServiceTab('insBody',filtered,allIns,'Insurance','PolicyNumber','ExpiryDate','#10b981');
+}
+
+function loadIkamaTab(){
+  var workers=getInLebanon();
+  var now=new Date();
+  var enrolled=0,expiring=0,expired=0;
+  workers.forEach(function(w){
+    var expDate=allIka.find(function(r){return String(r.WorkerID)===String(w.WorkerID);})?allIka.find(function(r){return String(r.WorkerID)===String(w.WorkerID);}).ExpiryDate:(w.IkamaExpiry||'');
+    if(!expDate) return;
+    enrolled++;
+    var d=Math.ceil((new Date(expDate)-now)/86400000);
+    if(d<0) expired++;
+    else if(d<=30) expiring++;
+  });
+  document.getElementById('ika-stat-total').textContent=workers.length;
+  document.getElementById('ika-stat-enrolled').textContent=enrolled;
+  document.getElementById('ika-stat-expiring').textContent=expiring;
+  document.getElementById('ika-stat-expired').textContent=expired;
+  renderIkama();
+}
+
+function renderIkama(){
+  var workers=getInLebanon();
+  var q=(document.getElementById('ikaSearch').value||'').toLowerCase();
+  var statusFilter=document.getElementById('ikaFilter').value;
+  var now=new Date();
+  var filtered=workers.filter(function(w){
+    var rec=allIka.find(function(r){return String(r.WorkerID)===String(w.WorkerID);});
+    var expDate=rec?(rec.ExpiryDate||''):(w.IkamaExpiry||'');
+    var d=expDate?Math.ceil((new Date(expDate)-now)/86400000):null;
+    var pStatus=!expDate?'none':d<0?'expired':d<=30?'expiring':'active';
+    if(statusFilter==='none'&&expDate) return false;
+    if(statusFilter==='active'&&pStatus!=='active') return false;
+    if(statusFilter==='expiring'&&pStatus!=='expiring') return false;
+    if(statusFilter==='expired'&&pStatus!=='expired') return false;
+    if(q){var emp=getEmp(w);var empN=emp?(emp.EFN||emp.EmployerName||''):'';var str=[w.WFullName,w.WorkerFirstName,w.WorkerLastName,w.PassportNumber,empN,w.EmployerCode].join(' ').toLowerCase();if(!str.includes(q))return false;}
+    return true;
+  });
+  document.getElementById('ikaCount').textContent=filtered.length+' workers';
+  renderServiceTab('ikaBody',filtered,allIka,'Ikama','IkamaNumber','ExpiryDate','#8b5cf6',function(w){return w.IkamaExpiry||'';});
+}
+
+function loadPassportTab(){
+  var workers=getInLebanon();
+  var now=new Date();
+  var enrolled=0,expiring=0,expired=0;
+  workers.forEach(function(w){
+    var expDate=allPass.find(function(r){return String(r.WorkerID)===String(w.WorkerID);})?allPass.find(function(r){return String(r.WorkerID)===String(w.WorkerID);}).ExpiryDate:(w.PassportExpiryDate||'');
+    if(!expDate) return;
+    enrolled++;
+    var d=Math.ceil((new Date(expDate)-now)/86400000);
+    if(d<0) expired++;
+    else if(d<=180) expiring++;
+  });
+  document.getElementById('pass-stat-total').textContent=workers.length;
+  document.getElementById('pass-stat-enrolled').textContent=enrolled;
+  document.getElementById('pass-stat-expiring').textContent=expiring;
+  document.getElementById('pass-stat-expired').textContent=expired;
+  renderPassport();
+}
+
+function renderPassport(){
+  var workers=getInLebanon();
+  var q=(document.getElementById('passSearch').value||'').toLowerCase();
+  var statusFilter=document.getElementById('passFilter').value;
+  var now=new Date();
+  var filtered=workers.filter(function(w){
+    var rec=allPass.find(function(r){return String(r.WorkerID)===String(w.WorkerID);});
+    var expDate=rec?(rec.ExpiryDate||rec.NewExpiry||''):(w.PassportExpiryDate||'');
+    var d=expDate?Math.ceil((new Date(expDate)-now)/86400000):null;
+    var pStatus=!expDate?'none':d<0?'expired':d<=180?'expiring':'active';
+    if(statusFilter==='none'&&expDate) return false;
+    if(statusFilter==='active'&&pStatus!=='active') return false;
+    if(statusFilter==='expiring'&&pStatus!=='expiring') return false;
+    if(statusFilter==='expired'&&pStatus!=='expired') return false;
+    if(q){var emp=getEmp(w);var empN=emp?(emp.EFN||emp.EmployerName||''):'';var str=[w.WFullName,w.WorkerFirstName,w.WorkerLastName,w.PassportNumber,empN,w.EmployerCode].join(' ').toLowerCase();if(!str.includes(q))return false;}
+    return true;
+  });
+  document.getElementById('passCount').textContent=filtered.length+' workers';
+  renderServiceTab('passBody',filtered,allPass,'PassportRenewal','PassportNumber','ExpiryDate','#ef4444',function(w){return w.PassportExpiryDate||'';});
+}
+
+function renderServiceTab(wrapId,workers,allRecs,sheet,numField,expiryField,color,fallbackFn){
+  var wrap=document.getElementById(wrapId);
+  if(!workers.length){wrap.innerHTML='<div class="empty"><div class="empty-icon">🔍</div><div style="font-size:15px;font-weight:700;">No workers found</div></div>';return;}
+  var now=new Date();
+  var page=parseInt(wrap.getAttribute('data-page')||'1');
+  var pageSize=15;
+  var totalWorkers=workers.length;
+  var totalPages=Math.ceil(totalWorkers/pageSize);
+  workers=workers.slice((page-1)*pageSize, page*pageSize);
+  var empGroups={};
+  workers.forEach(function(w){
+    var k=w.EmployerCode||w.EmployerID||'unassigned';
+    if(!empGroups[k]) empGroups[k]=[];
+    empGroups[k].push(w);
+  });
+  var html='';
+  Object.keys(empGroups).forEach(function(empKey){
+    var ew=empGroups[empKey];
+    var emp=getEmp(ew[0]);
+    var en=emp?(emp.EFN||emp.EmployerName||empKey):empKey;
+    var ec=emp?(emp.EmployerCode||empKey):empKey;
+    var eC=emp?(emp.MobileNumber||emp.ContactNumber||'—'):'—';
+    html+='<div style="background:white;border:1px solid #e0e0e0;border-radius:10px;margin-bottom:16px;overflow:hidden;">';
+    html+='<div style="background:linear-gradient(135deg,'+color+','+color+'cc);color:white;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">';
+    html+='<div><span style="font-weight:700;font-size:14px;">💼 '+en+'</span><span style="font-size:12px;opacity:0.85;margin-left:10px;">'+ec+' | 📞 '+eC+'</span></div>';
+    html+='<span style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;">'+ew.length+' worker(s)</span>';
+    html+='</div><div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">';
+    ew.forEach(function(w){
+      var rec=allRecs.find(function(r){return String(r.WorkerID)===String(w.WorkerID);});
+      var expDate=rec?(rec[expiryField]||rec.ExpiryDate||rec.NewExpiry||''):(fallbackFn?fallbackFn(w):'');
+      var refNum=rec?(rec[numField]||''):'';
+      var d=expDate?Math.ceil((new Date(expDate)-now)/86400000):null;
+      var col=d===null?'#999':d<0?'#dc2626':d<=30?'#d97706':'#166534';
+      var dTxt=d===null?'—':d<0?'Expired':fmtDate(expDate)+' ('+d+'d left)';
+      var wn=wName(w),wc=wCode(w);
+      var arrDate=w.ArrivalDate||w.ExpectedArrivalDate||'';
+      var stageTag=w.ProcessingStage==='local'?'<span style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;margin-left:4px;">🏠 Local</span>':'';
+      html+='<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">';
+      html+='<div>';
+      html+='<div style="font-weight:700;font-size:14px;color:#111;">👷 '+wn+stageTag+'</div>';
+      html+='<div style="font-size:12px;color:#555;margin-top:3px;">Code: <b style="color:'+color+';">'+wc+'</b> | Nationality: <b>'+(w.Nationality||'—')+'</b> | Arrival: <b>'+(arrDate?fmtDate(arrDate):'—')+'</b></div>';
+      html+='<div style="font-size:12px;margin-top:3px;">'+(refNum?'Ref: <b>'+refNum+'</b> | ':'')+'Expiry: <b style="color:'+col+';">'+dTxt+'</b></div>';
+      html+='</div>';
+      html+='</div>';
+    });
+    html+='</div></div>';
+  });
+  wrap.innerHTML=html;
+}
+function renderTabCards(activeService){
+  var bodyId={WorkPermit:'wpBody',Insurance:'insBody',Ikama:'ikaBody',PassportRenewal:'passBody',Local:'localTableWrap',Moved:'movedTableWrap',Left:'leftTableWrap'}[activeService];
+  var wrap=document.getElementById(bodyId);
+  if(!wrap) return;
+  var workers=activeService==='Local'?getLocalWorkers():activeService==='Moved'?getMovedWorkers():activeService==='Left'?getLeftWorkers():getInLebanon();
+  var q='';
+  var searchEl={WorkPermit:'wpSearch',Insurance:'insSearch',Ikama:'ikaSearch',PassportRenewal:'passSearch'}[activeService];
+  if(searchEl&&document.getElementById(searchEl)) q=(document.getElementById(searchEl).value||'').toLowerCase();
+  if(q) workers=workers.filter(function(w){
+    var emp=getEmp(w);
+    var empN=emp?(emp.EFN||emp.EmployerName||''):'';
+    return [w.WFullName,w.WorkerFirstName,w.WorkerLastName,w.PassportNumber,empN,w.EmployerCode].join(' ').toLowerCase().includes(q);
+  });
+  if(!workers.length){wrap.innerHTML='<div class="empty"><div class="empty-icon">🔍</div><div>No workers found</div></div>';return;}
+  var now=new Date();
+  var empGroups={};
+  workers.forEach(function(w){
+    var k=w.EmployerCode||w.EmployerID||'unassigned';
+    if(!empGroups[k]) empGroups[k]=[];
+    empGroups[k].push(w);
+  });
+  var html='';
+  Object.keys(empGroups).forEach(function(empKey){
+    var ew=empGroups[empKey];
+    var emp=getEmp(ew[0]);
+    var en=emp?(emp.EFN||emp.EmployerName||empKey):empKey;
+    var ec=emp?(emp.EmployerCode||empKey):empKey;
+    var eC=emp?(emp.MobileNumber||emp.ContactNumber||'—'):'—';
+    html+='<div class="cs-worker-card">';
+    var headerColor={WorkPermit:'#0891b2',Insurance:'#10b981',Ikama:'#7c3aed',PassportRenewal:'#dc2626',Local:'#1976d2',Moved:'#7c3aed',Left:'#4a148c'}[activeService]||'#0f172a';
+    html+='<div class="cs-worker-header" style="background:linear-gradient(135deg,'+headerColor+','+headerColor+'cc);">';
+    html+='<div><div class="cs-worker-name">💼 '+en+'</div><div class="cs-worker-meta">'+ec+' | 📞 '+eC+'</div></div>';
+    html+='<span class="cs-worker-code">'+ew.length+' worker(s)</span>';
+    html+='</div>';
+    ew.forEach(function(w){
+      var wn=wName(w),wc=wCode(w);
+      var localTag=w.ProcessingStage==='local'?'<span style="background:#1976d2;color:white;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:900;margin-left:6px;">🏠 LOCAL</span>':'';
+      var wid=String(w.WorkerID);
+      var wpRec=allWP.find(function(r){return String(r.WorkerID)===wid;});
+      var insRec=allIns.find(function(r){return String(r.WorkerID)===wid;});
+      var ikaRec=allIka.find(function(r){return String(r.WorkerID)===wid;});
+      var passRec=allPass.find(function(r){return String(r.WorkerID)===wid;});
+      var invoiced=[];try{invoiced=JSON.parse(w.ComplianceInvoiced||'[]');}catch(e){}
+
+      function svcBox(rec,sheet,icon,label,numField,expField,fallbackDate){
+        var isActive=sheet===activeService;
+        var expDate=rec?(rec[expField]||rec.ExpiryDate||rec.NewExpiry||''):fallbackDate||'';
+        var refNum=rec?(rec[numField]||''):'';
+        var d=expDate?Math.ceil((new Date(expDate)-now)/86400000):null;
+        var svcKey={WorkPermit:'WorkPermit',Insurance:'Insurance',Ikama:'Ikama',PassportRenewal:'Passport'}[sheet];
+        var isInvoiced=invoiced.indexOf(svcKey)>=0||invoiced.indexOf(sheet)>=0;
+
+        if(!isActive) return '<div class="cs-service" style="opacity:0.25;pointer-events:none;">'+
+          '<div class="cs-service-title">'+icon+' '+label+'</div>'+
+          '<div class="cs-not-enrolled" style="font-size:10px;">—</div>'+
+          '</div>';
+
+        if((!expDate&&!refNum)||(!rec&&!isInvoiced&&sheet==='WorkPermit')){
+          var badge=isInvoiced?'<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;">✅ Invoiced</span>':'<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;">❌ Not Enrolled</span>';
+          var enrollBtn=(!isInvoiced&&sheet==='WorkPermit')?'<button class="cs-add-btn" onclick="openWPModal(\''+w.WorkerID+'\')">+ Enroll</button>':'';
+          return '<div class="cs-service">'+
+            '<div class="cs-service-title">'+icon+' '+label+'</div>'+
+            badge+
+            '<div class="cs-not-enrolled" style="margin-top:6px;">Pending details</div>'+
+            enrollBtn+
+            '</div>';
+        }
+
+        var col=d===null?'#999':d<0?'#dc2626':d<=30?'#d97706':'#166534';
+        var statusCls=d===null?'status-pending':d<0?'status-expired':d<=30?'status-pending':'status-active';
+        var daysHtml=d===null?'':d<0?'<span style="color:#dc2626;font-size:10px;">Expired</span>':d<=30?'<span style="color:#f59e0b;font-size:10px;">'+d+'d left ⚠️</span>':'<span style="color:#16a34a;font-size:10px;">'+d+'d left</span>';
+        return '<div class="cs-service">'+
+          '<div class="cs-service-title">'+icon+' '+label+'</div>'+
+          '<span class="status-badge '+statusCls+'">'+(d<0?'Expired':d<=30?'Expiring':'Active')+'</span>'+
+          (refNum?'<div class="cs-service-value" style="margin-top:6px;">'+refNum+'</div>':'')+
+          '<div class="cs-service-date">'+(expDate?fmtDate(expDate):'—')+'</div>'+
+          daysHtml+
+          '</div>';
+      }
+
+      html+='<div style="border-top:1px solid #e5e7eb;padding:10px 14px;">';
+      html+='<div style="font-weight:700;font-size:13px;margin-bottom:6px;">👷 '+wn+' <span style="font-size:11px;color:#888;font-weight:400;">'+wc+'</span>'+localTag+'</div>';
+      html+='<div class="cs-services-grid">'+
+        svcBox(wpRec,'WorkPermit','📜','Work Permit','PermitNumber','ExpiryDate',w.EntryValidUntil||'')+
+        svcBox(insRec,'Insurance','🛡️','Insurance','PolicyNumber','ExpiryDate','')+
+        svcBox(ikaRec,'Ikama','🪪','Ikama','IkamaNumber','ExpiryDate',w.IkamaExpiry||'')+
+        svcBox(passRec,'PassportRenewal','🛂','Passport Renewal','PassportNumber','ExpiryDate',w.PassportExpiryDate||'')+
+      '</div>'+
+      '<div id="tab-summary-'+wid+'" style="background:#f0f9ff;border-top:1px solid #bae6fd;padding:8px 14px;font-size:12px;color:#0c4a6e;display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;border-radius:8px;">'+
+        '<span style="font-weight:700;color:#94a3b8;">⏳ Loading next dates...</span>'+
+      '</div></div>';
+    });
+    html+='</div>';
+  });
+  // Pagination
+  var allCards=Object.keys(empGroups);
+  var pageSize=15;
+  var totalPages=Math.ceil(allCards.length/pageSize);
+  var page=parseInt(wrap.getAttribute('data-page')||'1');
+  var start=(page-1)*pageSize;
+  var pageKeys=allCards.slice(start,start+pageSize);
+  var pagedHtml='';
+  pageKeys.forEach(function(empKey){
+  });
+  if(totalPages>1){
+    var headerColor={WorkPermit:'#0891b2',Insurance:'#10b981',Ikama:'#7c3aed',PassportRenewal:'#dc2626'}[activeService]||'#667eea';
+    html+='<div style="display:flex;justify-content:center;gap:8px;margin-top:16px;flex-wrap:wrap;">';
+    for(var p=1;p<=totalPages;p++){
+      html+='<button onclick="document.getElementById(\''+bodyId+'\').setAttribute(\'data-page\',\''+p+'\');renderTabCards(\''+activeService+'\')" style="padding:6px 14px;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:13px;background:'+(p===page?headerColor:'#f1f5f9')+';color:'+(p===page?'white':'#333')+';">'+p+'</button>';
+    }
+    html+='</div>';
+  }
+  wrap.innerHTML=html;
+  setTimeout(function(){
+    var bars=document.querySelectorAll('[id^="tab-summary-"]');
+    if(!bars.length) return;
+    function fillBars(allData){
+      if(!allData) return;
+      bars.forEach(function(bar){
+        var wid=bar.id.replace('tab-summary-','');
+        var data=allData[wid];
+        if(!data) return;
+        function fmt(rec,label,field){
+          if(!rec||!rec[field]) return label+': —';
+          return label+': <b>'+fmtDate(rec[field])+'</b>';
+        }
+        bar.innerHTML=
+          '<span style="font-weight:700;">🆕 Next:</span>'+
+          '<span>'+fmt(data.WorkPermit,'📜 WP','ExpiryDate')+'</span>'+
+          '<span>'+fmt(data.Insurance,'🛡️ INS','ExpiryDate')+'</span>'+
+          '<span>'+fmt(data.Ikama,'🪪 IKA','ExpiryDate')+'</span>'+
+          '<span>'+fmt(data.PassportRenewal,'🛂 PASS','NewExpiry')+'</span>';
+      });
+    }
+    if(Object.keys(allWorkerCompliance).length) fillBars(allWorkerCompliance);
+    else {
+      var ids=[];
+      bars.forEach(function(b){ids.push(b.id.replace('tab-summary-',''));});
+      fetch(SCRIPT_URL+'?action=getWorkersComplianceBatch&workerIDs='+ids.join(','))
+        .then(function(r){return r.json();})
+        .then(fillBars);
+    }
+  },100);
+}
 startClock();
 init();
+</script>
+<script>
+new MutationObserver(function(mutations){
+  mutations.forEach(function(m){
+    m.addedNodes.forEach(function(node){
+      if(node.id==='csEditModal'){
+        var inner=node.querySelector('div');
+        if(!inner) return;
+        var header=inner.querySelector('div');
+        if(!header) return;
+        header.style.cursor='move';
+        var mx=0,my=0;
+        header.addEventListener('mousedown',function(e){
+          e.preventDefault();
+          mx=e.clientX; my=e.clientY;
+          inner.style.position='fixed';
+          inner.style.margin='0';
+          var r=inner.getBoundingClientRect();
+          inner.style.left=r.left+'px';
+          inner.style.top=r.top+'px';
+          function move(e){
+            inner.style.left=(parseFloat(inner.style.left)+(e.clientX-mx))+'px';
+            inner.style.top=(parseFloat(inner.style.top)+(e.clientY-my))+'px';
+            mx=e.clientX; my=e.clientY;
+          }
+          function up(){ document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); }
+          document.addEventListener('mousemove',move);
+          document.addEventListener('mouseup',up);
+        });
+      }
+    });
+  });
+}).observe(document.body,{childList:true});
+</script>
+<script>
+function openCSDocsPopup(workerID, sheet){
+  var labels={WorkPermit:'📜 Work Permit',Insurance:'🛡️ Insurance',Ikama:'🪪 Ikama',PassportRenewal:'🛂 Passport Renewal'};
+  var modal=document.createElement('div');
+  modal.id='csDocsModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML='<div style="background:white;border-radius:14px;width:520px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'+
+    '<div style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;padding:16px 20px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center;">'+
+      '<div style="font-weight:800;font-size:16px;">📂 '+(labels[sheet]||sheet)+' Documents</div>'+
+      '<button onclick="document.getElementById(\'csDocsModal\').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:16px;font-weight:700;">×</button>'+
+    '</div>'+
+    '<div id="csDocsBody" style="padding:20px;">'+
+      '<div style="text-align:center;color:#888;font-size:13px;">⏳ Loading documents...</div>'+
+    '</div>'+
+  '</div>';
+  document.body.appendChild(modal);
+
+  google.script.run
+    .withSuccessHandler(function(rows){
+      var filtered=rows.filter(function(r){
+        return String(r.WorkerID)===String(workerID)&&r.Sheet===sheet;
+      });
+      var body=document.getElementById('csDocsBody');
+      if(!body) return;
+      if(!filtered.length){
+        body.innerHTML='<div style="text-align:center;color:#888;font-size:13px;">No documents found.</div>';
+        return;
+      }
+      body.innerHTML=filtered.map(function(r,i){
+        return '<div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">'+
+          '<div>'+
+            '<div style="font-weight:700;font-size:13px;color:#111;">📄 '+(r.FileName||'Document '+(i+1))+'</div>'+
+            '<div style="font-size:11px;color:#888;margin-top:3px;">'+(r.UploadedDate?new Date(r.UploadedDate).toLocaleDateString():'—')+'</div>'+
+          '</div>'+
+          '<a href="'+r.FileURL+'" target="_blank" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;">🔗 Open</a>'+
+        '</div>';
+      }).join('');
+    })
+    .gsrGetComplianceDocuments(workerID);
+}
+</script>
+<script>
+function openCSDocsPopup(workerID, sheet){
+  var labels={WorkPermit:'📜 Work Permit',Insurance:'🛡️ Insurance',Ikama:'🪪 Ikama',PassportRenewal:'🛂 Passport Renewal'};
+  var modal=document.createElement('div');
+  modal.id='csDocsModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML=
+    '<div id="csDocsInner" style="background:white;border-radius:14px;width:620px;max-width:95vw;height:80vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'+
+      '<div id="csDocsHeader" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;padding:14px 18px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;">'+
+        '<div style="font-weight:800;font-size:15px;">📂 '+(labels[sheet]||sheet)+' Documents</div>'+
+        '<button onclick="document.getElementById(\'csDocsModal\').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:16px;font-weight:700;">×</button>'+
+      '</div>'+
+      '<div id="csDocsNav" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #e5e7eb;min-height:44px;">'+
+        '<div id="csDocsInfo" style="font-size:12px;color:#555;font-weight:600;"></div>'+
+        '<div style="display:flex;gap:8px;">'+
+          '<button id="csDocs-prev" onclick="csDocsNav(-1)" style="background:#f1f5f9;border:1px solid #e5e7eb;border-radius:7px;padding:5px 12px;cursor:pointer;font-weight:700;">◀</button>'+
+          '<button id="csDocs-next" onclick="csDocsNav(1)" style="background:#f1f5f9;border:1px solid #e5e7eb;border-radius:7px;padding:5px 12px;cursor:pointer;font-weight:700;">▶</button>'+
+          '<a id="csDocs-open" href="#" target="_blank" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;padding:5px 12px;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;">🔗 Open</a>'+
+          '<button onclick="csDocsPrint()" style="background:#0f172a;color:white;border:none;padding:5px 12px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">🖨️ Print</button>'+
+        '</div>'+
+      '</div>'+
+      '<div id="csDocsViewer" style="flex:1;overflow:hidden;border-radius:0 0 14px 14px;">'+
+        '<div style="text-align:center;padding:40px;color:#888;">⏳ Loading...</div>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(modal);
+
+  // Make draggable
+  var inner=document.getElementById('csDocsInner');
+  var header=document.getElementById('csDocsHeader');
+  var mx=0,my=0;
+  header.addEventListener('mousedown',function(e){
+    if(e.target.tagName==='BUTTON') return;
+    e.preventDefault();
+    mx=e.clientX;my=e.clientY;
+    inner.style.position='fixed';
+    inner.style.margin='0';
+    var r=inner.getBoundingClientRect();
+    inner.style.left=r.left+'px';
+    inner.style.top=r.top+'px';
+    function move(e){
+      inner.style.left=(parseFloat(inner.style.left)+(e.clientX-mx))+'px';
+      inner.style.top=(parseFloat(inner.style.top)+(e.clientY-my))+'px';
+      mx=e.clientX;my=e.clientY;
+    }
+    function up(){document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);}
+    document.addEventListener('mousemove',move);
+    document.addEventListener('mouseup',up);
+  });
+
+  // Load documents
+  window._csDocs=[];
+  window._csDocsIdx=0;
+  google.script.run
+    .withSuccessHandler(function(rows){
+      window._csDocs=rows.filter(function(r){return String(r.WorkerID)===String(workerID)&&r.Sheet===sheet;});
+      if(!window._csDocs.length){
+        document.getElementById('csDocsViewer').innerHTML='<div style="text-align:center;padding:40px;color:#888;">No documents found.</div>';
+        document.getElementById('csDocsInfo').textContent='0 documents';
+        return;
+      }
+      window._csDocsIdx=0;
+      csDocsShow(0);
+    })
+    .gsrGetComplianceDocuments(workerID);
+}
+
+function csDocsShow(idx){
+  var docs=window._csDocs;
+  if(!docs||!docs.length) return;
+  var doc=docs[idx];
+  var total=docs.length;
+  document.getElementById('csDocsInfo').textContent=(idx+1)+' of '+total+' — '+(doc.FileName||'Document');
+  document.getElementById('csDocs-prev').disabled=idx===0;
+  document.getElementById('csDocs-prev').style.opacity=idx===0?'0.4':'1';
+  document.getElementById('csDocs-next').disabled=idx===total-1;
+  document.getElementById('csDocs-next').style.opacity=idx===total-1?'0.4':'1';
+  var openBtn=document.getElementById('csDocs-open');
+  if(openBtn) openBtn.href=doc.FileURL||'#';
+  // Extract file ID and build preview URL
+  var fileId='';
+  var m=(doc.FileURL||'').match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if(m) fileId=m[1];
+  var viewer=document.getElementById('csDocsViewer');
+  if(fileId){
+    viewer.innerHTML=
+      '<div style="width:100%;height:100%;overflow:auto;display:flex;align-items:center;justify-content:center;background:#f1f5f9;">'+
+        '<img src="https://lh3.googleusercontent.com/d/'+fileId+'=w1200" '+
+          'id="csDocsImg" '+
+          'style="max-width:100%;max-height:100%;object-fit:contain;transition:transform 0.2s;cursor:zoom-in;" '+
+          'onerror="document.getElementById(\'csDocsImg\').style.display=\'none\';">'+
+      '</div>';
+  } else {
+    viewer.innerHTML='<div style="text-align:center;padding:40px;color:#888;">Cannot preview.<br><a href="'+(doc.FileURL||'#')+'" target="_blank">Open in Drive</a></div>';
+  }
+}
+
+function csDocsNav(dir){
+  var docs=window._csDocs||[];
+  window._csDocsIdx=Math.max(0,Math.min(docs.length-1,(window._csDocsIdx||0)+dir));
+  csDocsShow(window._csDocsIdx);
+}
+
+document.addEventListener('wheel',function(e){
+  var img=document.getElementById('csDocsImg');
+  if(!img) return;
+  e.preventDefault();
+  var scale=img._scale||1;
+  scale+=e.deltaY<0?0.15:-0.15;
+  scale=Math.max(0.5,Math.min(5,scale));
+  img._scale=scale;
+  img.style.transform='scale('+scale+')';
+  img.style.cursor=scale>1?'zoom-out':'zoom-in';
+},{passive:false});
+</script>
+<script>
+function csDocsPrint(){
+  var img=document.getElementById('csDocsImg');
+  if(!img){alert('No document to print.');return;}
+  var win=window.open('','_blank');
+  win.document.write(
+    '<html><head><title>Print Document</title>'+
+    '<style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;}'+
+    'img{max-width:100%;height:auto;}'+
+    '@media print{body{margin:0;}}</style></head>'+
+    '<body><img src="'+img.src+'" onload="window.print();window.close();"></body></html>'
+  );
+  win.document.close();
+}
 </script>
 </body>
 </html>
