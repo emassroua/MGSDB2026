@@ -96,6 +96,41 @@
     </style>
 </head>
 <body>
+<script>document.documentElement.style.visibility='hidden'</script>
+<script type="module" src="/auth-guard.js"></script>
+
+<!-- ============================================================ -->
+<!-- FIREBASE PORT — STEP 1: Firebase SDK INIT (module script)    -->
+<!-- Exposes window._fb = { db, storage, ...SDK helpers }          -->
+<!-- Fires 'firebase-ready' event when initialized                 -->
+<!-- ============================================================ -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject, listAll, getMetadata } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyD6C4CwBUvZCoNn1Y-U_tCiSp44AoD9Ies",
+        authDomain: "mgsd2026.firebaseapp.com",
+        projectId: "mgsd2026",
+        storageBucket: "mgsd2026.firebasestorage.app",
+        messagingSenderId: "918582360831",
+        appId: "1:918582360831:web:2dfc49252594645cf2aaca"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    window._fb = {
+        db, storage,
+        collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where,
+        ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject, listAll, getMetadata
+    };
+    window.dispatchEvent(new Event('firebase-ready'));
+    console.log('🔥 Firebase SDK initialized');
+</script>
+
     <div id="loadingOverlay" class="loading-overlay">🔄 Loading Processing Data...</div>
     <div class="container">
         <div class="header">
@@ -106,11 +141,12 @@
             <div class="header-stats">
                 <div class="stat-badge" id="totalProcessing">🔄 0 Processing</div>
                 <div class="stat-badge" id="totalEmployers">💼 0 Employers</div>
+                <div class="stat-badge" id="dateTimeBadge" style="background: rgba(255,255,255,0.2); white-space: nowrap;">📅 Loading…</div>
             </div>
         </div>
         <div class="toolbar">
             <button class="btn-refresh" onclick="refreshData()">🔄 Refresh</button>
-            <button class="btn-dashboard" onclick="window.open(SCRIPT_URL + '?page=Dashboard', '_blank')">🏠 Dashboard</button>
+            <button class="btn-dashboard" onclick="window.location.href='Dashboard.html'">🏠 Dashboard</button>
             <button class="btn-agencies" onclick="window.location.href='Local_Agencies_Manager.html'">🏛️ Local Agencies</button>
             <button onclick="debugData()" style="padding:10px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;background:#ffc107;color:#000;">🔍 Debug</button>
             <button onclick="showManualProcess()" style="padding:10px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;background:#9c27b0;color:white;">📋 Send Selected → Process</button>
@@ -150,6 +186,37 @@
         var allWorkers = [], allEmployers = [], allAgencies = [], allSuppliers = [];
         var cloudReady = false, currentTab = 'processing', currentOutcomeTab = 'all';
         var _openEmpKey = null; // accordion: which employer is open
+
+        // ============================================================
+        // Top-bar date/time badge — Lebanon time, Option B format
+        // Example: 📅 Mon, 12 May | 14:32:45
+        // ============================================================
+        (function() {
+            function updateDateTimeBadge() {
+                var badge = document.getElementById('dateTimeBadge');
+                if (!badge) return;
+                var now = new Date();
+                var dateStr = now.toLocaleDateString('en-GB', {
+                    weekday: 'short', day: '2-digit', month: 'short',
+                    timeZone: 'Asia/Beirut'
+                });
+                var timeStr = now.toLocaleTimeString('en-GB', {
+                    hour: '2-digit', minute: '2-digit', second: '2-digit',
+                    hour12: false, timeZone: 'Asia/Beirut'
+                });
+                badge.textContent = '📅 ' + dateStr + ' | ' + timeStr;
+            }
+            // Start once DOM is ready, then every second
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function(){
+                    updateDateTimeBadge();
+                    setInterval(updateDateTimeBadge, 1000);
+                });
+            } else {
+                updateDateTimeBadge();
+                setInterval(updateDateTimeBadge, 1000);
+            }
+        })();
         
         var STAGES = {
             processing:     { label: 'Processing',     icon: '🔄', color: '#2196f3', gradient: 'linear-gradient(135deg, #2196f3, #1565c0)' },
@@ -163,15 +230,207 @@
         var NEXT_STAGE = { processing: 'preapproval', preapproval: 'waiting_visa', waiting_visa: 'ready_visa', ready_visa: 'waiting_ticket', waiting_ticket: null };
 var ARRIVED_STAGES = ['arrived'];
         
+        // ============================================================
+        // FIREBASE PORT — STEP 2: CloudDB now uses Firestore
+        // loadSheet/loadAll/saveRow/loadBackground use window._fb
+        // get/post still use fetch(SCRIPT_URL) — kept temporarily for
+        // legacy actions (uploadFile, listFiles, etc) that will be
+        // migrated in later steps. They WILL FAIL after this step.
+        // ============================================================
         var CloudDB = {
-            async get(p) { var u = SCRIPT_URL + '?' + new URLSearchParams(p).toString(); var r = await fetch(u); return await r.json(); },
-            async post(d) { var r = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(d) }); return await r.json(); },
-            async loadSheet(s) { try { var r = await this.get({ action: 'getAll', sheet: s }); return r.data || []; } catch(e) { return []; } },
-            async saveRow(s, d) { return await this.post({ action: 'saveRow', sheet: s, data: d }); },
-            async loadAll() { try { var [w,e,f] = await Promise.all([this.loadSheet('Workers'), this.loadSheet('Employers'), this.loadSheet('Processing_Costs')]); return {workers:w,employers:e,agencies:null,suppliers:null,fees:f}; } catch(e) { return {workers:null,employers:null,agencies:null,suppliers:null,fees:null}; } },
-            async loadBackground() { try { var [a,s] = await Promise.all([this.loadSheet('Local_Agencies'), this.loadSheet('Suppliers')]); return {agencies:a,suppliers:s}; } catch(e) { return {agencies:null,suppliers:null}; } }
+            // Wait until Firebase SDK module finishes loading
+            _ready: function() {
+                return new Promise(function(resolve) {
+                    if (window._fb) return resolve();
+                    window.addEventListener('firebase-ready', function once() {
+                        window.removeEventListener('firebase-ready', once);
+                        resolve();
+                    });
+                });
+            },
+            // Map a "sheet name" to its Firestore collection (1:1)
+            _coll: function(sheet) { return sheet; },
+            // ── Firestore reads ─────────────────────────────────────
+            async loadSheet(s) {
+                try {
+                    await this._ready();
+                    var fb = window._fb;
+                    var snap = await fb.getDocs(fb.collection(fb.db, this._coll(s)));
+                    var rows = [];
+                    snap.forEach(function(d) { rows.push(d.data()); });
+                    return rows;
+                } catch(e) { console.warn('loadSheet failed:', s, e); return []; }
+            },
+            async loadAll() {
+                try {
+                    var self = this;
+                    var [w,e,f] = await Promise.all([
+                        self.loadSheet('Workers'),
+                        self.loadSheet('address_book'),
+                        self.loadSheet('Processing_Costs')
+                    ]);
+                    return {workers:w, employers:e, agencies:null, suppliers:null, fees:f};
+                } catch(e) {
+                    return {workers:null, employers:null, agencies:null, suppliers:null, fees:null};
+                }
+            },
+            async loadBackground() {
+                try {
+                    var self = this;
+                    var [a,s] = await Promise.all([
+                        self.loadSheet('Local_Agencies'),
+                        self.loadSheet('Suppliers')
+                    ]);
+                    return {agencies:a, suppliers:s};
+                } catch(e) { return {agencies:null, suppliers:null}; }
+            },
+            // ── Firestore writes ────────────────────────────────────
+            async saveRow(s, d) {
+                try {
+                    await this._ready();
+                    var fb = window._fb;
+                    // Pick the correct ID field per collection
+                    var idField =
+                        s === 'Workers'           ? 'WorkerID' :
+                        s === 'Employers'         ? 'EmployerID' :
+                        s === 'Suppliers'         ? 'SupplierID' :
+                        s === 'Local_Agencies'    ? 'AgencyID' :
+                        s === 'Invoices'          ? 'invoiceNumber' :
+                        s === 'OutgoingPayments'  ? 'paymentId' :
+                        s === 'Processing_Costs'  ? 'FeeID' :
+                        null;
+                    var docId = idField ? String(d[idField] || '') : '';
+                    if (!docId) {
+                        console.warn('saveRow: missing ID for', s, d);
+                        return { success: false, error: 'Missing ID field ' + idField };
+                    }
+                    await fb.setDoc(fb.doc(fb.db, this._coll(s), docId), d, { merge: true });
+                    return { success: true };
+                } catch(e) {
+                    console.warn('saveRow failed:', s, e);
+                    return { success: false, error: e.message };
+                }
+            }
+            // (STEP 5-4a: legacy get/post methods removed — they were only used
+            //  for Apps Script back-compat which is no longer needed)
         };
-        
+
+        // ============================================================
+        // STEP 3d-1: Firebase Storage upload helper for employer files
+        // (Helper only — fetch calls not yet swapped, that's Step 3d-2+)
+        // Returns { success, fileUrl, error } — same shape as old fetch response
+        // ============================================================
+        async function _uploadToEmployerFolder(folderName, fileName, base64, mimeType, workerSubFolder) {
+            try {
+                // Wait for Firebase SDK if not yet loaded
+                if (!window._fb) {
+                    await new Promise(function(res){
+                        window.addEventListener('firebase-ready', function once(){
+                            window.removeEventListener('firebase-ready', once);
+                            res();
+                        });
+                    });
+                }
+                // Sanitize folderName (employer name can have weird chars)
+                // PHASE 5 PATCH: also strip slashes (forward and back) to prevent path-split bug
+                //                Firebase Storage treats '/' as a path separator, so any slash in
+                //                the folderName would create accidental nested folders.
+                console.log('[UPLOAD] folderName in:', JSON.stringify(folderName), '| workerSubFolder:', JSON.stringify(workerSubFolder));
+                var safeFolder = String(folderName || 'Unknown')
+                    .replace(/[\/\\]/g, ' ')
+                    .replace(/[#\[\]\*\?]/g, '_')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                var safeName = String(fileName || 'file')
+                    .replace(/[\/\\]/g, '_')
+                    .replace(/[#\[\]\*\?]/g, '_')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                // PHASE 2 PATCH: append worker sub-folder if provided
+                var safeSub = workerSubFolder
+                    ? String(workerSubFolder).replace(/[#\[\]\*\?]/g, '_').replace(/\s+/g, ' ').trim()
+                    : '';
+                var storagePath = safeSub
+                    ? 'employers/' + safeFolder + '/' + safeSub + '/' + safeName
+                    : 'employers/' + safeFolder + '/' + safeName;
+
+                // Convert base64 → Blob
+                var byteString = atob(base64);
+                var byteArray = new Uint8Array(byteString.length);
+                for (var i = 0; i < byteString.length; i++) byteArray[i] = byteString.charCodeAt(i);
+                var blob = new Blob([byteArray], { type: mimeType || 'application/octet-stream' });
+
+                var fb = window._fb;
+                var fileRef = fb.ref(fb.storage, storagePath);
+                var uploadResult = await fb.uploadBytes(fileRef, blob);
+                var url = await fb.getDownloadURL(uploadResult.ref);
+                return { success: true, fileUrl: url, url: url, path: storagePath };
+            } catch(e) {
+                // Storage rules block update — give a useful message if filename collision
+                var msg = e.message || String(e);
+                if (msg.indexOf('storage/unauthorized') >= 0) {
+                    msg = 'Permission denied (file may already exist — overwrites are blocked)';
+                }
+                console.warn('Firebase Storage upload failed:', folderName, fileName, msg);
+                return { success: false, error: msg };
+            }
+        }
+
+        // ── PHASE 3 PATCH: shared helper to resolve a worker's sub-folder name ──
+        // Used by all worker-specific uploads to route into employers/{empFolder}/{workerSubFolder}/.
+        // Tries 4 sources in order: WorkerFolder field, WorkerImage URL, PassportScanPath, UploadedWorkerDocs paths.
+        function _resolveWorkerSubFolder(w) {
+            if (!w) return '';
+            var sub = w.WorkerFolder || '';
+            if (!sub && w.WorkerImage) {
+                var m1 = String(w.WorkerImage).match(/\/o\/workers%2F([^%/?]+)/);
+                if (m1) sub = decodeURIComponent(m1[1]);
+            }
+            if (!sub && w.PassportScanPath) {
+                var pp = String(w.PassportScanPath).split('/');
+                if (pp[0] === 'workers' && pp.length >= 2) sub = pp[1];
+                else if (pp.length >= 1) sub = pp[0];
+            }
+            if (!sub && w.UploadedWorkerDocs) {
+                var kk = Object.keys(w.UploadedWorkerDocs);
+                for (var k = 0; k < kk.length && !sub; k++) {
+                    var da = w.UploadedWorkerDocs[kk[k]];
+                    if (Array.isArray(da)) {
+                        for (var d = 0; d < da.length && !sub; d++) {
+                            var pth = da[d] && da[d].path;
+                            if (pth) {
+                                var pm = String(pth).match(/^workers\/([^/]+)/);
+                                if (pm) sub = pm[1];
+                            }
+                        }
+                    }
+                }
+            }
+            return sub;
+        }
+
+        // ── PHASE 3.5 PATCH: shared helper to resolve the EMPLOYER folder name ──
+        // Used by all upload sites to produce the correct folder name with date suffix.
+        // Strategy: EmployerFolderName → EmployerFolder → IDCopyPath split → reconstruct (slash-cleaned)
+        function _resolveEmployerFolderName(emp, fallbackCode) {
+            if (!emp) return fallbackCode || 'Unknown';
+            var n = emp.EmployerFolderName || emp.EmployerFolder || '';
+            if (!n && emp.IDCopyPath) {
+                var ep = String(emp.IDCopyPath).split('/');
+                if (ep.length >= 2 && ep[0] === 'employers') n = ep[1];
+            }
+            if (!n) {
+                var ag = emp.AgencyCode || emp.RawPrefix || '';
+                if (!ag && emp.EmployerCode && String(emp.EmployerCode).indexOf('-') >= 0) {
+                    ag = String(emp.EmployerCode).split('-')[0];
+                }
+                var id = emp.ContactID || emp.EmployerID || '';
+                var nm = (emp.EFN || emp.EmployerName || '').replace(/\s*\/\s*/g, ' ');
+                if (ag && nm) n = ag + '(' + id + ') - ' + nm;
+            }
+            return n || fallbackCode || 'Unknown';
+        }
+
         function getProcessingWorkers() {
             return allWorkers.filter(function(w) { 
                 var v = w.Processing;
@@ -492,8 +751,10 @@ var ARRIVED_STAGES = ['arrived'];
                 var realEmpKey = empKey.split('_')[0]; // strip WorkerID suffix
                 var emp = allEmployers.find(function(e) { 
                     return String(e.EmployerCode) === String(realEmpKey) || 
-                           String(e.EmployerID) === String(realEmpKey) ||
-                           String(e.EmployerID) === String(ew[0].EmployerID);
+                           String(e.EmployerID)   === String(realEmpKey) ||
+                           String(e.ContactID)    === String(realEmpKey) ||
+                           String(e.EmployerID)   === String(ew[0].EmployerID) ||
+                           String(e.ContactID)    === String(ew[0].EmployerCode);
 });
                 var empName = emp ? (emp.EFN || emp.EmployerName || emp.EmployerCode) : realEmpKey;
                 var empCode = emp ? emp.EmployerCode : realEmpKey;
@@ -522,7 +783,28 @@ var ARRIVED_STAGES = ['arrived'];
                 var isOpen = (_openEmpKey === empKey);
                 html += '<div class="employer-card">';
                 html += '<div class="employer-header" style="background:' + bannerBg + ';" onclick="toggleEmployerCard(\'' + safeKey + '\')">';
-                html += '<h3>💼 ' + empName + ' <span style="font-size:12px;font-weight:500;opacity:0.8">(' + ew.length + ' worker' + (ew.length !== 1 ? 's' : '') + ')</span>' + (agName ? ' <span style="font-size:12px;opacity:0.8">(🏛️ ' + agName + ')</span>' : '') + movedFromNames + '</h3>';
+                // Banner: "EmpCode — EmpName / 👷 WorkerCode — WorkerName"
+                var w0 = ew[0];
+                var w0Name = w0.WFullName || (((w0.WorkerFirstName || '') + ' ' + (w0.WorkerLastName || '')).trim()) || 'Unnamed';
+                var w0Code = w0.WorkerCode || (w0.SupplierCode && w0.WorkerID ? w0.SupplierCode + '-' + String(w0.WorkerID).padStart(4, '0') : 'N/A');
+                var empNameOnly = (emp && (emp.EFN || emp.EmployerName)) || '';
+                var empCodeOnly = (emp && emp.EmployerCode)
+                               || (emp && emp.RawPrefix && emp.ContactID ? emp.RawPrefix + '-' + emp.ContactID : '')
+                               || (emp && emp.ContactID)
+                               || w0.EmployerCode
+                               || ('ID-' + (w0.EmployerID || ''));
+                var empDisplay = empCodeOnly + (empNameOnly && empNameOnly !== empCodeOnly ? ' — ' + empNameOnly : '');
+                // PATCH B: count all workers linked to this employer (across all stages)
+                var _empMatchId = (emp && emp.EmployerID) ? String(emp.EmployerID)
+                                : (emp && emp.ContactID)  ? String(emp.ContactID)
+                                : String(w0.EmployerID || w0.EmployerCode || '');
+                var _empWorkerCount = _empMatchId ? allWorkers.filter(function(_w){
+                    return String(_w.EmployerID) === _empMatchId || String(_w.EmployerCode) === _empMatchId;
+                }).length : 0;
+                var _countBadge = _empWorkerCount > 0
+                    ? ' <span style="background:rgba(255,255,255,0.3);padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700;margin-left:6px;">' + _empWorkerCount + 'W</span>'
+                    : '';
+                html += '<h3>💼 ' + empDisplay + ' <span style="opacity:0.85;font-weight:500;margin:0 6px;">/</span> 👷 ' + w0Code + ' — ' + w0Name + _countBadge + (agName ? ' <span style="font-size:12px;opacity:0.8;margin-left:8px;">(🏛️ ' + agName + ')</span>' : '') + movedFromNames + '</h3>';
                 html += '<div style="display:flex;align-items:center;gap:8px;">';
                 html += '<button onclick="event.stopPropagation();generateEmployerReport(\'' + empCode.replace(/'/g,"\\'") + '\')" style="padding:5px 12px;background:rgba(255,255,255,0.25);border:1.5px solid rgba(255,255,255,0.6);color:white;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">📊 Report</button>';
                 html += '<span id="chev-' + empKey + '" style="font-size:20px;font-weight:900;transition:transform 0.25s;display:inline-block;transform:' + (isOpen ? 'rotate(180deg)' : 'rotate(0deg)') + '">⌄</span>';
@@ -544,7 +826,7 @@ var ARRIVED_STAGES = ['arrived'];
                     
                     // Next stage button
                     var realNext = NEXT_STAGE[wStage];
-                    var acts = '<button class="btn-view" onclick="window.open(SCRIPT_URL + \'?page=Workers_Manager&worker=' + w.WorkerID + '\',\'_blank\')">👁️ View</button>';
+                    var acts = '<button class="btn-view" onclick="window.open(\'workers_manager.html?worker=' + w.WorkerID + '\',\'_blank\')">👁️ View</button>';
                     if (realNext) {
                         var ns = STAGES[realNext];
                         acts += '<button class="btn-next" style="background:' + ns.color + '" onclick="moveToStage(' + w.WorkerID + ',\'' + realNext + '\')">' + ns.icon + ' → ' + ns.label + '</button>';
@@ -587,13 +869,24 @@ var ARRIVED_STAGES = ['arrived'];
                     html += '<div class="worker-row" style="border-left-color:' + si.color + (isLocked ? ';background:#f5f0f7' : '') + '">';
                     html += '<div class="worker-info">';
                     html += '<div class="worker-name">' + (i+1) + '. ' + name + lockIcon + ' <span class="status-badge" style="background:' + si.color + ';color:white">' + si.icon + ' ' + si.label + '</span>' + invBadge + '</div>';
-                    // Employer line — current on top, previous below if moved
-                    var curEmpObj2 = allEmployers.find(function(e){ return String(e.EmployerCode)===String(w.EmployerCode)||String(e.EmployerID)===String(w.EmployerID); });
-                    var curEmpName2 = curEmpObj2 ? (curEmpObj2.EFN || curEmpObj2.EmployerName || w.EmployerCode) : w.EmployerCode;
-                    var curAgCode2 = curEmpObj2 ? (curEmpObj2.AgencyCode || '') : '';
+                    // Employer line — match banner format: "MGSC-3279 — Nada Samir Zaatar / Massroua"
+                    var curEmpObj2 = allEmployers.find(function(e){
+                        return String(e.EmployerCode) === String(w.EmployerCode) ||
+                               String(e.EmployerID)   === String(w.EmployerID) ||
+                               String(e.ContactID)    === String(w.EmployerCode) ||
+                               String(e.ContactID)    === String(w.EmployerID);
+                    });
+                    var curEmpName2 = (curEmpObj2 && (curEmpObj2.EFN || curEmpObj2.EmployerName)) || '';
+                    var curEmpCode2 = (curEmpObj2 && curEmpObj2.EmployerCode)
+                                   || (curEmpObj2 && curEmpObj2.RawPrefix && curEmpObj2.ContactID ? curEmpObj2.RawPrefix + '-' + curEmpObj2.ContactID : '')
+                                   || (curEmpObj2 && curEmpObj2.ContactID)
+                                   || w.EmployerCode
+                                   || ('ID-' + (w.EmployerID || ''));
+                    var curEmpDisplay = curEmpCode2 + (curEmpName2 && curEmpName2 !== curEmpCode2 ? ' — ' + curEmpName2 : '');
+                    var curAgCode2 = curEmpObj2 ? (curEmpObj2.AgencyCode || curEmpObj2.RawPrefix || '') : '';
                     var curAg2 = curAgCode2 ? allAgencies.find(function(a){ return a.AgencyCode===curAgCode2||a.Code===curAgCode2; }) : null;
                     var curAgName2 = curAg2 ? (curAg2.AgencyName || curAg2.Name || curAgCode2) : curAgCode2;
-                    html += '<div style="font-size:13px;font-weight:700;color:#333;margin-bottom:2px;">💼 ' + curEmpName2 + (curAgName2 ? ' <span style="font-size:11px;font-weight:400;color:#888;">(🏛️ ' + curAgName2 + ')</span>' : '') + ' <span style="font-size:11px;font-weight:600;color:#7b1fa2;">(' + w.EmployerCode + ')</span></div>';
+                    html += '<div style="font-size:13px;font-weight:700;color:#333;margin-bottom:2px;">💼 ' + curEmpDisplay + (curAgName2 ? ' <span style="opacity:0.6;font-weight:500;margin:0 4px;">/</span> <span style="font-size:12px;font-weight:600;color:#555;">' + curAgName2 + '</span>' : '') + '</div>';
                     if (w.MovedEmployerHistory) {
                         html += '<div style="font-size:11px;color:#aaa;">🔀 Previously: ' + w.MovedEmployerHistory + '</div>';
                     }
@@ -616,23 +909,7 @@ var ARRIVED_STAGES = ['arrived'];
                     html += '<div id="wp-' + w.WorkerID + '" style="display:none;margin:0 0 8px 0;background:#fafafa;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;">';
                     var outDates = {}; try { outDates = JSON.parse(w.WorkerOutcomeDates || '{}'); } catch(e) {}
                     var empFolderID2   = emp ? (emp.EmployerFolderID || '') : '';
-                    var empFolderName2 = '';
-                    if (emp) {
-                        empFolderName2 = emp.EmployerFolderName || emp.EmployerFolder || '';
-                        if (!empFolderName2) {
-                            var agCode2 = emp.AgencyCode || '';
-                            if (!agCode2 && emp.EmployerCode && String(emp.EmployerCode).indexOf('-') >= 0) {
-                                agCode2 = String(emp.EmployerCode).split('-')[0];
-                            }
-                            var eId2   = emp.EmployerID || '';
-                            var eName2 = emp.EFN || emp.EmployerName || '';
-                            empFolderName2 = agCode2
-                                ? agCode2 + ' (' + eId2 + ') ' + eName2
-                                : (emp.EmployerCode || 'Unknown') + ' (' + eId2 + ') ' + eName2;
-                        }
-                    } else {
-                        empFolderName2 = w.EmployerCode || 'Unknown';
-                    }
+                    var empFolderName2 = _resolveEmployerFolderName(emp, w.EmployerCode);
                     OUTCOMES.forEach(function(o) {
                         var isOn = activeOuts.indexOf(o.key) >= 0;
                         var on = isOn ? ' on' : '';
@@ -965,7 +1242,7 @@ var ARRIVED_STAGES = ['arrived'];
         
         async function moveToStage(workerId, newStage) {
             var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
-            if (!w) { alert('❌ Worker not found!'); return; }
+            if (!w) { showCopyAlert('❌ Worker not found!'); return; }
             
             // If moving to preapproval → must create invoice first
             if (newStage === 'preapproval') {
@@ -978,7 +1255,7 @@ var ARRIVED_STAGES = ['arrived'];
             w.ProcessingStage = newStage;
             _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
             if (cloudReady) { try { await CloudDB.saveRow('Workers', w); } catch(e) {} }
-            alert('✅ Moved to ' + ns.label + '!\n\n' + ns.icon + ' ' + (w.WFullName || w.WorkerFirstName));
+            showCopyAlert('✅ Moved to ' + ns.label + '!\n\n' + ns.icon + ' ' + (w.WFullName || w.WorkerFirstName));
             updateCounts(); renderTab();
         }
         
@@ -986,11 +1263,85 @@ var ARRIVED_STAGES = ['arrived'];
         var allFees = []; // Processing cost fees
         var activeFees = []; // Non-discontinued fees for current invoice
         
-        function showInvoicePopup(worker) {
+        // ============================================================
+        // showCopyAlert(message) — drop-in replacement for alert() that
+        // adds a 📋 Copy button to copy the message to clipboard.
+        // ============================================================
+        function showCopyAlert(message) {
+            // Remove any existing copy-alert overlay
+            var prev = document.getElementById('copyAlertOverlay');
+            if (prev) prev.remove();
+
+            var overlay = document.createElement('div');
+            overlay.id = 'copyAlertOverlay';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;justify-content:center;align-items:center;padding:20px;';
+
+            var box = document.createElement('div');
+            box.style.cssText = 'background:white;border-radius:12px;max-width:560px;width:100%;box-shadow:0 15px 40px rgba(0,0,0,0.3);overflow:hidden;';
+            box.innerHTML =
+                '<div style="background:linear-gradient(135deg,#1976d2,#1565c0);color:white;padding:14px 20px;font-weight:700;font-size:15px;">💬 Message</div>' +
+                '<pre id="copyAlertText" style="margin:0;padding:18px 20px;font-family:inherit;font-size:14px;color:#333;white-space:pre-wrap;word-break:break-word;max-height:60vh;overflow-y:auto;line-height:1.55;">' +
+                    String(message).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+                '</pre>' +
+                '<div style="display:flex;gap:10px;padding:12px 20px;background:#f5f5f5;border-top:1px solid #e0e0e0;">' +
+                    '<button id="copyAlertCopyBtn" style="flex:1;padding:10px;background:linear-gradient(135deg,#7b1fa2,#9c27b0);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;">📋 Copy</button>' +
+                    '<button id="copyAlertOkBtn" style="flex:1;padding:10px;background:#4caf50;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;">OK</button>' +
+                    '<button id="copyAlertCancelBtn" style="flex:1;padding:10px;background:#9e9e9e;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;">✖ Cancel</button>' +
+                '</div>';
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+
+            var copyBtn = document.getElementById('copyAlertCopyBtn');
+            var okBtn = document.getElementById('copyAlertOkBtn');
+
+            copyBtn.onclick = function() {
+                var txt = String(message);
+                // Use Clipboard API (HTTPS) — fallback to textarea hack if blocked
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(txt).then(function(){
+                        copyBtn.textContent = '✅ Copied!';
+                        copyBtn.style.background = '#4caf50';
+                        setTimeout(function(){
+                            copyBtn.textContent = '📋 Copy';
+                            copyBtn.style.background = 'linear-gradient(135deg,#7b1fa2,#9c27b0)';
+                        }, 1500);
+                    }).catch(function(){ fallbackCopy(txt); });
+                } else { fallbackCopy(txt); }
+
+                function fallbackCopy(t) {
+                    var ta = document.createElement('textarea');
+                    ta.value = t;
+                    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    try { document.execCommand('copy'); copyBtn.textContent = '✅ Copied!'; } catch(e) { copyBtn.textContent = '❌ Copy failed'; }
+                    ta.remove();
+                    setTimeout(function(){ copyBtn.textContent = '📋 Copy'; copyBtn.style.background = 'linear-gradient(135deg,#7b1fa2,#9c27b0)'; }, 1500);
+                }
+            };
+
+            okBtn.onclick = function() { overlay.remove(); };
+            var cancelBtn = document.getElementById('copyAlertCancelBtn');
+            if (cancelBtn) cancelBtn.onclick = function() { overlay.remove(); };
+            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+        }
+
+        async function showInvoicePopup(worker) {
             var name = worker.WFullName || worker.WorkerFirstName || 'Unnamed';
             var wCode = worker.WorkerCode || (worker.SupplierCode && worker.WorkerID ? worker.SupplierCode + '-' + String(worker.WorkerID).padStart(4, '0') : 'N/A');
-            var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(worker.EmployerCode); });
-            var empName = emp ? (emp.EFN || emp.EmployerName || emp.EmployerCode) : (worker.EmployerCode || 'N/A');
+            var emp = allEmployers.find(function(e) {
+                return String(e.EmployerCode) === String(worker.EmployerCode) ||
+                       String(e.EmployerID)   === String(worker.EmployerID) ||
+                       String(e.ContactID)    === String(worker.EmployerCode) ||
+                       String(e.ContactID)    === String(worker.EmployerID);
+            });
+            var empNameOnly = (emp && (emp.EFN || emp.EmployerName)) || '';
+            var empCodeOnly = (emp && emp.EmployerCode)
+                           || (emp && emp.RawPrefix && emp.ContactID ? emp.RawPrefix + '-' + emp.ContactID : '')
+                           || (emp && emp.ContactID)
+                           || worker.EmployerCode
+                           || ('ID-' + (worker.EmployerID || ''));
+            var empName = empCodeOnly + (empNameOnly && empNameOnly !== empCodeOnly ? ' — ' + empNameOnly : '');
             var today = new Date().toISOString().split('T')[0];
             var d = new Date();
             // Use sequential format matching Accountant system
@@ -1002,17 +1353,14 @@ var ARRIVED_STAGES = ['arrived'];
             });
             var autoInv = 'INV-' + String(maxNum + 1).padStart(4, '0');
             
-            // allFees loaded from cloud in init()
-            var saved = _ls.get('mgsdb_processing_fees');
-            if (saved) {
-                var parsed = JSON.parse(saved);
-                var seen = {};
-                allFees = parsed.filter(function(f) {
-                    if (seen[f.FeeID]) return false;
-                    seen[f.FeeID] = true;
-                    return true;
-                });
-            }
+            // Always load fresh fees from Firestore (no localStorage cache)
+            try {
+                var freshFees = await CloudDB.loadSheet('processing_costs');
+                if (freshFees && freshFees.length >= 0) {
+                    allFees = freshFees;
+                    console.log('💲 Processing_Costs refreshed from Firestore:', freshFees.length, 'fees');
+                }
+            } catch(e) { console.warn('⚠️ Could not refresh fees from Firestore:', e); }
             
             // Filter out discontinued — only active fees in invoice
             activeFees = allFees.filter(function(f) {
@@ -1134,14 +1482,25 @@ var ARRIVED_STAGES = ['arrived'];
             var invDate = document.getElementById('invDate').value;
             var invNotes = document.getElementById('invNotes').value.trim();
             
-            if (!invNumber) { alert('❌ Invoice Number is required!'); return; }
-            if (!invDate) { alert('❌ Invoice Date is required!'); return; }
+            if (!invNumber) { showCopyAlert('❌ Invoice Number is required!'); return; }
+            if (!invDate) { showCopyAlert('❌ Invoice Date is required!'); return; }
             
             var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
-            if (!w) { alert('❌ Worker not found!'); return; }
+            if (!w) { showCopyAlert('❌ Worker not found!'); return; }
             
-            var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(w.EmployerCode); });
-            var empName = emp ? (emp.EFN || emp.EmployerName || emp.EmployerCode) : (w.EmployerCode || 'N/A');
+            var emp = allEmployers.find(function(e) {
+                return String(e.EmployerCode) === String(w.EmployerCode) ||
+                       String(e.EmployerID)   === String(w.EmployerID) ||
+                       String(e.ContactID)    === String(w.EmployerCode) ||
+                       String(e.ContactID)    === String(w.EmployerID);
+            });
+            var empNameOnly = (emp && (emp.EFN || emp.EmployerName)) || '';
+            var empCodeOnly = (emp && emp.EmployerCode)
+                           || (emp && emp.RawPrefix && emp.ContactID ? emp.RawPrefix + '-' + emp.ContactID : '')
+                           || (emp && emp.ContactID)
+                           || w.EmployerCode
+                           || ('ID-' + (w.EmployerID || ''));
+            var empName = empCodeOnly + (empNameOnly && empNameOnly !== empCodeOnly ? ' — ' + empNameOnly : '');
             var workerName = w.WFullName || w.WorkerFirstName || 'Worker';
             
             // Collect selected fees
@@ -1167,7 +1526,7 @@ var ARRIVED_STAGES = ['arrived'];
             });
             
             if (selectedFees.length === 0 && activeFees.length > 0) {
-                alert('⚠️ Please select at least one fee item!');
+                showCopyAlert('⚠️ Please select at least one fee item!');
                 return;
             }
             
@@ -1183,6 +1542,9 @@ var ARRIVED_STAGES = ['arrived'];
             
             _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
             if (cloudReady) { try { await CloudDB.saveRow('Workers', w); } catch(e) {} }
+            // ── PATCH A: Copy worker docs to employer sub-folder ──
+            try { await copyWorkerDocsToEmployerSubfolder(w, emp); }
+            catch(e) { console.warn('[PATCH A] copy failed (non-fatal):', e); }
             
             // 2. Push as SINGLE invoice with lineItems to Accountant (mgsdb_invoices)
             var invoices = JSON.parse(_ls.get('mgsdb_invoices') || '[]');
@@ -1219,53 +1581,74 @@ var ARRIVED_STAGES = ['arrived'];
             });
             _ls.set('mgsdb_invoices', JSON.stringify(invoices));
             
-            // Sync invoice to Accountant's Google Sheet
-            var ACCT_SCRIPT = SCRIPT_URL;
+            // STEP 5-1: Invoice cloud sync now uses CloudDB.saveRow (Firestore)
             var newInv = invoices[invoices.length - 1];
-            fetch(ACCT_SCRIPT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'saveRow', sheet: 'Invoices', data: newInv })
-            }).then(function(r) { return r.json(); }).then(function(res) {
-                console.log('☁️ Invoice synced to Accountant cloud:', res);
-            }).catch(function(e) { console.warn('☁️ Invoice cloud sync failed:', e); });
+            CloudDB.saveRow('Invoices', newInv)
+                .then(function(res) { console.log('☁️ Invoice synced to Firestore:', res); })
+                .catch(function(e) { console.warn('☁️ Invoice cloud sync failed:', e); });
             
             createSupplierVoucher(w, invNumber, empName, workerName);
             closeInvoicePopup();
 
             var feesSummary = selectedFees.map(function(f) { return f.nameEN + ': $' + f.subtotal.toFixed(2); }).join('\n');
-            alert('✅ Invoice Issued!\n\n📋 Invoice: ' + invNumber + '\n📅 Date: ' + invDate + '\n\n💲 Fee Items:\n' + feesSummary + '\n\n💰 Total: $' + totalAmount.toFixed(2) + '\n\n🔒 Worker LOCKED\n📋 ' + workerName + ' → Preapproval\n📊 Invoice copied to Accountant\n🧾 Supplier Voucher created');
+            showCopyAlert('✅ Invoice Issued!\n\n📋 Invoice: ' + invNumber + '\n📅 Date: ' + invDate + '\n\n💲 Fee Items:\n' + feesSummary + '\n\n💰 Total: $' + totalAmount.toFixed(2) + '\n\n🔒 Worker LOCKED\n📋 ' + workerName + ' → Preapproval\n📊 Invoice copied to Accountant\n🧾 Supplier Voucher created');
             updateCounts(); renderTab();
 
             // ── Auto-generate and upload invoice PDF to employer folder ──────
-            // Priority order for folder resolution (matches Apps Script priority):
-            //   1. EmployerFolderID  → direct Drive lookup, never wrong
-            //   2. EmployerFolderName → exact saved name (includes date suffix e.g. "ETTT (5) Ali 2026-02-13")
-            //   3. EmployerFolder    → alternate saved name field
-            //   4. Reconstruct       → "AgencyCode (ID) Name" prefix match in Apps Script
+            // PHASE 2 PATCH: resolve employer folder name with IDCopyPath fallback
+            // AND resolve worker sub-folder so invoice lands in the worker sub-folder
             var empFolderID   = emp ? (emp.EmployerFolderID   || '') : '';
             var empFolderName = '';
             if (emp) {
-                empFolderName = emp.EmployerFolderName  // exact name saved at creation (has date)
-                             || emp.EmployerFolder      // alternate field
-                             || '';
-                // Only reconstruct if nothing saved
+                empFolderName = emp.EmployerFolderName || emp.EmployerFolder || '';
+                // Fallback 1: extract from IDCopyPath (most reliable)
+                if (!empFolderName && emp.IDCopyPath) {
+                    var _ep = String(emp.IDCopyPath).split('/');
+                    if (_ep.length >= 2 && _ep[0] === 'employers') empFolderName = _ep[1];
+                }
+                // Fallback 2: reconstruct (no date)
                 if (!empFolderName) {
-                    var agCode = emp.AgencyCode || '';
-                    if (!agCode && emp.EmployerCode && String(emp.EmployerCode).indexOf('-') >= 0) {
-                        agCode = String(emp.EmployerCode).split('-')[0];
+                    var _ag = emp.AgencyCode || emp.RawPrefix || '';
+                    if (!_ag && emp.EmployerCode && String(emp.EmployerCode).indexOf('-') >= 0) {
+                        _ag = String(emp.EmployerCode).split('-')[0];
                     }
-                    var eId   = emp.EmployerID || '';
-                    var eName = emp.EFN || emp.EmployerName || '';
-                    empFolderName = agCode
-                        ? agCode + ' (' + eId + ') ' + eName
-                        : (emp.EmployerCode || 'Unknown') + ' (' + eId + ') ' + eName;
+                    var _eid = emp.ContactID || emp.EmployerID || '';
+                    var _enm = (emp.EFN || emp.EmployerName || '').replace(/\s*\/\s*/g, ' ');
+                    if (_ag && _enm) empFolderName = _ag + '(' + _eid + ') - ' + _enm;
+                    else empFolderName = (emp.EmployerCode || 'Unknown') + ' (' + _eid + ') ' + _enm;
                 }
             } else {
                 empFolderName = w.EmployerCode || 'Unknown';
             }
 
-            console.log('📁 Invoice PDF upload → folderId:', empFolderID, '| folderName:', empFolderName);
+            // PHASE 2 PATCH: resolve worker sub-folder (same fallbacks as PATCH A v2)
+            var workerSubFolder = w.WorkerFolder || '';
+            if (!workerSubFolder && w.WorkerImage) {
+                var _m1 = String(w.WorkerImage).match(/\/o\/workers%2F([^%/?]+)/);
+                if (_m1) workerSubFolder = decodeURIComponent(_m1[1]);
+            }
+            if (!workerSubFolder && w.PassportScanPath) {
+                var _pp = String(w.PassportScanPath).split('/');
+                if (_pp[0] === 'workers' && _pp.length >= 2) workerSubFolder = _pp[1];
+                else if (_pp.length >= 1) workerSubFolder = _pp[0];
+            }
+            if (!workerSubFolder && w.UploadedWorkerDocs) {
+                var _kk = Object.keys(w.UploadedWorkerDocs);
+                for (var _k = 0; _k < _kk.length && !workerSubFolder; _k++) {
+                    var _da = w.UploadedWorkerDocs[_kk[_k]];
+                    if (Array.isArray(_da)) {
+                        for (var _d = 0; _d < _da.length && !workerSubFolder; _d++) {
+                            var _pth = _da[_d] && _da[_d].path;
+                            if (_pth) {
+                                var _pm = String(_pth).match(/^workers\/([^/]+)/);
+                                if (_pm) workerSubFolder = _pm[1];
+                            }
+                        }
+                    }
+                }
+            }
+
+            console.log('[PHASE 2] Invoice PDF upload -> empFolder:', empFolderName, '| workerSubFolder:', workerSubFolder || '(none)');
 
             autoUploadInvoicePDF({
                 invNumber:   invNumber,
@@ -1276,6 +1659,7 @@ var ARRIVED_STAGES = ['arrived'];
                 empCode:     w.EmployerCode || '',
                 folderId:    empFolderID,
                 folderName:  empFolderName,
+                workerSubFolder: workerSubFolder,
                 selectedFees: selectedFees,
                 totalAmount: totalAmount,
                 notes:       invNotes
@@ -1385,22 +1769,13 @@ var ARRIVED_STAGES = ['arrived'];
                 var pdfBase64 = doc.output('datauristring').split(',')[1];
                 var fileName  = data.invNumber + '_' + (data.empCode || 'EMP') + '_Invoice.pdf';
 
-                fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({
-                        action:     'uploadFile',
-                        folderId:   data.folderId,
-                        folderName: data.folderName,
-                        fileName:   fileName,
-                        fileData:   pdfBase64,
-                        mimeType:   'application/pdf',
-                        parentType: 'employers'
-                    })
-                }).then(function(r){ return r.json(); }).then(function(res){
-                    if (res.success) console.log('📄 Invoice PDF uploaded to employer folder:', res.fileUrl);
-                    else console.warn('📄 Invoice PDF upload failed:', res.error);
-                }).catch(function(e){ console.warn('📄 Invoice PDF upload error:', e); });
+                // STEP 3d-2: Upload to Firebase Storage (employer folder)
+                _uploadToEmployerFolder(data.folderName, fileName, pdfBase64, 'application/pdf', data.workerSubFolder)
+                .then(function(res){
+                    if (res.success) console.log('Invoice PDF uploaded to employer folder:', res.fileUrl);
+                    else console.warn('Invoice PDF upload failed:', res.error);
+                })
+                .catch(function(e){ console.warn('Invoice PDF upload error:', e); });
 
             } catch(e) {
                 console.warn('📄 PDF generation error:', e);
@@ -1442,10 +1817,10 @@ var ARRIVED_STAGES = ['arrived'];
                 if (pwd === null) return; // cancelled
                 var savedPwd = _ls.get('mgsdb_security_password') || 'masr3434';
                 if (pwd !== savedPwd) {
-                    alert('❌ Incorrect password. Status not changed.');
+                    showCopyAlert('❌ Incorrect password. Status not changed.');
                     return;
                 }
-                alert('⚠️ Status "' + outcome + '" removed. Worker stage may need manual adjustment.');
+                showCopyAlert('⚠️ Status "' + outcome + '" removed. Worker stage may need manual adjustment.');
                 activeOuts = activeOuts.filter(function(k) { return k !== outcome; });
                 // Clear timestamp for this outcome
                 var outDates = {}; try { outDates = JSON.parse(w.WorkerOutcomeDates || '{}'); } catch(e) {}
@@ -1498,11 +1873,10 @@ var ARRIVED_STAGES = ['arrived'];
            w.WorkerOutcomes = JSON.stringify(activeOuts);
             console.log('💾 Saving WorkerOutcomes:', w.WorkerID, w.WorkerOutcomes);
             _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
-            // Use google.script.run directly to ensure cloud save
-            google.script.run
-                .withSuccessHandler(function(r){ console.log('✅ Outcome saved to cloud:', r); })
-                .withFailureHandler(function(e){ console.warn('⚠️ Outcome save failed:', e); })
-                .gsrSaveRow('Workers', w);
+            // STEP 3a: now uses CloudDB.saveRow (Firestore via window._fb)
+            CloudDB.saveRow('Workers', w)
+                .then(function(r){ console.log('✅ Outcome saved to cloud:', r); })
+                .catch(function(e){ console.warn('⚠️ Outcome save failed:', e); });
             updateCounts();
             renderTab();
         }
@@ -1519,7 +1893,7 @@ var ARRIVED_STAGES = ['arrived'];
             try { activeOuts = JSON.parse(w.WorkerOutcomes || '[]'); } catch(e) { activeOuts = []; }
 
             if (activeOuts.length === 0) {
-                alert('ℹ️ No status to release for this worker.');
+                showCopyAlert('ℹ️ No status to release for this worker.');
                 return;
             }
 
@@ -1532,7 +1906,7 @@ var ARRIVED_STAGES = ['arrived'];
                 if (pwd === null) return;
                 var savedPwd = _ls.get('mgsdb_security_password') || 'masr3434';
                 if (pwd !== savedPwd) {
-                    alert('❌ Incorrect password. Worker not released.');
+                    showCopyAlert('❌ Incorrect password. Worker not released.');
                     return;
                 }
             }
@@ -1553,7 +1927,7 @@ var ARRIVED_STAGES = ['arrived'];
 
         async function markArrived(workerId) {
             var w = allWorkers.find(function(x) { return String(x.WorkerID) === String(workerId); });
-            if (!w) { alert('❌ Worker not found!'); return; }
+            if (!w) { showCopyAlert('❌ Worker not found!'); return; }
 
             var modal = document.createElement('div');
             modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
@@ -1616,7 +1990,7 @@ var ARRIVED_STAGES = ['arrived'];
                 var ticketNumber = document.getElementById('ticketNumberInput').value.trim();
                 var notes = document.getElementById('arrivalNotesInput').value.trim();
                 var btn = document.getElementById('confirmArrivedBtn');
-                if(!arrivalDate){ alert('❌ Arrival date is required!'); return; }
+                if(!arrivalDate){ showCopyAlert('❌ Arrival date is required!'); return; }
 
                 btn.disabled=true; btn.textContent='⏳ Saving...'; btn.style.background='#ccc';
 
@@ -1626,7 +2000,7 @@ var ARRIVED_STAGES = ['arrived'];
                 if (entryFile) {
                     var emp = allEmployers.find(function(e){ return String(e.EmployerCode)===String(w.EmployerCode)||String(e.EmployerID)===String(w.EmployerID); });
                     var folderId = emp ? (emp.EmployerFolderID||'') : '';
-                    var folderName = emp ? (emp.EmployerFolderName||emp.EFN||emp.EmployerName||w.EmployerCode||'Unknown') : (w.EmployerCode||'Unknown');
+                    var folderName = _resolveEmployerFolderName(emp, w.EmployerCode);
                     var wCode = w.WorkerCode||(w.SupplierCode?w.SupplierCode+'-'+String(w.WorkerID).padStart(4,'0'):'ID-'+w.WorkerID);
                     var ext = entryFile.name.split('.').pop()||'jpg';
                     var fileName = 'EntryVisa_'+wCode+'_'+arrivalDate+'.'+ext;
@@ -1641,8 +2015,8 @@ var ARRIVED_STAGES = ['arrived'];
                     },300);
                     try {
                         var base64=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(entryFile);});
-                        var resp=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'uploadFile',folderId:folderId,folderName:folderName,fileName:fileName,fileData:base64,mimeType:entryFile.type||'application/octet-stream',parentType:'employers'})});
-                        var result=await resp.json();
+                        // STEP 3d-3: entry visa → Firebase Storage employer folder
+                        var result=await _uploadToEmployerFolder(folderName, fileName, base64, entryFile.type||'application/octet-stream', _resolveWorkerSubFolder(w));
                         clearInterval(evTimer);
                         if(result.success){ w.EntryVisaURL=result.fileUrl||result.url||''; if(zone) zone.innerHTML='<div style="font-size:12px;font-weight:700;color:#28a745;">✅ 100% — Uploaded!</div>'; }
                     } catch(e){ clearInterval(evTimer); console.warn('Entry visa upload failed:',e); }
@@ -1666,7 +2040,7 @@ var ARRIVED_STAGES = ['arrived'];
                     document.body.removeChild(modal);
                     var arrivedMsg='✅ Arrived!\n\n👷 Worker: '+(w.WFullName||w.WorkerFirstName)+'\n🪪 Code: '+(w.WorkerCode||(w.SupplierCode?w.SupplierCode+'-'+String(w.WorkerID).padStart(4,'0'):'ID-'+w.WorkerID))+'\n📅 Arrival Date: '+arrivalDate+'\n🗓️ Entry Valid Until: '+entryValid+'\n🪪 Ikama Expiry: '+w.IkamaExpiry+(ticketNumber?'\n🎫 Ticket Number: '+ticketNumber:'');
                     navigator.clipboard.writeText(arrivedMsg).catch(function(){});
-                    alert(arrivedMsg+'\n\n📋 (Copied to clipboard)');
+                    showCopyAlert(arrivedMsg+'\n\n📋 (Copied to clipboard)');
                     updateCounts(); renderTab();
                 },800);
             };
@@ -1674,7 +2048,7 @@ var ARRIVED_STAGES = ['arrived'];
         
         async function removeFromProcessing(workerId) {
             var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
-            if (!w) { alert('❌ Worker not found!'); return; }
+            if (!w) { showCopyAlert('❌ Worker not found!'); return; }
             if (w.Locked === true || w.Locked === 'true') {
                 openUnlockDialog(workerId);
                 return;
@@ -1693,7 +2067,7 @@ var ARRIVED_STAGES = ['arrived'];
             if (cloudReady) { try { await CloudDB.saveRow('Workers', w); } catch(e) {} }
             var msg = '✅ Removed!\n\n👷 ' + (w.WFullName || w.WorkerFirstName) + ' → Selected';
             if (w.InvoiceNumber) msg += '\n\n⚠️ Invoice ' + w.InvoiceNumber + ' moved to Cancelled Orders in Accountant.';
-            alert(msg);
+            showCopyAlert(msg);
             updateCounts(); renderTab();
         }
         
@@ -1800,7 +2174,7 @@ var ARRIVED_STAGES = ['arrived'];
             });
             
             if (notProcessing.length === 0) {
-                alert('No selected workers available to send to processing.\n\nAll selected workers are already in processing, or no workers are selected.');
+                showCopyAlert('No selected workers available to send to processing.\n\nAll selected workers are already in processing, or no workers are selected.');
                 return;
             }
             
@@ -1831,12 +2205,12 @@ var ARRIVED_STAGES = ['arrived'];
                     return CloudDB.saveRow('Workers', w).catch(function(e) { console.warn('Save failed for', w.WorkerID); });
                 });
                 Promise.all(savePromises).then(function() {
-                    alert('✅ ' + notProcessing.length + ' worker(s) sent to Processing & synced to cloud!');
+                    showCopyAlert('✅ ' + notProcessing.length + ' worker(s) sent to Processing & synced to cloud!');
                     updateCounts();
                     renderTab();
                 });
             } else {
-                alert('✅ ' + notProcessing.length + ' worker(s) sent to Processing (local only — cloud offline)');
+                showCopyAlert('✅ ' + notProcessing.length + ' worker(s) sent to Processing (local only — cloud offline)');
                 updateCounts();
                 renderTab();
             }
@@ -1855,7 +2229,7 @@ var ARRIVED_STAGES = ['arrived'];
 
         function openUnlockDialog(workerId) {
             var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
-            if (!w) { alert('❌ Worker not found!'); return; }
+            if (!w) { showCopyAlert('❌ Worker not found!'); return; }
 
             var name   = w.WFullName || w.WorkerFirstName || 'Worker';
             var wCode  = w.WorkerCode || (w.SupplierCode && w.WorkerID ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'N/A');
@@ -1923,7 +2297,7 @@ var ARRIVED_STAGES = ['arrived'];
             }
 
             var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
-            if (!w) { alert('❌ Worker not found!'); return; }
+            if (!w) { showCopyAlert('❌ Worker not found!'); return; }
 
             var name  = w.WFullName || w.WorkerFirstName || 'Worker';
             var wCode = w.WorkerCode || (w.SupplierCode && w.WorkerID ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'N/A');
@@ -1943,7 +2317,7 @@ var ARRIVED_STAGES = ['arrived'];
             }
 
             document.getElementById('unlockDialog').remove();
-            alert('✅ Worker Unlocked!\n\n👷 ' + name + '\n📋 Code: ' + wCode + '\n\nRecord is now editable. Invoice remains on file.');
+            showCopyAlert('✅ Worker Unlocked!\n\n👷 ' + name + '\n📋 Code: ' + wCode + '\n\nRecord is now editable. Invoice remains on file.');
             updateCounts();
             renderTab();
         }
@@ -2018,20 +2392,8 @@ var ARRIVED_STAGES = ['arrived'];
                         r.readAsDataURL(file);
                     });
 
-                    var resp = await fetch(SCRIPT_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({
-                            action:     'uploadFile',
-                            folderId:   folderId,
-                            folderName: folderName,
-                            fileName:   fileName,
-                            fileData:   base64,
-                            mimeType:   file.type || 'application/octet-stream',
-                            parentType: 'employers'
-                        })
-                    });
-                    var result = await resp.json();
+                    // STEP 3d-4: → Firebase Storage employer folder
+                    var result = await _uploadToEmployerFolder(folderName, fileName, base64, file.type || 'application/octet-stream', _resolveWorkerSubFolder(w));
                     if (result.success) {
                         done++;
                         if (w) {
@@ -2123,16 +2485,16 @@ var ARRIVED_STAGES = ['arrived'];
 
         async function restoreEmployer(workerId) {
             var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
-            if (!w || !w.MovedEmployerHistory) { alert('⚠️ No move history to restore.'); return; }
+            if (!w || !w.MovedEmployerHistory) { showCopyAlert('⚠️ No move history to restore.'); return; }
             var pwd = prompt('🔒 Admin password required to restore original employer:');
             if (pwd === null) return;
             var savedPwd = _ls.get('mgsdb_security_password') || 'masr3434';
-            if (pwd !== savedPwd) { alert('❌ Incorrect password.'); return; }
+            if (pwd !== savedPwd) { showCopyAlert('❌ Incorrect password.'); return; }
             // Parse history — last entry is the most recent original
             var history = w.MovedEmployerHistory.split(' → ');
             var restoreCode = history[history.length - 1].trim();
             var restoreEmp = allEmployers.find(function(e) { return String(e.EmployerCode) === restoreCode || String(e.EmployerID) === restoreCode; });
-            if (!restoreEmp) { alert('⚠️ Cannot find employer "' + restoreCode + '" in database.'); return; }
+            if (!restoreEmp) { showCopyAlert('⚠️ Cannot find employer "' + restoreCode + '" in database.'); return; }
             var currentCode = w.EmployerCode;
             // Remove last history entry
             history.pop();
@@ -2143,7 +2505,7 @@ var ARRIVED_STAGES = ['arrived'];
             w.Locked = false;
             _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
             if (cloudReady) { try { await CloudDB.saveRow('Workers', w); } catch(e) {} }
-            alert('✅ Worker restored!\n\nFrom: ' + currentCode + '\nBack to: ' + restoreEmp.EmployerCode + ' — ' + (restoreEmp.EmployerName || restoreEmp.EFN || '') + '\n\nWorker reset to Processing stage.');
+            showCopyAlert('✅ Worker restored!\n\nFrom: ' + currentCode + '\nBack to: ' + restoreEmp.EmployerCode + ' — ' + (restoreEmp.EmployerName || restoreEmp.EFN || '') + '\n\nWorker reset to Processing stage.');
             updateCounts(); renderTab();
         }
 
@@ -2152,11 +2514,11 @@ var ARRIVED_STAGES = ['arrived'];
 
         async function confirmMoveEmployer(workerId) {
             var newEmp = _selectedEmp[workerId];
-            if (!newEmp) { alert('⚠️ Please search and select an employer first.'); return; }
+            if (!newEmp) { showCopyAlert('⚠️ Please search and select an employer first.'); return; }
             var pwd = prompt('🔒 Admin password required to move worker to new employer:');
             if (pwd === null) return;
             var savedPwd = _ls.get('mgsdb_security_password') || 'masr3434';
-            if (pwd !== savedPwd) { alert('❌ Incorrect password.'); return; }
+            if (pwd !== savedPwd) { showCopyAlert('❌ Incorrect password.'); return; }
             var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
             if (!w) return;
             var oldCode = w.EmployerCode || w.EmployerID || '?';
@@ -2287,18 +2649,18 @@ var ARRIVED_STAGES = ['arrived'];
         }
 
         async function submitMoveInvoice() {
-            if (!_pendingMove) { alert('⚠️ No pending move found.'); return; }
+            if (!_pendingMove) { showCopyAlert('⚠️ No pending move found.'); return; }
             var invNumber = document.getElementById('invNumber').value.trim();
             var invDate   = document.getElementById('invDate').value;
             var invNotes  = document.getElementById('invNotes').value.trim();
-            if (!invNumber) { alert('❌ Invoice Number is required!'); return; }
-            if (!invDate)   { alert('❌ Invoice Date is required!'); return; }
+            if (!invNumber) { showCopyAlert('❌ Invoice Number is required!'); return; }
+            if (!invDate)   { showCopyAlert('❌ Invoice Date is required!'); return; }
             var workerId = _pendingMove.workerId;
             var newEmp   = _pendingMove.newEmp;
             var oldCode  = _pendingMove.oldCode;
             var oldName  = _pendingMove.oldName;
             var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
-            if (!w) { alert('❌ Worker not found!'); return; }
+            if (!w) { showCopyAlert('❌ Worker not found!'); return; }
             var workerName = w.WFullName || w.WorkerFirstName || 'Worker';
             var wCode = w.WorkerCode || (w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0'));
             // Collect selected fees
@@ -2313,7 +2675,7 @@ var ARRIVED_STAGES = ['arrived'];
                     selectedFees.push({ feeId: fee.FeeID, nameEN: fee.FeeNameEN, nameAR: fee.FeeNameAR, qty: qty, unitPrice: price, subtotal: sub });
                 }
             });
-            if (selectedFees.length === 0 && activeFees.length > 0) { alert('⚠️ Please select at least one fee item!'); return; }
+            if (selectedFees.length === 0 && activeFees.length > 0) { showCopyAlert('⚠️ Please select at least one fee item!'); return; }
             // Tag invoice on worker
             w.MoveInvoiceNumber = invNumber;
             w.MoveInvoiceDate   = invDate;
@@ -2344,12 +2706,8 @@ var ARRIVED_STAGES = ['arrived'];
             };
             invoices.push(invRecord);
             _ls.set('mgsdb_invoices', JSON.stringify(invoices));
-            // Sync invoice to cloud
-            fetch(SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'saveRow', sheet: 'Invoices', data: invRecord })
-            }).catch(function(e) { console.warn('Invoice cloud sync failed:', e); });
+            // STEP 4-1: invoice cloud save now uses CloudDB (Firestore)
+            CloudDB.saveRow('Invoices', invRecord).catch(function(e) { console.warn('Invoice cloud sync failed:', e); });
             // ── Complete the move ──────────────────────────────────────────
             var moveDate = new Date().toISOString();
             var moveLog = [];
@@ -2365,20 +2723,10 @@ var ARRIVED_STAGES = ['arrived'];
             if (cloudReady) { try { await CloudDB.saveRow('Workers', w); } catch(e) {} }
             closeMoveInvoicePopup();
             var feesSummary = selectedFees.length > 0 ? '\n\n💲 Fees:\n' + selectedFees.map(function(f){ return '• ' + f.nameEN + ': $' + f.subtotal.toFixed(2); }).join('\n') + '\n💰 Total: $' + totalAmount.toFixed(2) : '';
-            alert('✅ Invoice Issued & Transfer Complete!\n\n📋 ' + invNumber + ' → Accountant' + feesSummary + '\n\n🔀 ' + workerName + '\nFrom: ' + oldName + ' (' + oldCode + ')\nTo: ' + (newEmp.EmployerName||newEmp.EFN||'') + ' (' + newEmp.EmployerCode + ')');
+            showCopyAlert('✅ Invoice Issued & Transfer Complete!\n\n📋 ' + invNumber + ' → Accountant' + feesSummary + '\n\n🔀 ' + workerName + '\nFrom: ' + oldName + ' (' + oldCode + ')\nTo: ' + (newEmp.EmployerName||newEmp.EFN||'') + ' (' + newEmp.EmployerCode + ')');
             // ── Auto-upload PDF to NEW employer's folder ──────────────────
             var newEmpFolder = newEmpObj ? (newEmpObj.EmployerFolderID || '') : '';
-            var newEmpFolderName = '';
-            if (newEmpObj) {
-                newEmpFolderName = newEmpObj.EmployerFolderName || newEmpObj.EmployerFolder || '';
-                if (!newEmpFolderName) {
-                    var nagCode = newEmpObj.AgencyCode || '';
-                    if (!nagCode && newEmpObj.EmployerCode && String(newEmpObj.EmployerCode).indexOf('-') >= 0) nagCode = String(newEmpObj.EmployerCode).split('-')[0];
-                    var neId = newEmpObj.EmployerID || '';
-                    var neName = newEmpObj.EFN || newEmpObj.EmployerName || '';
-                    newEmpFolderName = nagCode ? nagCode + ' (' + neId + ') ' + neName : (newEmpObj.EmployerCode || 'Unknown') + ' (' + neId + ') ' + neName;
-                }
-            } else { newEmpFolderName = newEmp.EmployerCode || 'Unknown'; }
+            var newEmpFolderName = _resolveEmployerFolderName(newEmpObj, newEmp.EmployerCode);
             autoUploadInvoicePDF({
                 invNumber:    invNumber,
                 invDate:      invDate,
@@ -2417,7 +2765,7 @@ var ARRIVED_STAGES = ['arrived'];
                 if (pwd === null) { document.getElementById('arrconfchk-' + workerId).checked = true; return; }
                 var savedPwd = _ls.get('mgsdb_security_password') || 'masr3434';
                 if (pwd !== savedPwd) {
-                    alert('❌ Incorrect password. Cannot unconfirm.');
+                    showCopyAlert('❌ Incorrect password. Cannot unconfirm.');
                     document.getElementById('arrconfchk-' + workerId).checked = true;
                     return;
                 }
@@ -2462,7 +2810,7 @@ var ARRIVED_STAGES = ['arrived'];
 
             try {
             var emp = allEmployers.find(function(e){ return String(e.EmployerCode)===String(empCode); });
-            if (!emp) { alert('Employer not found! Code: '+empCode); return; }
+            if (!emp) { showCopyAlert('Employer not found! Code: '+empCode); return; }
 
             var empName     = String(emp.EmployerName||emp.EFN||empCode);
             var agCode      = emp.AgencyCode||'';
@@ -2473,11 +2821,7 @@ var ARRIVED_STAGES = ['arrived'];
             var address     = String(emp.Address||emp.EmployerAddress||'-');
             var nationality = String(emp.Nationality||emp.EmployerNationality||'-');
             var folderId    = emp.EmployerFolderID||'';
-            var folderName  = emp.EmployerFolderName||emp.EmployerFolder||'';
-            if (!folderName) {
-                var agC = agCode||(empCode&&String(empCode).indexOf('-')>=0?String(empCode).split('-')[0]:'');
-                folderName = agC ? agC+' ('+emp.EmployerID+') '+empName : empCode+' ('+emp.EmployerID+') '+empName;
-            }
+            var folderName  = _resolveEmployerFolderName(emp, empCode);
 
             // Show overlay
             document.getElementById('reportEmpName').textContent = empName+' ('+empCode+')';
@@ -2511,9 +2855,31 @@ var ARRIVED_STAGES = ['arrived'];
             await new Promise(function(r){setTimeout(r,30);});
             var folderFiles = [];
             try {
-                var filesResp = await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'listFiles',folderId:folderId,folderName:folderName,parentType:'employers'})});
-                var filesData = await filesResp.json();
-                if (filesData.success&&filesData.files) folderFiles = filesData.files;
+                // STEP 4-2: list files via Firebase Storage (employers/<folderName>/)
+                if (!window._fb) {
+                    await new Promise(function(res){
+                        window.addEventListener('firebase-ready', function once(){
+                            window.removeEventListener('firebase-ready', once);
+                            res();
+                        });
+                    });
+                }
+                var fb = window._fb;
+                var listRef = fb.ref(fb.storage, 'employers/' + folderName);
+                var listResult = await fb.listAll(listRef);
+                var filePromises = listResult.items.map(async function(itemRef) {
+                    var url = await fb.getDownloadURL(itemRef);
+                    var meta = await fb.getMetadata(itemRef);
+                    return {
+                        name:     itemRef.name,
+                        id:       itemRef.fullPath,
+                        fid:      itemRef.fullPath,
+                        url:      url,
+                        mimeType: meta.contentType || '',
+                        size:     meta.size || 0
+                    };
+                });
+                folderFiles = await Promise.all(filePromises);
             } catch(e){ console.warn('Could not fetch folder files:',e); }
 
             // ── Step 4: Build jsPDF (no image embedding - just file list) ──────
@@ -2751,10 +3117,29 @@ var ARRIVED_STAGES = ['arrived'];
             reportProgress('Saving report...', 92, 6);
             await new Promise(function(r){setTimeout(r,50);});
 
-            // Fire and forget — never blocks report generation
-            fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-                body: JSON.stringify({ action:'deleteOldReports', folderId:folderId, folderName:folderName, prefix:['Report_','Docs_'] })
-            }).catch(function(){});
+            // STEP 4-3: Delete old reports via Firebase Storage (fire & forget)
+            (async function(){
+                try {
+                    if (!window._fb) {
+                        await new Promise(function(res){
+                            window.addEventListener('firebase-ready', function once(){
+                                window.removeEventListener('firebase-ready', once);
+                                res();
+                            });
+                        });
+                    }
+                    var fb = window._fb;
+                    var listRef = fb.ref(fb.storage, 'employers/' + folderName);
+                    var listResult = await fb.listAll(listRef);
+                    var prefixes = ['Report_', 'Docs_'];
+                    var toDelete = listResult.items.filter(function(itemRef){
+                        return prefixes.some(function(p){ return itemRef.name.indexOf(p) === 0; });
+                    });
+                    await Promise.all(toDelete.map(function(itemRef){
+                        return fb.deleteObject(itemRef).catch(function(){});
+                    }));
+                } catch(e){ /* fire & forget */ }
+            })();
 
             var pdfBase64  = doc.output('datauristring').split(',')[1];
             var hh = String(today.getHours()).padStart(2,'0');
@@ -2779,49 +3164,26 @@ var ARRIVED_STAGES = ['arrived'];
                 if (!document.getElementById('uploadToast')) document.body.appendChild(t);
             }
 
-            // Use XMLHttpRequest — handles Apps Script redirects from local file (null origin)
+            // STEP 4-5: report PDF upload via Firebase Storage helper (retries preserved)
             (function() {
                 var pdfSizeKB = Math.round(pdfBase64.length / 1024);
-                var payload = JSON.stringify({action:'uploadFile', folderId:folderId, folderName:folderName,
-                    fileName:fileName, fileData:pdfBase64, mimeType:'application/pdf', parentType:'employers'});
 
-                function doUpload(attempt) {
-                    showToast('⏳ Uploading report ('+pdfSizeKB+'KB) to Drive'+(attempt>1?' — retry '+attempt:'')+'...', '#7b1fa2');
-                    var xhr = new XMLHttpRequest();
-                    xhr.open('POST', SCRIPT_URL, true);
-                    xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
-                    xhr.timeout = 60000; // 60s timeout
-                    xhr.onreadystatechange = function() {
-                        if (xhr.readyState === 4) {
-                            console.log('XHR readyState=4 | status:'+xhr.status+' | attempt:'+attempt+' | responseLen:'+xhr.responseText.length+' | first100:'+xhr.responseText.substring(0,100));
-                        }
-                    };
-                    xhr.onload = function() {
-                        try {
-                            var res = JSON.parse(xhr.responseText);
-                            if (res.success) {
-                                showToast('✅ Report saved to Drive: '+fileName, '#2e7d32');
-                                setTimeout(function(){ var t=document.getElementById('uploadToast'); if(t){t.style.opacity='0';setTimeout(function(){t.remove();},500);} }, 5000);
-                            } else {
-                                if (attempt < 3) { setTimeout(function(){ doUpload(attempt+1); }, 2000); }
-                                else showToast('❌ Upload failed: '+(res.error||'unknown error'), '#c62828');
-                            }
-                        } catch(e) {
+                async function doUpload(attempt) {
+                    showToast('⏳ Uploading report ('+pdfSizeKB+'KB) to cloud'+(attempt>1?' — retry '+attempt:'')+'...', '#7b1fa2');
+                    try {
+                        var res = await _uploadToEmployerFolder(folderName, fileName, pdfBase64, 'application/pdf');
+                        if (res.success) {
+                            showToast('✅ Report saved to cloud: '+fileName, '#2e7d32');
+                            setTimeout(function(){ var t=document.getElementById('uploadToast'); if(t){t.style.opacity='0';setTimeout(function(){t.remove();},500);} }, 5000);
+                        } else {
                             if (attempt < 3) { setTimeout(function(){ doUpload(attempt+1); }, 2000); }
-                            else showToast('❌ Upload response error: '+e.message, '#c62828');
+                            else showToast('❌ Upload failed: '+(res.error||'unknown error'), '#c62828');
                         }
-                    };
-                    xhr.onerror = function() {
-                        console.error('XHR onerror attempt '+attempt+' | status:'+xhr.status+' | response:'+xhr.responseText.substring(0,200));
+                    } catch(e) {
+                        console.error('Upload attempt '+attempt+' error:', e);
                         if (attempt < 3) { setTimeout(function(){ doUpload(attempt+1); }, 3000); }
                         else showToast('❌ Upload failed after 3 attempts — PDF downloaded locally ✅', '#c62828');
-                    };
-                    xhr.ontimeout = function() {
-                        console.error('XHR timeout attempt '+attempt);
-                        if (attempt < 3) { setTimeout(function(){ doUpload(attempt+1); }, 2000); }
-                        else showToast('❌ Upload timed out — PDF downloaded locally ✅', '#c62828');
-                    };
-                    xhr.send(payload);
+                    }
                 }
                 doUpload(1);
             })();
@@ -2932,7 +3294,7 @@ var ARRIVED_STAGES = ['arrived'];
 
                 var docWin = window.open('', '_blank');
                 if (!docWin) {
-                    alert('Report downloaded!\n\nNote: pop-up blocked for document viewer.\nAllow pop-ups for this site to view all documents.');
+                    showCopyAlert('Report downloaded!\n\nNote: pop-up blocked for document viewer.\nAllow pop-ups for this site to view all documents.');
                 } else {
                     docWin.document.write(h);
                     docWin.document.close();
@@ -2995,7 +3357,7 @@ var ARRIVED_STAGES = ['arrived'];
                             if (!fid) { m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/); fid = m ? m[1] : ''; }
                             items.push({ title: title ? title.textContent : '', url: url, fid: fid });
                         });
-                        if (!items.length) { docWin.alert('Select at least one document!'); return; }
+                        if (!items.length) { docWin.showCopyAlert('Select at least one document!'); return; }
                         var ph = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Print</title>';
                         ph += '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif}';
                         ph += '.top{background:linear-gradient(135deg,#4a1470,#7b1fa2);color:white;padding:15px 20px;text-align:center}';
@@ -3018,7 +3380,7 @@ var ARRIVED_STAGES = ['arrived'];
                         });
                         ph += '</body></html>';
                         var w = docWin.open('', '_blank');
-                        if (!w) { docWin.alert('Pop-up blocked!'); return; }
+                        if (!w) { docWin.showCopyAlert('Pop-up blocked!'); return; }
                         w.document.write(ph); w.document.close();
                     };
 
@@ -3039,7 +3401,7 @@ var ARRIVED_STAGES = ['arrived'];
                             var isPdf = /\.pdf$/i.test(cleanName);
                             items.push({ title: cleanName, fid: fid, url: url, isPdf: isPdf });
                         });
-                        if (!items.length) { docWin.alert('No documents selected!'); return; }
+                        if (!items.length) { docWin.showCopyAlert('No documents selected!'); return; }
                         window._openPrintWindow(items);
                     };
 
@@ -3100,25 +3462,12 @@ var ARRIVED_STAGES = ['arrived'];
                             var fname = 'Docs_'+empCode+'_'+reportDate+'_pt'+chunkNum+'of'+totalParts+'_('+range+').pdf';
                             statusEl.textContent = 'Uploading Part '+chunkNum+'/'+totalParts+' (files '+range+', '+pageInChunk+' pages)...';
                             var pdfB64 = doc3.output('datauristring').split(',')[1];
-                            // Use XMLHttpRequest to handle Apps Script redirect from local file
-                            await new Promise(function(resolve) {
-                                var xhr = new XMLHttpRequest();
-                                xhr.open('POST', SCRIPT_URL, true);
-                                xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
-                                xhr.timeout = 90000;
-                                xhr.onload = function() {
-                                    try {
-                                        var d = JSON.parse(xhr.responseText);
-                                        if (d.success) uploadedFiles.push(fname);
-                                        else console.warn('Upload part failed:', d.error);
-                                    } catch(e) { console.warn('Parse error:', e.message); }
-                                    resolve();
-                                };
-                                xhr.onerror = function() { console.warn('XHR error for part', fname); resolve(); };
-                                xhr.ontimeout = function() { console.warn('XHR timeout for part', fname); resolve(); };
-                                xhr.send(JSON.stringify({action:'uploadFile', folderId:folderId, folderName:folderName,
-                                    fileName:fname, fileData:pdfB64, mimeType:'application/pdf', parentType:'employers'}));
-                            });
+                            // STEP 4-6: chunked Docs PDF upload via Firebase Storage helper
+                            try {
+                                var partRes = await _uploadToEmployerFolder(folderName, fname, pdfB64, 'application/pdf');
+                                if (partRes.success) uploadedFiles.push(fname);
+                                else console.warn('Upload part failed:', partRes.error);
+                            } catch(e) { console.warn('Upload part error for', fname, ':', e); }
                             doc3 = null;
                         }
 
@@ -3130,47 +3479,33 @@ var ARRIVED_STAGES = ['arrived'];
 
                             var fileB64 = null, fileMime = 'image/jpeg', iw2 = 800, ih2 = 600;
                             try {
+                                // STEP 4-4: fetch bytes directly from Firebase Storage URL
+                                var resp = await fetch(item.url);
+                                var ab = await resp.arrayBuffer();
+                                var bytes = new Uint8Array(ab);
                                 if (item.isPdf) {
-                                    // getPDFThumbnail — now works after redeployment with external_request scope
-                                    var r1 = await fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-                                        body: JSON.stringify({action:'getPDFThumbnail', fileId: item.fid}) });
-                                    var d1 = await r1.json();
-                                    if (d1.success && d1.content) {
-                                        fileB64 = d1.content;
-                                        fileMime = d1.mimeType || 'image/jpeg';
-                                    } else {
-                                        console.warn('getPDFThumbnail failed:', d1.error, '— trying getFileContent');
-                                        statusEl.textContent = 'Fallback: reading full PDF for '+ item.title.substring(0,30)+'...';
-                                        // Fallback: getFileContent → render page 1 with PDF.js
-                                        var r2 = await fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-                                            body: JSON.stringify({action:'getFileContent', fileId: item.fid}) });
-                                        var d2 = await r2.json();
-                                        if (d2.success && d2.content) {
-                                            if (!window.pdfjsLib) {
-                                                await new Promise(function(res,rej){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
-                                                window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                                            }
-                                            try {
-                                                var bytes = Uint8Array.from(atob(d2.content), function(c){return c.charCodeAt(0);});
-                                                var pdfDoc2 = await window.pdfjsLib.getDocument({data:bytes}).promise;
-                                                var pg = await pdfDoc2.getPage(1);
-                                                var vp = pg.getViewport({scale:2.0});
-                                                var cv = document.createElement('canvas');
-                                                cv.width=vp.width; cv.height=vp.height;
-                                                await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
-                                                fileB64 = cv.toDataURL('image/jpeg',0.92).split(',')[1];
-                                                iw2 = vp.width; ih2 = vp.height;
-                                            } catch(pe){ console.warn('PDF.js error:', pe.message); }
-                                        }
+                                    // Render PDF page 1 with PDF.js (no server-side thumbnail anymore)
+                                    if (!window.pdfjsLib) {
+                                        await new Promise(function(res,rej){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+                                        window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                                     }
+                                    try {
+                                        var pdfDoc2 = await window.pdfjsLib.getDocument({data: bytes}).promise;
+                                        var pg = await pdfDoc2.getPage(1);
+                                        var vp = pg.getViewport({scale:2.0});
+                                        var cv = document.createElement('canvas');
+                                        cv.width=vp.width; cv.height=vp.height;
+                                        await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+                                        fileB64 = cv.toDataURL('image/jpeg',0.92).split(',')[1];
+                                        fileMime = 'image/jpeg';
+                                        iw2 = vp.width; ih2 = vp.height;
+                                    } catch(pe){ console.warn('PDF.js error:', pe.message); }
                                 } else {
-                                    var resp = await fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-                                        body: JSON.stringify({action:'getFileContent', fileId: item.fid}) });
-                                    var data = await resp.json();
-                                    if (data.success && data.content) {
-                                        fileB64 = data.content;
-                                        fileMime = data.mimeType || 'image/jpeg';
-                                    }
+                                    // Convert image bytes → base64
+                                    var bin = '';
+                                    for (var bi = 0; bi < bytes.length; bi++) bin += String.fromCharCode(bytes[bi]);
+                                    fileB64 = btoa(bin);
+                                    fileMime = item.mimeType || 'image/jpeg';
                                 }
                             } catch(e) { console.warn('fetch error:', item.title, e.message); }
 
@@ -3299,14 +3634,12 @@ var ARRIVED_STAGES = ['arrived'];
                         h += '  // Also download locally';
                         h += '  var a=document.createElement("a");a.href=doc.output("bloburl");a.download=fname;a.click();';
                         h += '  try{';
-                        h += '    var resp=await fetch(' + JSON.stringify(SCRIPT_URL) + ',{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},';
-                        h += '      body:JSON.stringify({action:"uploadFile",folderId:' + JSON.stringify(folderId) + ',folderName:' + JSON.stringify(folderName) + ',';
-                        h += '        fileName:fname,fileData:b64,mimeType:"application/pdf",parentType:"employers"})});';
-                        h += '    var data=await resp.json();';
-                        h += '    if(data.success){';
-                        h += '      status.style.background="#2e7d32";status.textContent="Saved to Drive: "+fname;';
+                        h += '    // STEP 4-7: upload via parent window helper';
+                        h += '    var res=await window.opener._uploadToEmployerFolder(' + JSON.stringify(folderName) + ',fname,b64,"application/pdf");';
+                        h += '    if(res.success){';
+                        h += '      status.style.background="#2e7d32";status.textContent="Saved to cloud: "+fname;';
                         h += '      btn.textContent="Done!";btn.style.background="#4caf50";';
-                        h += '    }else{status.textContent="Upload failed: "+(data.error||"unknown");btn.disabled=false;btn.textContent="💾 Save to Drive";}';
+                        h += '    }else{status.textContent="Upload failed: "+(res.error||"unknown");btn.disabled=false;btn.textContent="💾 Save to Drive";}';
                         h += '  }catch(e){status.textContent="Uploaded locally only (offline).";btn.disabled=false;btn.textContent="💾 Save to Drive";}';
                         h += '}';
 
@@ -3345,13 +3678,13 @@ var ARRIVED_STAGES = ['arrived'];
 
                         var w = window.open('', '_blank');
                         if (w) { w.document.write(h); w.document.close(); }
-                        else { alert('Pop-up blocked! Allow pop-ups to open print view.'); }
+                        else { showCopyAlert('Pop-up blocked! Allow pop-ups to open print view.'); }
                     };
                 }
             }
             } catch(err) {
                 hideReportOverlay();
-                alert('Report Error: '+err.message+'\n\nStack: '+(err.stack||'').substring(0,200));
+                showCopyAlert('Report Error: '+err.message+'\n\nStack: '+(err.stack||'').substring(0,200));
             }
         }
     </script>
@@ -3590,69 +3923,16 @@ var ARRIVED_STAGES = ['arrived'];
 <script>
 (function(){
 'use strict';
-console.log('🔧 Processing Manager cloud fix loading…');
+console.log('🔧 Processing Manager Firebase loader…');
 
-/* ── Override CloudDB.loadAll to use google.script.run ──── */
-CloudDB.loadAll = function(){
-    return new Promise(function(resolve){
-        var result = { workers: null, employers: null, agencies: null, suppliers: null, fees: null };
-var done = 0;
+/* ============================================================
+   FIREBASE PORT — STEP 2
+   Original code re-defined CloudDB.loadAll/saveRow here to use
+   google.script.run. CloudDB now uses Firestore (see top of
+   file), so we just trigger the load — no overrides needed.
+   ============================================================ */
 
-function check(){ if(++done === 5) resolve(result); }
-
-google.script.run
-    .withSuccessHandler(function(data){
-        result.workers = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-        check();
-    })
-    .withFailureHandler(function(){ check(); })
-    .gsrGetAll('Workers');
-
-google.script.run
-    .withSuccessHandler(function(data){
-        result.employers = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-        check();
-    })
-    .withFailureHandler(function(){ check(); })
-    .gsrGetAll('Employers');
-
-google.script.run
-    .withSuccessHandler(function(data){
-        result.agencies = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-        check();
-    })
-    .withFailureHandler(function(){ check(); })
-    .gsrGetAll('Local_Agencies');
-
-google.script.run
-    .withSuccessHandler(function(data){
-        result.suppliers = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-        check();
-    })
-    .withFailureHandler(function(){ check(); })
-    .gsrGetAll('Suppliers');
-
-google.script.run
-    .withSuccessHandler(function(data){
-        result.fees = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-        check();
-    })
-    .withFailureHandler(function(){ check(); })
-    .gsrGetAll('Processing_Costs');
-    });
-};
-
-/* ── Override CloudDB.saveRow to use google.script.run ──── */
-CloudDB.saveRow = function(sheetName, rowData){
-    return new Promise(function(resolve){
-        google.script.run
-            .withSuccessHandler(function(r){ resolve(r); })
-            .withFailureHandler(function(e){ resolve(null); })
-            .gsrSaveRow(sheetName, rowData);
-    });
-};
-
-/* ── Re-run init now that CloudDB is fixed ──────────────── */
+/* ── Trigger load now that page is parsed ─────────────────── */
 document.getElementById('loadingOverlay').style.display = 'flex';
 
 CloudDB.loadAll().then(function(c){
@@ -3672,7 +3952,7 @@ CloudDB.loadAll().then(function(c){
         return w.Processing===true||w.Processing==='true'||w.Processing==='TRUE';
     }).length;
 
-    console.log('✅ Cloud fix: workers loaded:', allWorkers.length);
+    console.log('✅ Firestore load: workers loaded:', allWorkers.length);
     console.log('   Processing workers:', procCount);
 
     var cs = document.getElementById('cloudStatus');
@@ -3753,10 +4033,10 @@ window.createSupplierVoucher = async function(worker, invNumber, empName, worker
         dueDate: 'On Arrival'
     };
 
-    google.script.run
-        .withSuccessHandler(function(r){ console.log('✅ Voucher saved:', r); })
-        .withFailureHandler(function(e){ console.warn('⚠️ Voucher save failed:', e); })
-        .gsrSaveRow('OutgoingPayments', voucher);
+    // STEP 3a: voucher record save → Firestore
+    CloudDB.saveRow('OutgoingPayments', voucher)
+        .then(function(r){ console.log('✅ Voucher saved:', r); })
+        .catch(function(e){ console.warn('⚠️ Voucher save failed:', e); });
 
     try {
         var { jsPDF } = window.jspdf;
@@ -3802,22 +4082,65 @@ window.createSupplierVoucher = async function(worker, invNumber, empName, worker
         doc.text('Generated by MGSDB2026 | MGS - Massroua General Services | ' + dateStr, 105, 282, { align: 'center' });
 
         var pdfBase64 = doc.output('datauristring').split(',')[1];
-        var fileName = 'VOUCHER_' + workerCode + '_' + invNumber + '.pdf';
-        var folderName = supplierCode + ' ' + supplierName;
-        console.log('🔍 Folder call — supplierCode:', supplierCode, '| supplierName:', supplierName);
-        google.script.run
-        .withSuccessHandler(function(folderId) {
-        if (folderId) {
-            google.script.run
-                .withSuccessHandler(function(r){ console.log('✅ Voucher PDF uploaded:', r); })
-                .withFailureHandler(function(e){ console.warn('⚠️ PDF upload failed:', e); })
-                .gsrUploadFile(fileName, pdfBase64, 'application/pdf', folderId);
-        } else {
-            console.warn('⚠️ Supplier folder could not be created');
+
+        // ============================================================
+        // STEP 3c: Voucher upload → Firebase Storage
+        // Filename: VOUCHER_<workerCode>_<empCode>_<empName>_<inv>_<date>_<HHMM>.pdf
+        // Path:     suppliers/<folderName>/<fileName>
+        // Folder:   reuse supplier.SupplierFolderName if exists,
+        //           else compute and save it back to Firestore
+        // ============================================================
+        var _now = new Date();
+        var _pad = function(n){ return String(n).padStart(2,'0'); };
+        var _dateStamp = _now.getFullYear() + '-' + _pad(_now.getMonth()+1) + '-' + _pad(_now.getDate());
+        var _timeStamp = _pad(_now.getHours()) + _pad(_now.getMinutes());
+        var _safeEmpName = String(empName || 'Unknown').replace(/[#\[\]\*\?\/\\]/g, '_').replace(/\s+/g, ' ').trim();
+        var fileName = 'VOUCHER_' + workerCode
+                     + '_' + (worker.EmployerCode || 'NOEMP')
+                     + '_' + _safeEmpName
+                     + '_' + invNumber
+                     + '_' + _dateStamp + '_' + _timeStamp
+                     + '.pdf';
+
+        // Resolve supplier folder — reuse saved name or compute & save
+        var folderName = (supplier && supplier.SupplierFolderName) ? supplier.SupplierFolderName : null;
+        if (!folderName) {
+            var _safeSupName = String(supplierName || 'Unknown').replace(/[#\[\]\*\?\/\\]/g, '_').replace(/\s+/g, ' ').trim();
+            folderName = supplierCode + ' - ' + _safeSupName + ' - ' + _dateStamp;
+            if (supplier && supplier.SupplierID) {
+                supplier.SupplierFolderName = folderName;
+                CloudDB.saveRow('Suppliers', supplier).catch(function(e){
+                    console.warn('⚠️ Could not save SupplierFolderName:', e);
+                });
+            }
         }
-    })
-    .withFailureHandler(function(e){ console.warn('⚠️ Folder creation failed:', e); })
-    .gsrGetOrCreateSupplierFolder(supplierCode, supplierName);
+
+        var storagePath = 'suppliers/' + folderName + '/' + fileName;
+        console.log('🔍 Uploading voucher to:', storagePath);
+
+        try {
+            // Convert base64 → Blob for Firebase Storage
+            var _byteString = atob(pdfBase64);
+            var _byteArray = new Uint8Array(_byteString.length);
+            for (var _i = 0; _i < _byteString.length; _i++) _byteArray[_i] = _byteString.charCodeAt(_i);
+            var _blob = new Blob([_byteArray], { type: 'application/pdf' });
+
+            // Wait for Firebase SDK then upload
+            await new Promise(function(res){
+                if (window._fb) return res();
+                window.addEventListener('firebase-ready', function once(){
+                    window.removeEventListener('firebase-ready', once);
+                    res();
+                });
+            });
+            var fb = window._fb;
+            var fileRef = fb.ref(fb.storage, storagePath);
+            var uploadResult = await fb.uploadBytes(fileRef, _blob);
+            var downloadURL = await fb.getDownloadURL(uploadResult.ref);
+            console.log('✅ Voucher PDF uploaded:', downloadURL);
+        } catch(uploadErr) {
+            console.warn('⚠️ Voucher PDF upload to Firebase Storage failed:', uploadErr);
+        }
     } catch(e) {
         console.warn('⚠️ Supplier voucher PDF failed:', e);
     }
@@ -3845,19 +4168,15 @@ window.setWorkerOutcome = async function(workerId, outcome) {
             }
         }, 100);
     }
-    // Force re-save using google.script.run with latest worker data
+    // STEP 3b: outcome re-save now uses CloudDB.saveRow (Firestore merge)
+    // gsrUpdateWorkerOutcomes was Apps Script-specific — Firestore setDoc with
+    // {merge:true} handles partial updates natively, so a full saveRow works.
     var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
   if (w) {
         console.log('💾 Saving outcomes:', w.WorkerID, w.WorkerOutcomes, w.ProcessingStage);
-        google.script.run
-            .withSuccessHandler(function(r){ console.log('✅ Outcomes saved:', r); })
-            .withFailureHandler(function(e){ console.warn('⚠️ Outcomes save failed:', e); })
-            .gsrUpdateWorkerOutcomes(
-                w.WorkerID,
-                w.WorkerOutcomes || '',
-                w.WorkerOutcomeDates || '',
-                w.ProcessingStage || ''
-            );
+        CloudDB.saveRow('Workers', w)
+            .then(function(r){ console.log('✅ Outcomes saved:', r); })
+            .catch(function(e){ console.warn('⚠️ Outcomes save failed:', e); });
     }
 };
 })();
@@ -3962,7 +4281,7 @@ window.moveToStage = async function(workerId, newStage) {
     if (!confirm(ns.icon + ' Move to ' + ns.label + '?\n\nWorker: ' + (w.WFullName || w.WorkerFirstName))) return;
     w.ProcessingStage = newStage;
     _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
-    google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).gsrSaveRow('Workers', w);
+    CloudDB.saveRow('Workers', w); // STEP 3a
     updateCounts(); renderTab();
 };
 
@@ -3975,7 +4294,7 @@ function showPreApprovalUploadPopup(workerId) {
     var wCode = w.WorkerCode || (w.SupplierCode ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'ID-' + w.WorkerID);
     var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(w.EmployerCode) || String(e.EmployerID) === String(w.EmployerID); });
     var folderId = emp ? (emp.EmployerFolderID || '') : '';
-    var folderName = emp ? (emp.EmployerFolderName || emp.EFN || emp.EmployerName || w.EmployerCode || 'Unknown') : (w.EmployerCode || 'Unknown');
+    var folderName = _resolveEmployerFolderName(emp, w.EmployerCode);
     var ov = document.createElement('div');
     ov.id = 'paPopup';
     ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
@@ -4075,8 +4394,8 @@ async function uploadPAAndMove(workerId) {
         }, 300);
         try {
             var base64 = await new Promise(function(res, rej) { var r = new FileReader(); r.onload = function() { res(r.result.split(',')[1]); }; r.onerror = rej; r.readAsDataURL(file); });
-            var resp = await fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ action:'uploadFile', folderId:folderId, folderName:folderName, fileName:fileName, fileData:base64, mimeType:file.type||'application/octet-stream', parentType:'employers' }) });
-            var result = await resp.json();
+            // STEP 3d-5: PreApproval upload → Firebase Storage employer folder
+            var result = await _uploadToEmployerFolder(folderName, fileName, base64, file.type||'application/octet-stream', _resolveWorkerSubFolder(w));
             clearInterval(paTimer);
             if (!result.success) { if (zone) zone.innerHTML = '<div style="font-size:13px;font-weight:600;color:#dc3545;">❌ Upload failed</div>'; if (status) status.textContent = '❌ Upload failed: ' + (result.error||'Unknown'); btn.disabled=false; btn.style.background='linear-gradient(135deg,#9c27b0,#7b1fa2)'; btn.textContent='📤 Upload & Move to Waiting Visa'; return; }
             if (zone) zone.innerHTML = '<div style="background:#e0e0e0;border-radius:10px;height:12px;width:100%;overflow:hidden;margin-bottom:4px;"><div style="background:linear-gradient(135deg,#9c27b0,#7b1fa2);height:100%;border-radius:10px;width:100%"></div></div><div style="font-size:12px;font-weight:700;color:#7b1fa2;">✅ 100% — File ' + (i+1) + ' uploaded!</div>';
@@ -4089,7 +4408,7 @@ async function uploadPAAndMove(workerId) {
     if (outs.indexOf('waitingvisa') < 0) outs.unshift('waitingvisa');
     w.WorkerOutcomes = JSON.stringify(outs);
     _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
-    google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).gsrSaveRow('Workers', w);
+    CloudDB.saveRow('Workers', w); // STEP 3a
     var zone2 = document.getElementById('paDropZone'); if (zone2) { zone2.style.borderColor = '#4caf50'; zone2.style.background = '#e8f5e9'; zone2.innerHTML = '<div style="font-size:28px;">✅</div><div style="font-size:13px;font-weight:600;color:#2e7d32;">All files uploaded successfully!</div>'; }
     var uploadedCount = _paFiles.length;
     var workerName = w.WFullName || w.WorkerFirstName;
@@ -4098,7 +4417,7 @@ async function uploadPAAndMove(workerId) {
         var popupEl = document.getElementById('paPopup');
         if (popupEl) popupEl.remove();
         updateCounts(); renderTab();
-        alert('✅ ' + uploadedCount + ' document(s) uploaded!\n⏳ ' + workerName + ' moved to Waiting Visa.');
+        showCopyAlert('✅ ' + uploadedCount + ' document(s) uploaded!\n⏳ ' + workerName + ' moved to Waiting Visa.');
     }, 800);
 }
 
@@ -4118,7 +4437,7 @@ function showReadyVisaPopup(workerId) {
     var wCode = w.WorkerCode || (w.SupplierCode ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'ID-' + w.WorkerID);
     var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(w.EmployerCode) || String(e.EmployerID) === String(w.EmployerID); });
     var folderId = emp ? (emp.EmployerFolderID || '') : '';
-    var folderName = emp ? (emp.EmployerFolderName || emp.EFN || emp.EmployerName || w.EmployerCode || 'Unknown') : (w.EmployerCode || 'Unknown');
+    var folderName = _resolveEmployerFolderName(emp, w.EmployerCode);
     var ov = document.createElement('div');
     ov.id = 'rvPopup';
     ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
@@ -4191,7 +4510,7 @@ async function confirmRVAndMove(workerId) {
     var folderName = popup ? popup._folderName : '';
     if (!visaNum) { var el = document.getElementById('rvVisaNum'); if(el){el.style.borderColor='#dc3545';el.focus();} return; }
     if (!issueDate) { var el2 = document.getElementById('rvIssueDate'); if(el2){el2.style.borderColor='#dc3545';el2.focus();} return; }
-    if (!chk || !chk.checked) { alert('⚠️ Please confirm the visa details are correct.'); return; }
+    if (!chk || !chk.checked) { showCopyAlert('⚠️ Please confirm the visa details are correct.'); return; }
     var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
     if (!w) return;
     var btn = document.getElementById('rvConfirmBtn');
@@ -4216,8 +4535,8 @@ async function confirmRVAndMove(workerId) {
         }, 300);
         try {
             var base64 = await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(visaFile);});
-            var resp = await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'uploadFile',folderId:folderId,folderName:folderName,fileName:fileName,fileData:base64,mimeType:visaFile.type||'application/octet-stream',parentType:'employers'})});
-            var result = await resp.json();
+            // STEP 3d-6: visa upload #1 → Firebase Storage employer folder
+            var result = await _uploadToEmployerFolder(folderName, fileName, base64, visaFile.type||'application/octet-stream', _resolveWorkerSubFolder(w));
             clearInterval(rvTimer);
             if (result.success) {
                 w.VisaFileURL = result.fileUrl || result.url || '';
@@ -4226,13 +4545,13 @@ async function confirmRVAndMove(workerId) {
         } catch(e) { clearInterval(rvTimer); console.warn('Visa upload failed:', e); }
     }
     _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
-    google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).gsrSaveRow('Workers', w);
+    CloudDB.saveRow('Workers', w); // STEP 3a
     if (btn) { btn.textContent = '✅ Done — Moved to Ready Visa'; btn.style.background = '#4caf50'; }
     setTimeout(function() {
         var popupEl = document.getElementById('rvPopup');
         if (popupEl) popupEl.remove();
         updateCounts(); renderTab();
-        alert('🟢 Moved to Ready Visa!\n' + (w.WFullName||w.WorkerFirstName) + '\nVisa No: ' + visaNum);
+        showCopyAlert('🟢 Moved to Ready Visa!\n' + (w.WFullName||w.WorkerFirstName) + '\nVisa No: ' + visaNum);
     }, 800);
 }
 
@@ -4252,7 +4571,7 @@ function showReadyVisaPopup(workerId) {
     var wCode = w.WorkerCode || (w.SupplierCode ? w.SupplierCode + '-' + String(w.WorkerID).padStart(4,'0') : 'ID-' + w.WorkerID);
     var emp = allEmployers.find(function(e) { return String(e.EmployerCode) === String(w.EmployerCode) || String(e.EmployerID) === String(w.EmployerID); });
     var folderId = emp ? (emp.EmployerFolderID || '') : '';
-    var folderName = emp ? (emp.EmployerFolderName || emp.EFN || emp.EmployerName || w.EmployerCode || 'Unknown') : (w.EmployerCode || 'Unknown');
+    var folderName = _resolveEmployerFolderName(emp, w.EmployerCode);
     var ov = document.createElement('div');
     ov.id = 'rvPopup';
     ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
@@ -4325,7 +4644,7 @@ async function confirmRVAndMove(workerId) {
     var folderName = popup ? popup._folderName : '';
     if (!visaNum) { var el = document.getElementById('rvVisaNum'); if(el){el.style.borderColor='#dc3545';el.focus();} return; }
     if (!issueDate) { var el2 = document.getElementById('rvIssueDate'); if(el2){el2.style.borderColor='#dc3545';el2.focus();} return; }
-    if (!chk || !chk.checked) { alert('⚠️ Please confirm the visa details are correct.'); return; }
+    if (!chk || !chk.checked) { showCopyAlert('⚠️ Please confirm the visa details are correct.'); return; }
     var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
     if (!w) return;
     var btn = document.getElementById('rvConfirmBtn');
@@ -4350,8 +4669,8 @@ async function confirmRVAndMove(workerId) {
         }, 300);
         try {
             var base64 = await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(visaFile);});
-            var resp = await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'uploadFile',folderId:folderId,folderName:folderName,fileName:fileName,fileData:base64,mimeType:visaFile.type||'application/octet-stream',parentType:'employers'})});
-            var result = await resp.json();
+            // STEP 3d-7: visa upload #2 → Firebase Storage employer folder
+            var result = await _uploadToEmployerFolder(folderName, fileName, base64, visaFile.type||'application/octet-stream', _resolveWorkerSubFolder(w));
             clearInterval(rvTimer);
             if (result.success) {
                 w.VisaFileURL = result.fileUrl || result.url || '';
@@ -4360,13 +4679,13 @@ async function confirmRVAndMove(workerId) {
         } catch(e) { clearInterval(rvTimer); console.warn('Visa upload failed:', e); }
     }
     _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
-    google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).gsrSaveRow('Workers', w);
+    CloudDB.saveRow('Workers', w); // STEP 3a
     if (btn) { btn.textContent = '✅ Done — Moved to Ready Visa'; btn.style.background = '#4caf50'; }
     setTimeout(function() {
         var popupEl = document.getElementById('rvPopup');
         if (popupEl) popupEl.remove();
         updateCounts(); renderTab();
-        alert('🟢 Moved to Ready Visa!\n' + (w.WFullName||w.WorkerFirstName) + '\nVisa No: ' + visaNum);
+        showCopyAlert('🟢 Moved to Ready Visa!\n' + (w.WFullName||w.WorkerFirstName) + '\nVisa No: ' + visaNum);
     }, 800);
 }
 
@@ -4549,7 +4868,7 @@ async function confirmWTAndMove(workerId) {
     if (!depDateTime) { var e5=document.getElementById('wtDepartureDateTime');if(e5){e5.style.borderColor='#dc3545';e5.focus();} return; }
     if (!arrAirport)  { var e6=document.getElementById('wtArrivalAirport');   if(e6){e6.style.borderColor='#dc3545';e6.focus();} return; }
     if (!arrDateTime) { var e7=document.getElementById('wtArrivalDateTime');  if(e7){e7.style.borderColor='#dc3545';e7.focus();} return; }
-    if (!chk || !chk.checked) { alert('⚠️ Please confirm the flight details are correct.'); return; }
+    if (!chk || !chk.checked) { showCopyAlert('⚠️ Please confirm the flight details are correct.'); return; }
 
     var w = allWorkers.find(function(x) { return x.WorkerID === workerId; });
     if (!w) return;
@@ -4575,7 +4894,7 @@ async function confirmWTAndMove(workerId) {
     if (ticketFile) {
         var emp = allEmployers.find(function(e){ return String(e.EmployerCode)===String(w.EmployerCode)||String(e.EmployerID)===String(w.EmployerID); });
         var folderId = emp ? (emp.EmployerFolderID||'') : '';
-        var folderName = emp ? (emp.EmployerFolderName||emp.EFN||emp.EmployerName||w.EmployerCode||'Unknown') : (w.EmployerCode||'Unknown');
+        var folderName = _resolveEmployerFolderName(emp, w.EmployerCode);
         var wCode = w.WorkerCode||(w.SupplierCode?w.SupplierCode+'-'+String(w.WorkerID).padStart(4,'0'):'ID-'+w.WorkerID);
         var ext = ticketFile.name.split('.').pop()||'pdf';
         var fileName = 'Ticket_'+wCode+'_'+new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)+'.'+ext;
@@ -4590,20 +4909,20 @@ async function confirmWTAndMove(workerId) {
         },300);
         try {
             var base64 = await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(ticketFile);});
-            var resp = await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'uploadFile',folderId:folderId,folderName:folderName,fileName:fileName,fileData:base64,mimeType:ticketFile.type||'application/octet-stream',parentType:'employers'})});
-            var result = await resp.json();
+            // STEP 3d-8: ticket upload → Firebase Storage employer folder
+            var result = await _uploadToEmployerFolder(folderName, fileName, base64, ticketFile.type||'application/octet-stream', _resolveWorkerSubFolder(w));
             clearInterval(wtTimer);
             if(result.success){ w.TicketFileURL=result.fileUrl||result.url||''; if(zone) zone.innerHTML='<div style="font-size:12px;font-weight:700;color:#00838f;">✅ 100% — Ticket uploaded!</div>'; }
         } catch(e){ clearInterval(wtTimer); console.warn('Ticket upload failed:',e); }
     }
     _ls.set('mgsdb_workers', JSON.stringify(allWorkers));
-    google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).gsrSaveRow('Workers', w);
+    CloudDB.saveRow('Workers', w); // STEP 3a
     if (btn) { btn.textContent = '✅ Done — Moved to Waiting Ticket'; btn.style.background = '#4caf50'; }
     setTimeout(function() {
         var popupEl = document.getElementById('wtPopup');
         if (popupEl) popupEl.remove();
         updateCounts(); renderTab();
-        alert('🎫 Moved to Waiting Ticket!\n' + (w.WFullName||w.WorkerFirstName) + '\nFlight: ' + airlines + ' ' + flightNum + '\nTicket: ' + ticketNum + '\nDeparture: ' + depDateTime + '\nArrival: ' + arrDateTime);
+        showCopyAlert('🎫 Moved to Waiting Ticket!\n' + (w.WFullName||w.WorkerFirstName) + '\nFlight: ' + airlines + ' ' + flightNum + '\nTicket: ' + ticketNum + '\nDeparture: ' + depDateTime + '\nArrival: ' + arrDateTime);
     }, 800);
 }
 </script>
@@ -4780,8 +5099,100 @@ async function confirmWTAndMove(workerId) {
     content.appendChild(bar);
   };
 
-  console.log('✅ Pagination patch loaded — '+PAGE_SIZE+' cards per page');
+  console.log('Pagination patch loaded - '+PAGE_SIZE+' cards per page');
 })();
+
+async function copyWorkerDocsToEmployerSubfolder(worker, employer) {
+    console.log('[PATCH A] Starting copy for worker:', worker.WorkerFolder || '(field missing - trying fallbacks)');
+
+    if (!window._fb) {
+        await new Promise(r => window.addEventListener('firebase-ready', r, { once: true }));
+    }
+    var fb = window._fb;
+
+    var empFolderName = '';
+    if (employer) {
+        empFolderName = employer.EmployerFolderName || employer.EmployerFolder || '';
+        if (!empFolderName && employer.IDCopyPath) {
+            var ep = String(employer.IDCopyPath).split('/');
+            if (ep.length >= 2 && ep[0] === 'employers') empFolderName = ep[1];
+        }
+        if (!empFolderName) {
+            var ag = employer.AgencyCode || employer.RawPrefix || '';
+            var id = employer.ContactID || employer.EmployerID || '';
+            var nm = (employer.EFN || employer.EmployerName || '').replace(/\s*\/\s*/g, ' ');
+            if (ag && nm) empFolderName = ag + '(' + id + ') - ' + nm;
+        }
+    }
+
+    var workerFolder = worker.WorkerFolder || '';
+
+    if (!workerFolder && worker.WorkerImage) {
+        var m1 = String(worker.WorkerImage).match(/\/o\/workers%2F([^%/?]+)/);
+        if (m1) workerFolder = decodeURIComponent(m1[1]);
+    }
+
+    if (!workerFolder && worker.PassportScanPath) {
+        var pParts = String(worker.PassportScanPath).split('/');
+        if (pParts[0] === 'workers' && pParts.length >= 2) workerFolder = pParts[1];
+        else if (pParts.length >= 1) workerFolder = pParts[0];
+    }
+
+    if (!workerFolder && worker.UploadedWorkerDocs) {
+        var keys = Object.keys(worker.UploadedWorkerDocs);
+        for (var k = 0; k < keys.length && !workerFolder; k++) {
+            var docArr = worker.UploadedWorkerDocs[keys[k]];
+            if (Array.isArray(docArr)) {
+                for (var d = 0; d < docArr.length && !workerFolder; d++) {
+                    var pth = docArr[d] && docArr[d].path;
+                    if (pth) {
+                        var pm = String(pth).match(/^workers\/([^/]+)/);
+                        if (pm) workerFolder = pm[1];
+                    }
+                }
+            }
+        }
+    }
+
+    if (!empFolderName || !workerFolder) {
+        console.warn('[PATCH A] Missing folder info; aborting', '| empFolder:', empFolderName || '(empty)', '| workerFolder:', workerFolder || '(empty)');
+        return;
+    }
+
+    var sourcePath = 'workers/' + workerFolder;
+    var targetPath = 'employers/' + empFolderName + '/' + workerFolder;
+    console.log('[PATCH A] Source:', sourcePath, '-> Target:', targetPath);
+
+    try {
+        var existing = await fb.listAll(fb.ref(fb.storage, targetPath));
+        if (existing.items.length > 0) {
+            console.log('[PATCH A] Sub-folder already has ' + existing.items.length + ' files; skipping');
+            return;
+        }
+    } catch(e) { }
+
+    var src = await fb.listAll(fb.ref(fb.storage, sourcePath));
+    if (src.items.length === 0) {
+        console.log('[PATCH A] Source empty; nothing to copy');
+        return;
+    }
+
+    var ok = 0, fail = 0;
+    for (var i = 0; i < src.items.length; i++) {
+        try {
+            var url  = await fb.getDownloadURL(src.items[i]);
+            var blob = await (await fetch(url)).blob();
+            await fb.uploadBytes(fb.ref(fb.storage, targetPath + '/' + src.items[i].name), blob);
+            ok++;
+            console.log('[PATCH A] OK:', src.items[i].name);
+        } catch(e) {
+            fail++;
+            console.warn('[PATCH A] FAIL:', src.items[i].name, e.message);
+        }
+    }
+    console.log('[PATCH A] Done: ' + ok + ' copied, ' + fail + ' failed');
+}
+
 </script>
 </body>
 </html>
