@@ -265,6 +265,7 @@
     <button class="tab" data-tab="unassigned" style="color:#856404;">⚠ Unassigned <span id="unassignedCountBadge" style="background:#fff3cd; color:#856404; padding:1px 6px; border-radius:8px; font-size:11px; margin-left:4px; font-weight:500;">0</span></button>
     <button class="tab" data-tab="newedited" style="color:#0d6efd;">✏️ New/Edited <span id="newEditedCountBadge" style="background:#cfe2ff; color:#0d6efd; padding:1px 6px; border-radius:8px; font-size:11px; margin-left:4px; font-weight:500;">0</span></button>
     <span id="agencyTabsSlot"></span><!-- dynamic agency tabs from Local_Agencies collection -->
+    <button class="tab" data-tab="appointments" style="color:#7c3aed;">📅 Appointments</button>
     <button class="tab" data-tab="archive">🗄 Archive</button>
   </div>
 
@@ -305,6 +306,30 @@
     </div>
 
     <div id="importedPagination" class="pagination"></div>
+  </div>
+
+  <!-- ============================================
+       TAB: Appointments (all Future Appointments, grouped by month/day)
+       ============================================ -->
+  <div class="tab-pane" id="pane-appointments">
+    <div class="import-toolbar">
+      <span style="font-size:15px; font-weight:600; color:#7c3aed;">📅 Appointments</span>
+      <label style="font-size:12px;color:#555;">From
+        <input type="date" id="apptFrom" style="padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;margin-left:4px;">
+      </label>
+      <label style="font-size:12px;color:#555;">To
+        <input type="date" id="apptTo" style="padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;margin-left:4px;">
+      </label>
+      <input id="apptSearchBox" type="text" placeholder="Search…" style="max-width:200px;">
+      <span id="apptCountLabel" class="count">0 appointments</span>
+      <button id="btnPrintAppts" class="btn-primary" style="background:#7c3aed;">🖨️ Print</button>
+    </div>
+
+    <div id="apptList"></div>
+
+    <div id="apptEmpty" class="empty" style="display:none;">
+      No appointments in this date range.
+    </div>
   </div>
 
   <!-- ============================================
@@ -517,6 +542,13 @@ const GROUPS = [
     fields: []
   },
   {
+    key: 'nameddates',
+    label_en: 'Future Appointments',
+    label_ar: 'المواعيد القادمة',
+    isCustom: true,
+    fields: []
+  },
+  {
     key: 'identity',
     label_en: 'Identity',
     label_ar: 'الهوية',
@@ -697,6 +729,8 @@ document.addEventListener('firebase-ready', async () => {
     updateNewEditedBadge();
     const newEditedPane = document.getElementById('pane-newedited');
     if (newEditedPane && newEditedPane.classList.contains('active')) renderNewEdited();
+    const apptPane = document.getElementById('pane-appointments');
+    if (apptPane && apptPane.classList.contains('active')) renderAppointments();
     s.style.display = 'none';
   }, (err) => {
     s.textContent = '✗ Error: ' + err.message;
@@ -704,9 +738,6 @@ document.addEventListener('firebase-ready', async () => {
   });
 });
 
-/* =====================================================
-   TABLE RENDER
-   ===================================================== */
 /* =====================================================
    SHARED CARD HTML — used by both Contacts and Imported tabs
    ===================================================== */
@@ -840,6 +871,7 @@ document.querySelectorAll('.tab').forEach(t => {
     if (t.dataset.tab === 'archive')    renderArchive();
     if (t.dataset.tab === 'unassigned') renderUnassigned();
     if (t.dataset.tab === 'newedited')  renderNewEdited();
+    if (t.dataset.tab === 'appointments') renderAppointments();
   });
 });
 
@@ -939,27 +971,48 @@ function tsValue(c) {
  */
 function newEditedCardHtml(c) {
   const baseCard = contactCardHtml(c);
-  const pushed = c._googleResourceName ? true : false;
-  const pushedBadge = pushed
-    ? `<div class="cc-pushed-badge" title="Pushed to Google on ${escapeHtml(formatPushedAt(c._googlePushedAt))}">✅ Pushed</div>`
-    : '';
+
+  // Up-to-date = pushed AFTER the last edit
+  const pushedAt  = tsAny(c._googlePushedAt);
+  const editedAt  = tsValue(c);   // _updatedAt || _createdAt
+  const everPushed = !!c._googleResourceName;
+  const upToDate   = everPushed && pushedAt >= editedAt;
+
   const mobileBadge = c._addedViaMobile
     ? `<div class="cc-mobile-badge" title="Added or edited from mobile app">📱 Mobile</div>`
     : '';
-  const actions = `
-    <div class="cc-actions" onclick="event.stopPropagation()">
-      <button type="button" class="cc-btn cc-push" onclick="pushContactCardToGoogle('${c._id}', this)">
-        ${pushed ? '🔄 Re-push' : '📤 Push to Google'}
-      </button>
+
+  let controls;
+  if (upToDate) {
+    // Pushed and no edits since → pill + Done only
+    controls = `
+      <div class="cc-pushed-badge" title="Pushed to Google on ${escapeHtml(formatPushedAt(c._googlePushedAt))}">✅ Pushed</div>
       <button type="button" class="cc-btn cc-done" onclick="markContactDone('${c._id}', this)">
         ✓ Done
-      </button>
+      </button>`;
+  } else {
+    // New or re-edited → push button only
+    controls = `
+      <button type="button" class="cc-btn cc-push" onclick="pushContactCardToGoogle('${c._id}', this)">
+        ${everPushed ? '🔄 Re-push' : '📤 Push to Google'}
+      </button>`;
+  }
+
+  const actions = `
+    <div class="cc-actions" onclick="event.stopPropagation()">
+      ${controls}
       ${mobileBadge}
-      ${pushedBadge}
     </div>
   `;
-  // Inject the actions inside the card by inserting right before the closing div of the card
   return baseCard.replace(/(<\/div>\s*)$/, actions + '$1');
+}
+
+function tsAny(t) {
+  if (!t) return 0;
+  if (typeof t.toMillis === 'function') return t.toMillis();
+  if (typeof t === 'number') return t;
+  if (t.seconds) return t.seconds * 1000;
+  return 0;
 }
 
 function formatPushedAt(t) {
@@ -1021,7 +1074,8 @@ window.pushContactCardToGoogle = async function(firestoreId, btn) {
         BirthDate:          contact.BirthDate || '',
         Anniversary:        contact.Anniversary || '',
         EmployerNotes:      contact.EmployerNotes || '',
-        DetectedCodes:      Array.isArray(contact.DetectedCodes) ? contact.DetectedCodes : []
+        DetectedCodes:      Array.isArray(contact.DetectedCodes) ? contact.DetectedCodes : [],
+        NamedDates:         Array.isArray(contact.NamedDates) ? contact.NamedDates : []
       }
     };
     console.log('Payload sent to Apps Script:', payload);
@@ -1119,6 +1173,192 @@ function updateNewEditedBadge() {
   const n = allContacts.filter(isUserTouched).length;
   const el = document.getElementById('newEditedCountBadge');
   if (el) el.textContent = n;
+}
+
+/* =====================================================
+   APPOINTMENTS TAB — all Future Appointments, grouped
+   by month → day, one card per line, printable range
+   ===================================================== */
+(function initAppointmentsControls() {
+  const today = new Date().toISOString().slice(0, 10);
+  const fromEl = document.getElementById('apptFrom');
+  if (fromEl) fromEl.value = today;
+  ['apptFrom', 'apptTo'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', renderAppointments);
+  });
+  const s = document.getElementById('apptSearchBox');
+  if (s) s.addEventListener('input', renderAppointments);
+  const p = document.getElementById('btnPrintAppts');
+  if (p) p.addEventListener('click', printAppointments);
+})();
+
+function occurrencesInRange(dateStr, from, to) {
+  // Yearly recurrence of a stored YYYY-MM-DD date within [from, to]
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateStr || ''));
+  if (!m) return [];
+  const mo = parseInt(m[2], 10), da = parseInt(m[3], 10);
+  const out = [];
+  const yFrom = parseInt(from.slice(0, 4), 10);
+  const yTo   = parseInt(to.slice(0, 4), 10);
+  for (let y = yFrom; y <= yTo; y++) {
+    let d = new Date(y, mo - 1, da);
+    if (d.getMonth() !== mo - 1) d = new Date(y, mo - 1 + 1, 0); // Feb 29 → last day of Feb
+    const iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    if (iso >= from && iso <= to) out.push(iso);
+  }
+  return out;
+}
+
+function collectAppointments() {
+  const from = (document.getElementById('apptFrom').value || '') || '0000-01-01';
+  let   to   = (document.getElementById('apptTo').value   || '');
+  const q    = (document.getElementById('apptSearchBox').value || '').toLowerCase();
+
+  // Recurring items (birthday / IKAMA) need an end — default: 1 year after From
+  let recurTo = to;
+  if (!recurTo) {
+    const f = new Date(from === '0000-01-01' ? new Date() : from);
+    f.setFullYear(f.getFullYear() + 1);
+    recurTo = f.toISOString().slice(0, 10);
+  }
+
+  const items = [];
+  allContacts.forEach(c => {
+    if (c.Archived) return;
+    const name  = c.EFN || [c.FirstName_EN, c.MiddleName_EN, c.LastName_EN].filter(Boolean).join(' ') || c.EmployerName || '(no name)';
+    const phone = c.MobileNumber || c.MobileNumber2 || c.ContactNumber || '';
+    const codes = Array.isArray(c.DetectedCodes) ? c.DetectedCodes.join(' ') : '';
+
+    function push(d, label) {
+      const hay = (d + ' ' + label + ' ' + name + ' ' + phone + ' ' + codes + ' ' + (c.ContactID || '')).toLowerCase();
+      if (q && hay.indexOf(q) === -1) return;
+      items.push({ date: d, label: label, name: name, phone: phone, codes: codes, contactId: c.ContactID || '', _id: c._id });
+    }
+
+    // Future Appointments — exact dates
+    const list = Array.isArray(c.NamedDates) ? c.NamedDates : [];
+    list.forEach(nd => {
+      if (!nd || !nd.date) return;
+      const d = String(nd.date).slice(0, 10);
+      if (d < from) return;
+      if (to && d > to) return;
+      push(d, nd.label || '');
+    });
+
+    // Birthday — yearly recurrence
+    if (c.BirthDate) {
+      occurrencesInRange(c.BirthDate, from, recurTo).forEach(d => push(d, '🎂 BIRTHDAY'));
+    }
+
+    // IKAMA anniversary — yearly recurrence
+    if (c.Anniversary) {
+      occurrencesInRange(c.Anniversary, from, recurTo).forEach(d => push(d, '🪪 IKAMA'));
+    }
+  });
+  items.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  return items;
+}
+
+function monthTitle(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+}
+
+function dayTitle(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function apptCardHtml(it) {
+  return `
+    <div onclick="openModal('${it._id}')"
+         style="display:flex;align-items:center;gap:12px;background:white;border:1px solid #e0e0e0;border-radius:8px;padding:10px 14px;margin-bottom:6px;cursor:pointer;transition:all .15s;"
+         onmouseover="this.style.borderColor='#7c3aed';this.style.boxShadow='0 2px 6px rgba(124,58,237,0.18)';"
+         onmouseout="this.style.borderColor='#e0e0e0';this.style.boxShadow='none';">
+      <span style="font-size:20px;">📅</span>
+      <div style="min-width:170px;">
+        <div style="font-weight:700;color:#7c3aed;font-size:13px;">${escapeHtml(it.label || '(no name)')}</div>
+        <div style="font-size:11px;color:#888;">${escapeHtml(it.date)}</div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-weight:600;color:#222;font-size:13px;">#${escapeHtml(String(it.contactId))} — ${escapeHtml(it.name)}</div>
+        <div style="font-size:11px;color:#666;">${it.phone ? '📞 ' + escapeHtml(it.phone) : ''}${it.codes ? ' &nbsp;·&nbsp; ' + escapeHtml(it.codes) : ''}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAppointments() {
+  const pane = document.getElementById('pane-appointments');
+  if (!pane || !pane.classList.contains('active')) return;
+
+  const items = collectAppointments();
+  document.getElementById('apptCountLabel').textContent = items.length + ' appointments';
+
+  const listEl = document.getElementById('apptList');
+  const empty  = document.getElementById('apptEmpty');
+
+  if (items.length === 0) {
+    listEl.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  let html = '';
+  let curMonth = '', curDay = '';
+  items.forEach(it => {
+    const ym = it.date.slice(0, 7);
+    if (ym !== curMonth) {
+      curMonth = ym; curDay = '';
+      html += `<div style="background:#7c3aed;color:white;padding:8px 14px;border-radius:8px;font-weight:700;font-size:15px;margin:18px 0 10px;">${escapeHtml(monthTitle(ym))}</div>`;
+    }
+    if (it.date !== curDay) {
+      curDay = it.date;
+      html += `<div style="color:#7c3aed;font-weight:600;font-size:13px;margin:12px 0 6px;padding-left:4px;border-left:3px solid #7c3aed;padding-left:8px;">${escapeHtml(dayTitle(it.date))}</div>`;
+    }
+    html += apptCardHtml(it);
+  });
+
+  listEl.innerHTML = html;
+}
+
+function printAppointments() {
+  const items = collectAppointments();
+  if (items.length === 0) { alert('No appointments in this date range.'); return; }
+  const from = document.getElementById('apptFrom').value || '(start)';
+  const to   = document.getElementById('apptTo').value   || '(open end)';
+
+  let body = '';
+  let curMonth = '', curDay = '';
+  items.forEach(it => {
+    const ym = it.date.slice(0, 7);
+    if (ym !== curMonth) {
+      curMonth = ym; curDay = '';
+      body += `<h2 style="background:#7c3aed;color:white;padding:6px 12px;border-radius:6px;font-size:16px;margin:22px 0 8px;">${escapeHtml(monthTitle(ym))}</h2>`;
+    }
+    if (it.date !== curDay) {
+      curDay = it.date;
+      body += `<h3 style="color:#7c3aed;font-size:13px;margin:14px 0 4px;border-left:3px solid #7c3aed;padding-left:8px;">${escapeHtml(dayTitle(it.date))}</h3>`;
+    }
+    body += `
+      <div style="border:1px solid #ddd;border-radius:6px;padding:8px 12px;margin-bottom:5px;display:flex;gap:14px;align-items:center;">
+        <div style="min-width:160px;"><b style="color:#7c3aed;">${escapeHtml(it.label)}</b><br><span style="font-size:11px;color:#777;">${escapeHtml(it.date)}</span></div>
+        <div><b>#${escapeHtml(String(it.contactId))} — ${escapeHtml(it.name)}</b><br><span style="font-size:11px;color:#555;">${it.phone ? '📞 ' + escapeHtml(it.phone) : ''}${it.codes ? ' · ' + escapeHtml(it.codes) : ''}</span></div>
+      </div>`;
+  });
+
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Appointments ${from} → ${to}</title></head>
+    <body style="font-family:'Segoe UI',Arial,sans-serif;padding:20px;">
+      <h1 style="font-size:18px;">📅 MGS Appointments &nbsp;<span style="font-size:13px;color:#666;font-weight:400;">${from} → ${to} &nbsp;·&nbsp; ${items.length} appointments</span></h1>
+      ${body}
+      <script>window.onload = function(){ window.print(); };<\/script>
+    </body></html>
+  `);
+  w.document.close();
 }
 
 /* =====================================================
@@ -1526,6 +1766,20 @@ function buildForm(data) {
           ${renderNavigationPanel(data)}
         </div>
       `;
+    } else if (g.isCustom && g.key === 'nameddates') {
+      groupDiv.innerHTML = `
+        <div class="group-header" data-group="${g.key}">
+          <div>
+            <span class="chevron">▶</span>
+            ${escapeHtml(g.label_en)}
+            <span class="ar">${escapeHtml(g.label_ar)}</span>
+          </div>
+          <span style="font-size:12px;color:#888;">${(Array.isArray(data.NamedDates) ? data.NamedDates.length : 0)} dates</span>
+        </div>
+        <div class="group-body">
+          ${renderNamedDatesPanel(data)}
+        </div>
+      `;
     } else {
       groupDiv.innerHTML = `
         <div class="group-header" data-group="${g.key}">
@@ -1748,6 +2002,103 @@ window.removeIDPFile = async function(kind) {
     if (groupDiv) groupDiv.innerHTML = renderIDPassportPanel(contact);
   } catch (err) {
     alert('Remove failed: ' + (err.message || err));
+  }
+};
+
+/* =====================================================
+   NAMED DATES PANEL — multiple labeled dates per contact
+   Saved immediately to Firestore. Pushed to Google Contacts
+   as custom events (label shows exactly as typed, uppercase).
+   ===================================================== */
+function renderNamedDatesPanel(data) {
+  const dates = Array.isArray(data.NamedDates) ? data.NamedDates : [];
+
+  const rows = dates.map((d, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f5f9ff;border:1px solid #d0e3ff;border-radius:8px;margin-bottom:6px;">
+      <span style="font-size:16px;">📅</span>
+      <div style="flex:1;">
+        <div style="font-weight:600;color:#1e40af;font-size:13px;">${escapeHtml(d.label || '(no name)')}</div>
+        <div style="font-size:12px;color:#555;">${escapeHtml(d.date || '')}</div>
+      </div>
+      <button type="button" onclick="deleteNamedDate(${i})"
+              style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600;">🗑️ Delete</button>
+    </div>
+  `).join('');
+
+  return `
+    <div style="padding:6px 8px 4px;">
+      <div style="font-size:12px;color:#666;margin-bottom:10px;">
+        Future appointments appear on the Google contact as events (e.g. WORK PERMIT, INSURANCE). Anniversary = IKAMA stays separate in Identity.
+      </div>
+      ${rows || '<div style="font-size:12px;color:#888;padding:6px 0 10px;">No appointments yet.</div>'}
+      <div style="display:flex;gap:6px;align-items:center;margin-top:8px;padding-top:10px;border-top:1px dashed #ddd;flex-wrap:wrap;">
+        <input type="text" id="ndLabelInput" placeholder="Appointment name (e.g. Work Permit)"
+               style="flex:1;min-width:140px;padding:7px 10px;border:1px solid #c7d2fe;border-radius:5px;font-size:13px;">
+        <input type="date" id="ndDateInput"
+               style="padding:7px 10px;border:1px solid #c7d2fe;border-radius:5px;font-size:13px;">
+        <button type="button" onclick="addNamedDate()"
+                style="background:#10b981;color:white;border:none;padding:7px 14px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;">＋ Add</button>
+      </div>
+      <div id="ndStatus" style="font-size:11px;color:#666;margin-top:6px;min-height:14px;"></div>
+    </div>
+  `;
+}
+
+function refreshNamedDatesPanel() {
+  const contact = allContacts.find(c => c._id === currentEditingId) || {};
+  const body = document.querySelector('.group[data-group-key="nameddates"] .group-body');
+  if (body) body.innerHTML = renderNamedDatesPanel(contact);
+  const header = document.querySelector('.group[data-group-key="nameddates"] .group-header span[style]');
+  if (header) header.textContent = (Array.isArray(contact.NamedDates) ? contact.NamedDates.length : 0) + ' dates';
+}
+
+window.addNamedDate = async function() {
+  if (!currentEditingId) {
+    alert('Save the contact once before adding named dates.');
+    return;
+  }
+  const labelEl = document.getElementById('ndLabelInput');
+  const dateEl  = document.getElementById('ndDateInput');
+  const status  = document.getElementById('ndStatus');
+  const label = (labelEl.value || '').trim();
+  const date  = (dateEl.value  || '').trim();
+  if (!label) { status.textContent = '❌ Enter a name for the date.'; status.style.color = '#c62828'; return; }
+  if (!date)  { status.textContent = '❌ Pick a date.'; status.style.color = '#c62828'; return; }
+
+  status.textContent = '⏳ Saving…'; status.style.color = '#0066cc';
+  try {
+    const { db, doc, updateDoc, serverTimestamp } = window._fb;
+    const contact = allContacts.find(c => c._id === currentEditingId) || {};
+    const list = Array.isArray(contact.NamedDates) ? contact.NamedDates.slice() : [];
+    list.push({ label: label, date: date });
+    await updateDoc(doc(db, 'address_book', currentEditingId), {
+      NamedDates: list, _userEdited: true, _updatedAt: serverTimestamp()
+    });
+    contact.NamedDates = list;
+    refreshNamedDatesPanel();
+  } catch (err) {
+    status.textContent = '❌ Save failed: ' + (err.message || err);
+    status.style.color = '#c62828';
+  }
+};
+
+window.deleteNamedDate = async function(index) {
+  if (!currentEditingId) return;
+  const contact = allContacts.find(c => c._id === currentEditingId) || {};
+  const list = Array.isArray(contact.NamedDates) ? contact.NamedDates.slice() : [];
+  const d = list[index];
+  if (!d) return;
+  if (!confirm('Delete "' + (d.label || '') + ' — ' + (d.date || '') + '"?')) return;
+  try {
+    const { db, doc, updateDoc, serverTimestamp } = window._fb;
+    list.splice(index, 1);
+    await updateDoc(doc(db, 'address_book', currentEditingId), {
+      NamedDates: list, _userEdited: true, _updatedAt: serverTimestamp()
+    });
+    contact.NamedDates = list;
+    refreshNamedDatesPanel();
+  } catch (err) {
+    alert('Delete failed: ' + (err.message || err));
   }
 };
 
@@ -2263,9 +2614,6 @@ document.getElementById('csvFileInput').addEventListener('change', (e) => {
 });
 
 /* =====================================================
-   EXPORT ALL CONTACTS AS GOOGLE-COMPATIBLE CSV
-   ===================================================== */
-   /* =====================================================
    EXPORT ALL CONTACTS AS vCard (.vcf) — best for Google Contacts
    ===================================================== */
 function exportForGoogleContactsVCF() {
@@ -2298,83 +2646,55 @@ function exportForGoogleContactsVCF() {
     lines.push('N:' + esc(last) + ';' + esc(first) + ';' + esc(middle) + ';' + esc(prefix) + ';');
     lines.push('FN:' + esc(fn));
 
+    // Company
     if (c.ClientType === 'Company' && c.CompanyName_EN) {
-      
-function exportForGoogleContacts() {
-  if (!allContacts || allContacts.length === 0) {
-    alert('No contacts to export.');
-    return;
-  }
+      lines.push('ORG:' + esc(c.CompanyName_EN));
+    }
 
-  const headers = [
-    'Name Prefix',
-    'First Name', 'Middle Name', 'Last Name',
-    'Nickname',
-    'Organization Name',
-    'Notes',
-    'Phone 1 - Type', 'Phone 1 - Value',
-    'Phone 2 - Type', 'Phone 2 - Value',
-    'Phone 3 - Type', 'Phone 3 - Value',
-    'Phone 4 - Type', 'Phone 4 - Value',
-    'Phone 5 - Type', 'Phone 5 - Value',
-    'Email 1 - Type', 'Email 1 - Value',
-    'Email 2 - Type', 'Email 2 - Value',
-    'Email 3 - Type', 'Email 3 - Value',
-    'Address 1 - Street',
-    'Address 1 - City',
-    'Address 1 - Country',
-    'Birthday',
-    'Event 1 - Label', 'Event 1 - Value'
-  ];
+    // Phones — all mobile slots + contact numbers
+    const phones = [
+      c.MobileNumber,  c.MobileNumber2, c.MobileNumber3, c.MobileNumber4, c.MobileNumber5,
+      c.MobileNumber6, c.MobileNumber7, c.MobileNumber8, c.MobileNumber9, c.MobileNumber10,
+      c.ContactNumber, c.EmployerContact
+    ].filter(Boolean);
+    phones.forEach(p => lines.push('TEL;TYPE=CELL:' + esc(p)));
 
-  function csv(v) {
-    if (v == null) return '';
-    const s = String(v).replace(/"/g, '""');
-    return /[",\r\n]/.test(s) ? '"' + s + '"' : s;
-  }
+    // Emails
+    if (c.Email)         lines.push('EMAIL;TYPE=HOME:'  + esc(c.Email));
+    if (c.EmployerEmail) lines.push('EMAIL;TYPE=WORK:'  + esc(c.EmployerEmail));
+    if (c.EmailAddress)  lines.push('EMAIL;TYPE=OTHER:' + esc(c.EmailAddress));
 
-  const rows = allContacts
-    .filter(c => !c.Archived)
-    .map(c => {
-      const prefix = Array.isArray(c.DetectedCodes) ? c.DetectedCodes.join(' ') : '';
-      const notes = 'MGSDB ContactID: ' + (c.ContactID || '') + (c.EmployerNotes ? '\n' + c.EmployerNotes : '');
-      return [
-        csv(prefix),
-        csv(c.FirstName_EN || ''),
-        csv(c.MiddleName_EN || ''),
-        csv(c.LastName_EN || ''),
-        '',
-        csv(c.ClientType === 'Company' ? (c.CompanyName_EN || '') : ''),
-        csv(notes),
-        c.MobileNumber  ? 'Mobile' : '', csv(c.MobileNumber  || ''),
-        c.MobileNumber2 ? 'Mobile' : '', csv(c.MobileNumber2 || ''),
-        c.MobileNumber3 ? 'Mobile' : '', csv(c.MobileNumber3 || ''),
-        c.MobileNumber4 ? 'Mobile' : '', csv(c.MobileNumber4 || ''),
-        c.MobileNumber5 ? 'Mobile' : '', csv(c.MobileNumber5 || ''),
-        c.Email         ? 'Home'   : '', csv(c.Email         || ''),
-        c.EmployerEmail ? 'Work'   : '', csv(c.EmployerEmail || ''),
-        c.EmailAddress  ? 'Other'  : '', csv(c.EmailAddress  || ''),
-        csv(c.Address   || ''),
-        csv(c.City      || ''),
-        csv(c.Country   || ''),
-        csv(c.BirthDate || ''),
-        c.Anniversary   ? 'IKAMA'  : '', csv(c.Anniversary   || '')
-      ].join(',');
-    });
+    // Address — ADR: PO Box;Extended;Street;City;Region;PostalCode;Country
+    if (c.Address || c.City || c.Country) {
+      lines.push('ADR;TYPE=HOME:;;' + esc(c.Address || '') + ';' + esc(c.City || '') + ';;;' + esc(c.Country || ''));
+    }
 
-  const csvBody = [headers.join(',')].concat(rows).join('\r\n');
-  const blob = new Blob(['\uFEFF' + csvBody], { type: 'text/csv;charset=utf-8;' });
+    // Birthday (YYYY-MM-DD)
+    if (c.BirthDate) lines.push('BDAY:' + esc(c.BirthDate));
+
+    // Anniversary → IKAMA custom marker
+    if (c.Anniversary) lines.push('X-IKAMA:' + esc(c.Anniversary));
+
+    // Note with MGSDB ContactID (+ employer notes if any)
+    let note = 'MGSDB ContactID: ' + (c.ContactID || '');
+    if (c.EmployerNotes) note += '\n' + c.EmployerNotes;
+    lines.push('NOTE:' + esc(note));
+
+    lines.push('END:VCARD');
+  });
+
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/vcard;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   const stamp = new Date().toISOString().slice(0, 10);
   a.href = url;
-  a.download = 'address_book_for_google_' + stamp + '.csv';
+  a.download = 'address_book_for_google_' + stamp + '.vcf';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
-  alert('✅ Exported ' + rows.length + ' contacts.\n\nImport at contacts.google.com → left sidebar → Import.');
+  alert('✅ Exported ' + list.length + ' contacts as vCard (.vcf).\n\nImport at contacts.google.com → left sidebar → Import.');
 }
 
 /* Parse one Google CSV row into our contact shape */
